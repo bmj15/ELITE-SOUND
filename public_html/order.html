@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reservar Equipamento - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Reserva de Equipamento</h2>
+    <div id="equipment-details">
+      <!-- Dados do equipamento serão exibidos aqui -->
+    </div>
+    <form id="order-form">
+      <label for="pickup_date">Data de Levantamento:</label>
+      <input type="datetime-local" id="pickup_date" name="pickup_date" required>
+
+      <label for="return_date">Data de Devolução:</label>
+      <input type="datetime-local" id="return_date" name="return_date" required>
+      
+      <!-- Possibilidade de incluir campos para cupões ou observações -->
+      <label for="notes">Observações:</label>
+      <textarea id="notes" name="notes"></textarea>
+      
+      <button type="submit">Confirmar Reserva</button>
+    </form>
+    <div id="order-message"></div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+
+    // Função para obter parâmetro da URL
+    function getQueryParam(param) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(param);
+    }
+
+    const equipmentId = getQueryParam('equipmentId');
+
+    // Carregar os dados do equipamento
+    async function loadEquipment() {
+      try {
+        const response = await fetch(`${API_BASE}/equipments/${equipmentId}`);
+        if(!response.ok) throw new Error('Erro ao carregar equipamento');
+        const equipment = await response.json();
+        renderEquipment(equipment);
+      } catch (error) {
+        document.getElementById('equipment-details').innerHTML = '<p>Não foi possível carregar os detalhes do equipamento.</p>';
+      }
+    }
+
+    function renderEquipment(equipment) {
+      const detailsDiv = document.getElementById('equipment-details');
+      detailsDiv.innerHTML = `
+        <h3>${equipment.name}</h3>
+        <p>${equipment.description}</p>
+        <p><strong>Preço por dia:</strong> €${equipment.price_day}</p>
+      `;
+    }
+
+    // Enviar pedido de reserva
+    document.getElementById('order-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const pickup_date = document.getElementById('pickup_date').value;
+      const return_date = document.getElementById('return_date').value;
+      const notes = document.getElementById('notes').value;
+      
+      // Monta o objeto de pedido
+      const orderData = {
+        client_id: 1, // Aqui, você deverá obter o ID do usuário autenticado; para testes, use um valor fixo.
+        status: 'SUBMETIDO',
+        pickup_date,
+        return_date,
+        notes,
+        total_value: 0, // Valor será calculado com base no equipamento e período; por enquanto, 0.
+        payment_percentage_required: 0 // Ajuste conforme regras de pagamento.
+      };
+      
+      try {
+        const response = await fetch(`${API_BASE}/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderData)
+        });
+        
+        const data = await response.json();
+        if(response.ok) {
+          document.getElementById('order-message').textContent = 'Reserva efetuada com sucesso! Verifique seu e-mail para os próximos passos.';
+          // Opcional: redirecionar para página de acompanhamento do pedido
+        } else {
+          document.getElementById('order-message').textContent = data.error || 'Erro ao efetuar reserva.';
+        }
+      } catch (error) {
+        document.getElementById('order-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+
+    // Inicia carregamento dos dados do equipamento
+    if(equipmentId) {
+      loadEquipment();
+    } else {
+      document.getElementById('equipment-details').innerHTML = '<p>ID de equipamento não especificado.</p>';
+    }
+  </script>
+</body>
+</html>

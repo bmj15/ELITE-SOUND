@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Notificar Disponibilidade - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .container { max-width: 500px; margin: 30px auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background: #fff; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Notificar-me Quando Disponível</h2>
+    <form id="availability-form">
+      <label for="equipment_id">ID do Equipamento:</label>
+      <input type="number" id="equipment_id" required>
+      <label for="desired_date">Data Desejada (opcional):</label>
+      <input type="date" id="desired_date">
+      <button type="submit">Notificar-me</button>
+    </form>
+    <div id="availability-message"></div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:5000/api/availability';
+    
+    document.getElementById('availability-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const equipment_id = document.getElementById('equipment_id').value;
+      const desired_date = document.getElementById('desired_date').value;
+      // Supondo que o ID do usuário esteja armazenado após o login
+      const user_id = localStorage.getItem('userId');
+      
+      try {
+        const res = await fetch(`${API_BASE}/notify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id, equipment_id, desired_date })
+        });
+        const data = await res.json();
+        document.getElementById('availability-message').textContent = data.message || data.error;
+        e.target.reset();
+      } catch (error) {
+        document.getElementById('availability-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Contratos de Colaboradores - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .contract-card {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+    }
+    .contract-card p { margin: 5px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Contratos de Colaboradores</h1>
+    <div id="contracts-list"></div>
+    <hr>
+    <h3>Atualizar Status do Contrato</h3>
+    <form id="update-contract-form">
+      <label for="contractId">ID do Contrato:</label>
+      <input type="number" id="contractId" required>
+      <label for="status">Novo Status (signed/rejected):</label>
+      <input type="text" id="status" required>
+      <label for="comments">Comentários (opcional):</label>
+      <textarea id="comments"></textarea>
+      <button type="submit">Atualizar</button>
+    </form>
+    <div id="contract-message"></div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:5000/api/employee-contracts';
+    
+    async function loadContracts() {
+      try {
+        const res = await fetch(API_BASE);
+        const contracts = await res.json();
+        renderContracts(contracts);
+      } catch (error) {
+        document.getElementById('contracts-list').textContent = 'Erro ao carregar contratos.';
+      }
+    }
+    
+    function renderContracts(contracts) {
+      const listDiv = document.getElementById('contracts-list');
+      listDiv.innerHTML = '';
+      if (contracts.length === 0) {
+        listDiv.innerHTML = '<p>Nenhum contrato encontrado.</p>';
+        return;
+      }
+      contracts.forEach(contract => {
+        listDiv.innerHTML += `
+          <div class="contract-card">
+            <p><strong>ID:</strong> ${contract.id}</p>
+            <p><strong>Status:</strong> ${contract.status}</p>
+            <p><strong>Comentários:</strong> ${contract.comments || 'N/A'}</p>
+            <p><strong>Criado em:</strong> ${new Date(contract.created_at).toLocaleString()}</p>
+          </div>
+        `;
+      });
+    }
+    
+    document.getElementById('update-contract-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const contractId = document.getElementById('contractId').value;
+      const status = document.getElementById('status').value;
+      const comments = document.getElementById('comments').value;
+      
+      try {
+        const res = await fetch(`${API_BASE}/${contractId}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status, comments })
+        });
+        const data = await res.json();
+        document.getElementById('contract-message').textContent = data.message || data.error;
+        loadContracts();
+        e.target.reset();
+      } catch (error) {
+        document.getElementById('contract-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+    
+    document.addEventListener('DOMContentLoaded', loadContracts);
+  </script>
+</body>
+</html>

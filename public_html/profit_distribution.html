@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Distribuição do Lucro - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .distribution-card {
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 3px;
+      background-color: #fdfdfd;
+    }
+    .distribution-card h4 {
+      margin-bottom: 5px;
+    }
+    .form-section {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Distribuição do Lucro</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="purchase_orders.html">Pedidos de Compras</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <h2>Distribuições Registradas</h2>
+    <div id="distribution-list">
+      <!-- Lista de distribuições do lucro será carregada aqui -->
+    </div>
+    
+    <div class="form-section">
+      <h3>Registrar Nova Distribuição do Lucro</h3>
+      <form id="distribution-form">
+        <label for="distribution_date">Data de Distribuição:</label>
+        <input type="datetime-local" id="distribution_date" required>
+        
+        <label for="total_profit">Lucro Total (€):</label>
+        <input type="number" id="total_profit" step="0.01" required>
+        
+        <label for="distributed_amount">Valor Distribuído (€):</label>
+        <input type="number" id="distributed_amount" step="0.01" required>
+        
+        <label for="distribution_details">Detalhes da Distribuição:</label>
+        <textarea id="distribution_details" placeholder="Ex.: Conta A: 60%, Conta B: 40%"></textarea>
+        
+        <button type="submit">Registrar Distribuição</button>
+      </form>
+      <div id="distribution-message"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+
+    async function loadDistributions() {
+      const token = localStorage.getItem('token');
+      if (!token) { 
+        window.location.href = 'login.html'; 
+        return; 
+      }
+      try {
+        // Endpoint para obter as distribuições do lucro
+        const response = await fetch(`${API_BASE}/profit_distribution`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Erro ao carregar distribuições');
+        const distributions = await response.json();
+        renderDistributions(distributions);
+      } catch (error) {
+        document.getElementById('distribution-list').innerHTML = '<p>Não foi possível carregar as distribuições do lucro.</p>';
+      }
+    }
+
+    function renderDistributions(distributions) {
+      const listDiv = document.getElementById('distribution-list');
+      listDiv.innerHTML = '';
+      if (distributions.length === 0) {
+        listDiv.innerHTML = '<p>Nenhuma distribuição registrada.</p>';
+        return;
+      }
+      distributions.forEach(dist => {
+        const card = document.createElement('div');
+        card.className = 'distribution-card';
+        card.innerHTML = `
+          <h4>ID: ${dist.id}</h4>
+          <p><strong>Data:</strong> ${new Date(dist.distribution_date).toLocaleString()}</p>
+          <p><strong>Lucro Total:</strong> €${dist.total_profit}</p>
+          <p><strong>Valor Distribuído:</strong> €${dist.distributed_amount}</p>
+          <p><strong>Detalhes:</strong> ${dist.distribution_details || 'N/A'}</p>
+        `;
+        listDiv.appendChild(card);
+      });
+    }
+
+    document.getElementById('distribution-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = localStorage.getItem('token');
+      const distribution_date = document.getElementById('distribution_date').value;
+      const total_profit = document.getElementById('total_profit').value;
+      const distributed_amount = document.getElementById('distributed_amount').value;
+      const distribution_details = document.getElementById('distribution_details').value;
+      
+      try {
+        const response = await fetch(`${API_BASE}/profit_distribution`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ distribution_date, total_profit, distributed_amount, distribution_details })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          document.getElementById('distribution-message').textContent = 'Distribuição registrada com sucesso!';
+          document.getElementById('distribution-form').reset();
+          loadDistributions();
+        } else {
+          document.getElementById('distribution-message').textContent = data.error || 'Erro ao registrar distribuição.';
+        }
+      } catch (error) {
+        document.getElementById('distribution-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+
+    document.addEventListener('DOMContentLoaded', loadDistributions);
+  </script>
+</body>
+</html>

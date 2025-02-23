@@ -1,0 +1,12 @@
+# Arquivos e pastas a serem ignorados pelo Git
+
+# Variáveis de ambiente
+.env
+
+# Dependências do Node.js
+node_modules/
+
+# Arquivos de log
+*.log
+
+# Outros arquivos ou pastas temporárias

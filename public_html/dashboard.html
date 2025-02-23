@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Dashboard</h1>
+      <nav>
+        <ul>
+          <li><a href="index.html">Catálogo</a></li>
+          <li><a href="dashboard.html">Minha Conta</a></li>
+          <li><a href="order_history.html">Histórico de Pedidos</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <div class="container">
+    <h2>Bem-vindo, <span id="user-name"></span>!</h2>
+    <section id="order-section">
+      <h3>Seus Pedidos</h3>
+      <div id="orders-list">
+        <!-- Lista de pedidos será carregada aqui -->
+      </div>
+    </section>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+    
+    // Função para buscar os dados do usuário autenticado
+    async function loadUser() {
+      // Aqui, estamos assumindo que o token foi armazenado no localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+      
+      try {
+        const response = await fetch(`${API_BASE}/users/me`, { // Endpoint para obter os dados do usuário logado
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if(!response.ok) throw new Error('Erro ao buscar dados do usuário');
+        const data = await response.json();
+        document.getElementById('user-name').textContent = data.user.name;
+      } catch (error) {
+        console.error(error);
+        window.location.href = 'login.html';
+      }
+    }
+    
+    // Função para carregar os pedidos do usuário
+    async function loadOrders() {
+      const token = localStorage.getItem('token');
+      try {
+        const response = await fetch(`${API_BASE}/orders/my-orders`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if(!response.ok) throw new Error('Erro ao carregar pedidos');
+        const orders = await response.json();
+        renderOrders(orders);
+      } catch (error) {
+        console.error(error);
+        document.getElementById('orders-list').innerHTML = '<p>Não foi possível carregar seus pedidos.</p>';
+      }
+    }
+    
+    function renderOrders(orders) {
+      const ordersList = document.getElementById('orders-list');
+      ordersList.innerHTML = '';
+      if(orders.length === 0) {
+        ordersList.innerHTML = '<p>Você não possui pedidos no momento.</p>';
+        return;
+      }
+      orders.forEach(order => {
+        const orderDiv = document.createElement('div');
+        orderDiv.className = 'order-card';
+        orderDiv.innerHTML = `
+          <p><strong>ID:</strong> ${order.id}</p>
+          <p><strong>Status:</strong> ${order.status}</p>
+          <p><strong>Data de Levantamento:</strong> ${new Date(order.pickup_date).toLocaleString()}</p>
+          <p><strong>Data de Devolução:</strong> ${new Date(order.return_date).toLocaleString()}</p>
+        `;
+        ordersList.appendChild(orderDiv);
+      });
+    }
+    
+    // Função para realizar logout
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUser();
+      loadOrders();
+    });
+  </script>
+</body>
+</html>

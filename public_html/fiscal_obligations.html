@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Obrigações Fiscais - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .obligation-card {
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 3px;
+      background-color: #fefefe;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Obrigações Fiscais</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="fornecedores.html">Fornecedores</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <div class="container">
+    <h2>Lista de Obrigações Fiscais</h2>
+    <div id="obligations-list">
+      <!-- Obrigações serão listadas aqui -->
+    </div>
+    <hr>
+    <h3>Adicionar Nova Obrigação Fiscal</h3>
+    <form id="obligation-form">
+      <label for="obligation_type">Tipo de Obrigação:</label>
+      <input type="text" id="obligation_type" placeholder="Ex.: IVA, Segurança Social" required>
+      
+      <label for="amount_due">Valor a Pagar (€):</label>
+      <input type="number" id="amount_due" step="0.01" required>
+      
+      <label for="due_date">Data de Vencimento:</label>
+      <input type="datetime-local" id="due_date" required>
+      
+      <label for="notes">Observações:</label>
+      <textarea id="notes"></textarea>
+      
+      <button type="submit">Adicionar Obrigação</button>
+    </form>
+    <div id="obligation-message"></div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+    
+    async function loadObligations() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+      try {
+        const response = await fetch(`${API_BASE}/fiscal_obligations`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Erro ao carregar obrigações');
+        const obligations = await response.json();
+        renderObligations(obligations);
+      } catch (error) {
+        document.getElementById('obligations-list').innerHTML = '<p>Não foi possível carregar as obrigações fiscais.</p>';
+      }
+    }
+    
+    function renderObligations(obligations) {
+      const list = document.getElementById('obligations-list');
+      list.innerHTML = '';
+      if (obligations.length === 0) {
+        list.innerHTML = '<p>Nenhuma obrigação fiscal registrada.</p>';
+        return;
+      }
+      obligations.forEach(obligation => {
+        const div = document.createElement('div');
+        div.className = 'obligation-card';
+        div.innerHTML = `
+          <p><strong>Tipo:</strong> ${obligation.obligation_type}</p>
+          <p><strong>Valor:</strong> €${obligation.amount_due}</p>
+          <p><strong>Data de Vencimento:</strong> ${new Date(obligation.due_date).toLocaleString()}</p>
+          <p><strong>Status:</strong> ${obligation.status}</p>
+          <hr>
+        `;
+        list.appendChild(div);
+      });
+    }
+    
+    document.getElementById('obligation-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const obligation_type = document.getElementById('obligation_type').value;
+      const amount_due = document.getElementById('amount_due').value;
+      const due_date = document.getElementById('due_date').value;
+      const notes = document.getElementById('notes').value;
+      
+      try {
+        const response = await fetch(`${API_BASE}/fiscal_obligations`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ obligation_type, amount_due, due_date, notes })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          document.getElementById('obligation-message').textContent = 'Obrigação fiscal adicionada com sucesso!';
+          document.getElementById('obligation-form').reset();
+          loadObligations();
+        } else {
+          document.getElementById('obligation-message').textContent = data.error || 'Erro ao adicionar obrigação.';
+        }
+      } catch (error) {
+        document.getElementById('obligation-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+    
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+    
+    document.addEventListener('DOMContentLoaded', loadObligations);
+  </script>
+</body>
+</html>

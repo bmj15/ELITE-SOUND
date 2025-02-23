@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Assinatura de Contrato - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .contract-container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #fff;
+    }
+    .contract-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .contract-body {
+      height: 400px;
+      overflow-y: scroll;
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin-bottom: 20px;
+      background-color: #f7f7f7;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: #fff;
+      text-decoration: none;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Assinatura de Contrato</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="order_history.html">Histórico de Pedidos</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container contract-container">
+    <div class="contract-header">
+      <h2>Contrato de Aluguer</h2>
+      <p>Revise os termos do contrato abaixo e clique em "Assinar Contrato" para confirmar sua reserva.</p>
+    </div>
+    <div class="contract-body" id="contract-content">
+      <!-- Os termos do contrato serão carregados aqui via API -->
+      <p>Carregando contrato...</p>
+    </div>
+    <button class="btn" id="sign-contract">Assinar Contrato</button>
+    <div id="contract-message"></div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+
+    // Obtém o ID do pedido via parâmetro na URL
+    function getQueryParam(param) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(param);
+    }
+    const orderId = getQueryParam('orderId');
+
+    // Função para carregar o conteúdo do contrato do pedido
+    async function loadContract() {
+      const token = localStorage.getItem('token');
+      if (!token || !orderId) {
+        window.location.href = 'login.html';
+        return;
+      }
+      try {
+        // Supondo que o endpoint /orders/:id/contract retorna os termos do contrato
+        const response = await fetch(`${API_BASE}/orders/${orderId}/contract`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Erro ao carregar contrato');
+        const contractData = await response.json();
+        document.getElementById('contract-content').innerHTML = contractData.contractText;
+      } catch (error) {
+        document.getElementById('contract-content').innerHTML = '<p>Não foi possível carregar o contrato.</p>';
+        console.error('Erro:', error);
+      }
+    }
+
+    // Função para assinar o contrato
+    async function signContract() {
+      const token = localStorage.getItem('token');
+      try {
+        // Endpoint para assinar o contrato
+        const response = await fetch(`${API_BASE}/orders/${orderId}/sign`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` 
+          },
+          body: JSON.stringify({ signed: true })
+        });
+        const data = await response.json();
+        if(response.ok) {
+          document.getElementById('contract-message').textContent = 'Contrato assinado com sucesso!';
+          // Redirecionar para o dashboard ou atualizar o status do pedido conforme necessário
+          setTimeout(() => window.location.href = 'dashboard.html', 2000);
+        } else {
+          document.getElementById('contract-message').textContent = data.error || 'Erro ao assinar o contrato.';
+        }
+      } catch (error) {
+        document.getElementById('contract-message').textContent = 'Erro na comunicação com o servidor.';
+        console.error('Erro ao assinar contrato:', error);
+      }
+    }
+
+    document.getElementById('sign-contract').addEventListener('click', signContract);
+
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+
+    document.addEventListener('DOMContentLoaded', loadContract);
+  </script>
+</body>
+</html>

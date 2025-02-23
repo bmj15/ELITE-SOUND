@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Isenção de Segurança Social - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .container {
+      max-width: 600px;
+      margin: 30px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #fff;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background-color: #28a745;
+      border: none;
+      color: #fff;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Gestão de Isenção de Segurança Social</h2>
+    <form id="exemption-form">
+      <label for="userId">ID do Usuário:</label>
+      <input type="number" id="userId" required>
+      
+      <label for="isExempt">Você está isento de Segurança Social?</label>
+      <select id="isExempt" required>
+        <option value="">Selecione...</option>
+        <option value="true">Sim, estou isento</option>
+        <option value="false">Não, não estou isento</option>
+      </select>
+      
+      <button type="submit">Atualizar Status</button>
+    </form>
+    <div id="exemption-message"></div>
+    <hr>
+    <h3>Adicionar Dados de Contrato de Trabalho</h3>
+    <form id="contract-form">
+      <label for="userIdContract">ID do Usuário:</label>
+      <input type="number" id="userIdContract" required>
+      
+      <label for="employer_name">Nome da Entidade Empregadora:</label>
+      <input type="text" id="employer_name" required>
+      
+      <label for="start_date">Data de Início do Contrato:</label>
+      <input type="date" id="start_date" required>
+      
+      <label for="contract_type">Tipo de Contrato:</label>
+      <input type="text" id="contract_type" placeholder="Ex.: efetivo, termo certo" required>
+      
+      <button type="submit">Adicionar Contrato</button>
+    </form>
+    <div id="contract-message"></div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+    
+    document.getElementById('exemption-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const userId = document.getElementById('userId').value;
+      const isExempt = document.getElementById('isExempt').value === 'true';
+      
+      try {
+        const response = await fetch(`${API_BASE}/social-security/update-exemption`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, isExempt })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          document.getElementById('exemption-message').textContent = data.message;
+        } else {
+          document.getElementById('exemption-message').textContent = data.error || 'Erro ao atualizar status.';
+        }
+      } catch (error) {
+        document.getElementById('exemption-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+    
+    document.getElementById('contract-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const userId = document.getElementById('userIdContract').value;
+      const employer_name = document.getElementById('employer_name').value;
+      const start_date = document.getElementById('start_date').value;
+      const contract_type = document.getElementById('contract_type').value;
+      
+      try {
+        const response = await fetch(`${API_BASE}/social-security/add-contract`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, employer_name, start_date, contract_type })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          document.getElementById('contract-message').textContent = data.message;
+        } else {
+          document.getElementById('contract-message').textContent = data.error || 'Erro ao adicionar contrato.';
+        }
+      } catch (error) {
+        document.getElementById('contract-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+  </script>
+</body>
+</html>

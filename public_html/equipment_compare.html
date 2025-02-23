@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Comparação de Equipamentos - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .compare-container { max-width: 1000px; margin: 30px auto; }
+    .comparison-table { width: 100%; border-collapse: collapse; }
+    .comparison-table th, .comparison-table td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  </style>
+</head>
+<body>
+  <div class="compare-container">
+    <h2>Comparação de Equipamentos</h2>
+    <form id="compare-form">
+      <label for="equipmentIds">IDs dos Equipamentos (separados por vírgula):</label>
+      <input type="text" id="equipmentIds" placeholder="Ex.: 1,2,3" required>
+      <button type="submit">Comparar</button>
+    </form>
+    <div id="comparison-result"></div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:5000/api/equipment';
+
+    document.getElementById('compare-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const ids = document.getElementById('equipmentIds').value;
+      try {
+        const response = await fetch(`${API_BASE}/compare?ids=${ids}`);
+        const equipments = await response.json();
+        if (response.ok) {
+          renderComparison(equipments);
+        } else {
+          document.getElementById('comparison-result').textContent = 'Erro na comparação.';
+        }
+      } catch (error) {
+        document.getElementById('comparison-result').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+
+    function renderComparison(equipments) {
+      let html = '<table class="comparison-table"><tr><th>Atributo</th>';
+      equipments.forEach(eq => { html += `<th>${eq.name}</th>`; });
+      html += '</tr>';
+
+      const rows = [
+        { label: 'Descrição', key: 'description' },
+        { label: 'Preço Hora (€)', key: 'price_hour' },
+        { label: 'Preço Dia (€)', key: 'price_day' },
+        { label: 'Preço Semana (€)', key: 'price_week' }
+      ];
+      
+      rows.forEach(row => {
+        html += `<tr><td><strong>${row.label}</strong></td>`;
+        equipments.forEach(eq => {
+          html += `<td>${eq[row.key] || 'N/A'}</td>`;
+        });
+        html += '</tr>';
+      });
+      
+      html += '</table>';
+      document.getElementById('comparison-result').innerHTML = html;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aplicar Desconto - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .container {
+      max-width: 600px;
+      margin: 30px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #fff;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background-color: #28a745;
+      border: none;
+      color: #fff;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Aplicar Desconto no Pedido</h2>
+    <form id="discount-form">
+      <label for="orderId">ID do Pedido:</label>
+      <input type="number" id="orderId" required>
+
+      <label for="couponCode">Código do Cupom (opcional):</label>
+      <input type="text" id="couponCode">
+
+      <label for="antecipado">Pagamento Antecipado? (true/false):</label>
+      <input type="text" id="antecipado" placeholder="true ou false" required>
+
+      <button type="submit">Aplicar Desconto</button>
+    </form>
+    <div id="discount-message"></div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+
+    document.getElementById('discount-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const orderId = document.getElementById('orderId').value;
+      const couponCode = document.getElementById('couponCode').value;
+      const antecipado = document.getElementById('antecipado').value.toLowerCase() === 'true';
+
+      try {
+        const response = await fetch(`${API_BASE}/discounts/apply-discount`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, couponCode, antecipado })
+        });
+        const result = await response.json();
+        if (response.ok) {
+          document.getElementById('discount-message').innerHTML = `
+            <p>${result.message}</p>
+            <p><strong>Preço Original:</strong> €${(result.finalPrice + result.discountValue).toFixed(2)}</p>
+            <p><strong>Desconto Aplicado:</strong> €${result.discountValue.toFixed(2)}</p>
+            <p><strong>Preço Final:</strong> €${result.finalPrice.toFixed(2)}</p>
+            <p><strong>Cashback a Acumular:</strong> €${result.cashbackAmount.toFixed(2)}</p>
+            <p><strong>Regras Aplicadas:</strong> ${result.appliedRules.map(r => r.rule + ': €' + r.discount.toFixed(2)).join(', ')}</p>
+          `;
+        } else {
+          document.getElementById('discount-message').textContent = result.error || 'Erro ao aplicar desconto.';
+        }
+      } catch (error) {
+        document.getElementById('discount-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+  </script>
+</body>
+</html>

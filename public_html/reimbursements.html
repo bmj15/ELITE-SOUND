@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Pedidos de Reembolso - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .container { max-width: 600px; margin: 30px auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background-color: #fff; }
+    label { display: block; margin-top: 10px; font-weight: bold; }
+    input, textarea { width: 100%; padding: 8px; margin-top: 5px; }
+    button { margin-top: 15px; padding: 10px 20px; background-color: #28a745; border: none; color: #fff; border-radius: 3px; cursor: pointer; }
+    .reimbursement-card { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 3px; background-color: #f9f9f9; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Pedidos de Reembolso</h1>
+    <div id="reimbursements-list"></div>
+    <hr>
+    <h3>Novo Pedido de Reembolso</h3>
+    <form id="reimbursement-form">
+      <label for="employee_id">ID do Colaborador:</label>
+      <input type="number" id="employee_id" required>
+      <label for="amount">Valor a Reembolsar (€):</label>
+      <input type="number" id="amount" step="0.01" required>
+      <label for="iban">IBAN:</label>
+      <input type="text" id="iban" required>
+      <label for="description">Descrição (opcional):</label>
+      <textarea id="description"></textarea>
+      <button type="submit">Enviar Pedido</button>
+    </form>
+    <div id="reimbursement-message"></div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:5000/api/reimbursements';
+
+    async function loadReimbursements() {
+      try {
+        const res = await fetch(API_BASE);
+        const reimbursements = await res.json();
+        let html = '';
+        if (reimbursements.length === 0) html = '<p>Nenhum pedido de reembolso encontrado.</p>';
+        reimbursements.forEach(r => {
+          html += `<div class="reimbursement-card">
+            <p><strong>ID:</strong> ${r.id}</p>
+            <p><strong>Colaborador (ID):</strong> ${r.employee_id}</p>
+            <p><strong>Valor:</strong> €${r.amount}</p>
+            <p><strong>IBAN:</strong> ${r.iban}</p>
+            <p><strong>Status:</strong> ${r.status}</p>
+            <p><strong>Data:</strong> ${new Date(r.created_at).toLocaleString()}</p>
+          </div>`;
+        });
+        document.getElementById('reimbursements-list').innerHTML = html;
+      } catch (error) {
+        document.getElementById('reimbursements-list').textContent = 'Erro ao carregar pedidos de reembolso.';
+      }
+    }
+
+    document.getElementById('reimbursement-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const employee_id = document.getElementById('employee_id').value;
+      const amount = document.getElementById('amount').value;
+      const iban = document.getElementById('iban').value;
+      const description = document.getElementById('description').value;
+      
+      try {
+        const res = await fetch(API_BASE + '/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employee_id, amount, iban, description })
+        });
+        const data = await res.json();
+        document.getElementById('reimbursement-message').textContent = data.message || data.error;
+        loadReimbursements();
+        e.target.reset();
+      } catch (error) {
+        document.getElementById('reimbursement-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', loadReimbursements);
+  </script>
+</body>
+</html>

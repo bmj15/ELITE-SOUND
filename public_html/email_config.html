@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configuração de E-mail - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .config-form {
+      max-width: 500px;
+      margin: 20px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #fff;
+    }
+    .config-form label {
+      display: block;
+      margin-top: 10px;
+    }
+    .config-form input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+    }
+    .config-form button {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Configuração de E-mail</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="legal_alerts.html">Avisos Legais</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <div class="container">
+    <div class="config-form">
+      <h2>Atualizar Configurações de E-mail</h2>
+      <form id="email-config-form">
+        <label for="email_user">E-mail (EMAIL_USER):</label>
+        <input type="email" id="email_user" required>
+        
+        <label for="email_pass">Senha (EMAIL_PASS):</label>
+        <input type="text" id="email_pass" required>
+        
+        <button type="submit">Atualizar Configurações</button>
+      </form>
+      <div id="config-message"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+
+    async function loadEmailConfig() {
+      const token = localStorage.getItem('token');
+      if (!token) { window.location.href = 'login.html'; return; }
+      try {
+        // Busca as configurações individuais para EMAIL_USER e EMAIL_PASS
+        const userRes = await fetch(`${API_BASE}/configurations/EMAIL_USER`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const passRes = await fetch(`${API_BASE}/configurations/EMAIL_PASS`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!userRes.ok || !passRes.ok) throw new Error('Erro ao carregar configurações');
+        
+        const emailUserConfig = await userRes.json();
+        const emailPassConfig = await passRes.json();
+        
+        document.getElementById('email_user').value = emailUserConfig.config_value;
+        document.getElementById('email_pass').value = emailPassConfig.config_value;
+      } catch (error) {
+        document.getElementById('config-message').textContent = 'Erro ao carregar configurações.';
+      }
+    }
+
+    document.getElementById('email-config-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = localStorage.getItem('token');
+      const email_user = document.getElementById('email_user').value;
+      const email_pass = document.getElementById('email_pass').value;
+
+      try {
+        // Atualiza EMAIL_USER
+        const resUser = await fetch(`${API_BASE}/configurations/EMAIL_USER`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ config_value: email_user })
+        });
+        // Atualiza EMAIL_PASS
+        const resPass = await fetch(`${API_BASE}/configurations/EMAIL_PASS`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ config_value: email_pass })
+        });
+        if (resUser.ok && resPass.ok) {
+          document.getElementById('config-message').textContent = 'Configurações atualizadas com sucesso!';
+        } else {
+          document.getElementById('config-message').textContent = 'Erro ao atualizar configurações.';
+        }
+      } catch (error) {
+        document.getElementById('config-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+
+    document.addEventListener('DOMContentLoaded', loadEmailConfig);
+  </script>
+</body>
+</html>

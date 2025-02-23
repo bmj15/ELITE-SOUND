@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pedidos de Compras - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .purchase-card {
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 3px;
+      background-color: #eef;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Pedidos de Compras</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="fornecedores.html">Fornecedores</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <div class="container">
+    <h2>Lista de Pedidos de Compras</h2>
+    <div id="purchase-list">
+      <!-- Pedidos de compras serão listados aqui -->
+    </div>
+    <hr>
+    <h3>Registrar Novo Pedido de Compra</h3>
+    <form id="purchase-form">
+      <label for="supplier_id">ID do Fornecedor:</label>
+      <input type="number" id="supplier_id" required>
+      
+      <label for="total_amount">Valor Total (€):</label>
+      <input type="number" id="total_amount" step="0.01" required>
+      
+      <label for="notes">Observações:</label>
+      <textarea id="notes"></textarea>
+      
+      <button type="submit">Registrar Pedido</button>
+    </form>
+    <div id="purchase-message"></div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+
+    async function loadPurchaseOrders() {
+      const token = localStorage.getItem('token');
+      if (!token) { window.location.href = 'login.html'; return; }
+      try {
+        // Endpoint para listar pedidos de compras
+        const response = await fetch(`${API_BASE}/purchase_orders`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Erro ao carregar pedidos de compras');
+        const purchases = await response.json();
+        renderPurchases(purchases);
+      } catch (error) {
+        document.getElementById('purchase-list').innerHTML = '<p>Não foi possível carregar os pedidos de compras.</p>';
+      }
+    }
+
+    function renderPurchases(purchases) {
+      const list = document.getElementById('purchase-list');
+      list.innerHTML = '';
+      if (purchases.length === 0) {
+        list.innerHTML = '<p>Nenhum pedido de compra registrado.</p>';
+        return;
+      }
+      purchases.forEach(purchase => {
+        const card = document.createElement('div');
+        card.className = 'purchase-card';
+        card.innerHTML = `
+          <p><strong>ID:</strong> ${purchase.id}</p>
+          <p><strong>Fornecedor:</strong> ${purchase.supplier_id}</p>
+          <p><strong>Valor Total:</strong> €${purchase.total_amount}</p>
+          <p><strong>Status:</strong> ${purchase.status}</p>
+          <hr>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    document.getElementById('purchase-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const supplier_id = document.getElementById('supplier_id').value;
+      const total_amount = document.getElementById('total_amount').value;
+      const notes = document.getElementById('notes').value;
+      
+      try {
+        const response = await fetch(`${API_BASE}/purchase_orders`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ supplier_id, total_amount, notes })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          document.getElementById('purchase-message').textContent = 'Pedido de compra registrado com sucesso!';
+          document.getElementById('purchase-form').reset();
+          loadPurchaseOrders();
+        } else {
+          document.getElementById('purchase-message').textContent = data.error || 'Erro ao registrar pedido de compra.';
+        }
+      } catch (error) {
+        document.getElementById('purchase-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+
+    document.addEventListener('DOMContentLoaded', loadPurchaseOrders);
+  </script>
+</body>
+</html>

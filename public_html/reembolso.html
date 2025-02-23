@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pedido de Reembolso - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Pedido de Reembolso</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="order_history.html">Histórico de Pedidos</a></li>
+          <li><a href="relatorios.html">Relatórios</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <h2>Solicite seu Reembolso</h2>
+    <form id="reembolso-form">
+      <label for="employee_id">ID do Colaborador:</label>
+      <input type="number" id="employee_id" name="employee_id" required>
+
+      <label for="amount">Valor a Reembolsar (€):</label>
+      <input type="number" id="amount" name="amount" step="0.01" required>
+
+      <label for="iban">IBAN:</label>
+      <input type="text" id="iban" name="iban" required>
+
+      <label for="description">Descrição:</label>
+      <textarea id="description" name="description" required></textarea>
+
+      <button type="submit">Enviar Pedido</button>
+    </form>
+    <div id="reembolso-message"></div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+
+    document.getElementById('reembolso-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const employee_id = document.getElementById('employee_id').value;
+      const amount = document.getElementById('amount').value;
+      const iban = document.getElementById('iban').value;
+      const description = document.getElementById('description').value;
+      
+      try {
+        const response = await fetch(`${API_BASE}/reimbursements`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employee_id, amount, iban, description })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          document.getElementById('reembolso-message').textContent = 'Pedido de reembolso enviado com sucesso!';
+          document.getElementById('reembolso-form').reset();
+        } else {
+          document.getElementById('reembolso-message').textContent = data.error || 'Erro ao enviar pedido de reembolso.';
+        }
+      } catch (error) {
+        document.getElementById('reembolso-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+  </script>
+</body>
+</html>

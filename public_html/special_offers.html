@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Ofertas Especiais - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .offer-card { border: 1px solid #ccc; padding: 10px; margin: 10px 0; border-radius: 4px; background-color: #f9f9f9; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Ofertas Especiais</h1>
+    <div id="offers-list"></div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:5000/api/special-offers';
+    // Suponha que o client_id esteja armazenado após o login
+    const client_id = localStorage.getItem('clientId');
+    
+    async function loadSpecialOffers() {
+      if (!client_id) {
+        document.getElementById('offers-list').textContent = 'ID do cliente não encontrado.';
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}?client_id=${client_id}`);
+        const data = await res.json();
+        renderOffers(data.offers);
+      } catch (error) {
+        document.getElementById('offers-list').textContent = 'Erro ao carregar ofertas.';
+      }
+    }
+    
+    function renderOffers(offers) {
+      let html = '';
+      offers.forEach(offer => {
+        html += `<div class="offer-card">
+          <h3>${offer.title}</h3>
+          <p>${offer.description}</p>
+        </div>`;
+      });
+      document.getElementById('offers-list').innerHTML = html;
+    }
+    
+    document.addEventListener('DOMContentLoaded', loadSpecialOffers);
+  </script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relatórios - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Relatórios</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="order_history.html">Histórico de Pedidos</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <h2>Relatório Mensal de Pagamentos</h2>
+    <button id="export-btn">Exportar para Excel</button>
+    <div id="report-message"></div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+    
+    document.getElementById('export-btn').addEventListener('click', async () => {
+      try {
+        // Supondo que o endpoint /reports/monthly retorne um arquivo Excel para download
+        const response = await fetch(`${API_BASE}/reports/monthly`, { method: 'GET' });
+        if (!response.ok) throw new Error('Erro ao exportar relatório');
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'relatorio_mensal.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        document.getElementById('report-message').textContent = 'Relatório exportado com sucesso.';
+      } catch (error) {
+        document.getElementById('report-message').textContent = error.message;
+      }
+    });
+
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+  </script>
+</body>
+</html>

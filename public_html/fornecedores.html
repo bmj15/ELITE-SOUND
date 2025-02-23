@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fornecedores - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .supplier-card {
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 3px;
+      background-color: #f4f4f4;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Fornecedores</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="admin_faq.html">FAQ Interno</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <div class="container">
+    <h2>Lista de Fornecedores</h2>
+    <div id="supplier-list">
+      <!-- Fornecedores serão listados aqui -->
+    </div>
+    <hr>
+    <h3>Adicionar Novo Fornecedor</h3>
+    <form id="supplier-form">
+      <label for="name">Nome:</label>
+      <input type="text" id="name" required>
+      
+      <label for="country">País:</label>
+      <input type="text" id="country" required>
+      
+      <label for="tax_id">NIF/Tax ID:</label>
+      <input type="text" id="tax_id" required>
+      
+      <label for="address">Endereço:</label>
+      <textarea id="address" required></textarea>
+      
+      <label for="contact_info">Contato:</label>
+      <input type="text" id="contact_info" required>
+      
+      <button type="submit">Adicionar Fornecedor</button>
+    </form>
+    <div id="supplier-message"></div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+    
+    async function loadSuppliers() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+      try {
+        const response = await fetch(`${API_BASE}/suppliers`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Erro ao carregar fornecedores');
+        const suppliers = await response.json();
+        renderSuppliers(suppliers);
+      } catch (error) {
+        document.getElementById('supplier-list').innerHTML = '<p>Não foi possível carregar os fornecedores.</p>';
+      }
+    }
+    
+    function renderSuppliers(suppliers) {
+      const list = document.getElementById('supplier-list');
+      list.innerHTML = '';
+      if (suppliers.length === 0) {
+        list.innerHTML = '<p>Nenhum fornecedor encontrado.</p>';
+        return;
+      }
+      suppliers.forEach(supplier => {
+        const div = document.createElement('div');
+        div.className = 'supplier-card';
+        div.innerHTML = `
+          <p><strong>Nome:</strong> ${supplier.name}</p>
+          <p><strong>País:</strong> ${supplier.country}</p>
+          <p><strong>NIF:</strong> ${supplier.tax_id}</p>
+          <p><strong>Contato:</strong> ${supplier.contact_info}</p>
+          <hr>
+        `;
+        list.appendChild(div);
+      });
+    }
+    
+    document.getElementById('supplier-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value;
+      const country = document.getElementById('country').value;
+      const tax_id = document.getElementById('tax_id').value;
+      const address = document.getElementById('address').value;
+      const contact_info = document.getElementById('contact_info').value;
+      
+      try {
+        const response = await fetch(`${API_BASE}/suppliers`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ name, country, tax_id, address, contact_info })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          document.getElementById('supplier-message').textContent = 'Fornecedor adicionado com sucesso!';
+          document.getElementById('supplier-form').reset();
+          loadSuppliers();
+        } else {
+          document.getElementById('supplier-message').textContent = data.error || 'Erro ao adicionar fornecedor.';
+        }
+      } catch (error) {
+        document.getElementById('supplier-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+    
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+    
+    document.addEventListener('DOMContentLoaded', loadSuppliers);
+  </script>
+</body>
+</html>

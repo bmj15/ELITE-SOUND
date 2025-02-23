@@ -1,0 +1,8 @@
+<script>
+  // Suponha que o papel do usuário esteja armazenado no localStorage após o login
+  const userRole = localStorage.getItem('userRole');
+  if (userRole !== 'collaborator') {
+    // Redireciona para uma página de acesso negado ou para o dashboard
+    window.location.href = 'access_denied.html';
+  }
+</script>

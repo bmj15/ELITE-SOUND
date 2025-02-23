@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upload de Documento Fiscal - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .upload-container {
+      max-width: 600px;
+      margin: 30px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #fff;
+    }
+    .upload-container label {
+      display: block;
+      margin-top: 10px;
+    }
+    .upload-container input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+    }
+    .upload-container button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background-color: #007bff;
+      border: none;
+      color: #fff;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Upload de Documento Fiscal</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="documentos.html">Documentos Fiscais</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <div class="container upload-container">
+    <h2>Faça o Upload do PDF</h2>
+    <form id="upload-form" enctype="multipart/form-data">
+      <label for="file">Selecione o arquivo PDF:</label>
+      <input type="file" id="file" name="file" accept="application/pdf" required>
+      <button type="submit">Enviar Documento</button>
+    </form>
+    <div id="upload-message"></div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+
+    document.getElementById('upload-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+      
+      const fileInput = document.getElementById('file');
+      if (fileInput.files.length === 0) {
+        document.getElementById('upload-message').textContent = 'Por favor, selecione um arquivo.';
+        return;
+      }
+      
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      
+      try {
+        const response = await fetch(`${API_BASE}/documents/upload`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        const data = await response.json();
+        if (response.ok) {
+          document.getElementById('upload-message').innerHTML = `<p>${data.message}</p><p><strong>Novo Nome:</strong> ${data.newFileName}</p>`;
+          document.getElementById('upload-form').reset();
+        } else {
+          document.getElementById('upload-message').textContent = data.error || 'Erro no upload do documento.';
+        }
+      } catch (error) {
+        document.getElementById('upload-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+  </script>
+</body>
+</html>

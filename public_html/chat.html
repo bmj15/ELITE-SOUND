@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chat - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Estilos básicos para a página de chat */
+    #chat-container {
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 10px;
+      height: 400px;
+      overflow-y: scroll;
+      background-color: #fafafa;
+    }
+    .chat-message {
+      margin-bottom: 10px;
+      padding: 5px;
+      border-radius: 3px;
+    }
+    .chat-message.sent {
+      background-color: #d1e7dd;
+      text-align: right;
+    }
+    .chat-message.received {
+      background-color: #f8d7da;
+      text-align: left;
+    }
+    #chat-form {
+      max-width: 800px;
+      margin: 20px auto;
+      display: flex;
+      gap: 10px;
+    }
+    #chat-input {
+      flex: 1;
+      padding: 10px;
+      font-size: 1em;
+    }
+    #chat-send {
+      padding: 10px 20px;
+      font-size: 1em;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Chat</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="order_history.html">Histórico de Pedidos</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="chat-container">
+      <!-- As mensagens do chat serão carregadas aqui -->
+    </div>
+
+    <form id="chat-form">
+      <input type="text" id="chat-input" placeholder="Digite sua mensagem..." required>
+      <button type="submit" id="chat-send">Enviar</button>
+    </form>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+    
+    // Função para buscar mensagens do chat do usuário
+    async function loadChatMessages() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+      
+      try {
+        // Vamos assumir que o endpoint /chat/messages retorna as mensagens para o usuário autenticado
+        const response = await fetch(`${API_BASE}/chat/messages`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Erro ao carregar mensagens');
+        const messages = await response.json();
+        renderChatMessages(messages);
+      } catch (error) {
+        console.error('Erro no chat:', error);
+      }
+    }
+    
+    // Função para renderizar as mensagens
+    function renderChatMessages(messages) {
+      const chatContainer = document.getElementById('chat-container');
+      chatContainer.innerHTML = '';
+      messages.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'chat-message ' + (msg.sender === 'user' ? 'sent' : 'received');
+        div.textContent = msg.message;
+        chatContainer.appendChild(div);
+      });
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    
+    // Função para enviar mensagem
+    async function sendMessage(messageText) {
+      const token = localStorage.getItem('token');
+      try {
+        const response = await fetch(`${API_BASE}/chat/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ message: messageText })
+        });
+        if (!response.ok) throw new Error('Erro ao enviar mensagem');
+        // Atualiza o chat após enviar
+        loadChatMessages();
+      } catch (error) {
+        console.error('Erro ao enviar mensagem:', error);
+      }
+    }
+    
+    // Evento para envio do formulário de chat
+    document.getElementById('chat-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const chatInput = document.getElementById('chat-input');
+      const message = chatInput.value.trim();
+      if (message) {
+        sendMessage(message);
+        chatInput.value = '';
+      }
+    });
+    
+    // Função para logout
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+    
+    // Atualiza o chat a cada 5 segundos
+    setInterval(loadChatMessages, 5000);
+    
+    // Carrega mensagens ao carregar a página
+    document.addEventListener('DOMContentLoaded', loadChatMessages);
+  </script>
+</body>
+</html>
