@@ -1,6 +1,7 @@
 // backend/controllers/profitDistributionController.js
 const { ProfitDistribution, ProfitShareDividend, User } = require('../models');
 const profitShareService = require('../services/profitShareService');
+const audit = require('../services/auditService');
 const { CommissionError } = require('../services/commissionService');
 
 function handleError(res, error) {
@@ -28,6 +29,7 @@ exports.getDistributions = async (req, res) => {
 exports.createDistribution = async (req, res) => {
   try {
     const distribution = await profitShareService.distribute(req.body);
+    await audit.log(req, 'Distribuição de lucro', 'create', { distribution_id: distribution.id, total_profit: req.body.total_profit });
     const created = await ProfitDistribution.findByPk(distribution.id, {
       include: [{ model: ProfitShareDividend, as: 'dividends' }]
     });
@@ -44,6 +46,7 @@ exports.payDividends = async (req, res) => {
       return res.status(400).json({ error: 'Indique os dividendos a marcar como pagos.' });
     }
     const paid = await profitShareService.markDividendsPaid(ids);
+    await audit.log(req, 'Dividendos pagos', 'payment', { ids: paid.map(d => d.id) });
     res.json({ message: `${paid.length} dividendo(s) marcado(s) como pago(s).`, paid: paid.map(d => d.id) });
   } catch (error) {
     handleError(res, error);

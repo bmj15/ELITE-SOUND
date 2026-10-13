@@ -10,3 +10,7 @@ node_modules/
 *.log
 
 # Outros arquivos ou pastas temporárias
+
+# Base de dados local e ficheiros carregados
+backend/data/
+backend/uploads/

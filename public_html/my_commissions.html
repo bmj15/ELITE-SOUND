@@ -20,6 +20,7 @@
     .table-wrap { overflow-x: auto; }
     .muted { color: #777; font-size: 0.9em; }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <header>
@@ -60,7 +61,7 @@
   </div>
 
   <script>
-    const API_BASE = 'http://localhost:5000/api';
+    const API_BASE = '/api';
     const token = localStorage.getItem('token');
     if (!token) window.location.href = 'login.html';
     const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };

@@ -3,8 +3,9 @@ const { AvailabilityNotification } = require('../models');
 
 exports.createNotificationRequest = async (req, res) => {
   try {
-    const { user_id, equipment_id, desired_date } = req.body;
-    if (!user_id || !equipment_id) {
+    const { equipment_id, desired_date } = req.body;
+    const user_id = req.user.id;
+    if (!equipment_id) {
       return res.status(400).json({ error: 'Campos obrigatórios não informados.' });
     }
     const notification = await AvailabilityNotification.create({

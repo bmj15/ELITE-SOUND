@@ -17,6 +17,7 @@
       margin-top: 5px;
     }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <header>
@@ -40,7 +41,7 @@
   </div>
   
   <script>
-    const API_BASE = 'http://localhost:5000/api';
+    const API_BASE = '/api';
 
     async function loadPendingOrders() {
       const token = localStorage.getItem('token');

@@ -2,56 +2,81 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { Document } = require('../models');
 
-// Configuração do armazenamento com Multer
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads');
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const STAFF = ['admin', 'collaborator'];
+const safe = (s) => String(s).replace(/[^\p{L}\p{N} ._-]/gu, '_').trim();
+
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/'); // Certifique-se de que a pasta 'uploads' existe
-  },
-  filename: function (req, file, cb) {
-    // Nome temporário: timestamp + nome original
-    cb(null, Date.now() + '-' + file.originalname);
-  }
+  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${safe(file.originalname)}`)
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
 
 // Middleware para processar o upload
 exports.uploadDocument = upload.single('file');
 
+// Guarda o documento. Os metadados (tipo, cliente, número, pedido, data) vêm do formulário;
+// em produção podem vir de OCR (ex.: Tesseract.js).
 exports.processDocument = async (req, res) => {
   try {
-    // Verifica se o arquivo foi enviado
     if (!req.file) {
       return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
     }
-    
-    // Caminho do arquivo enviado
-    const filePath = req.file.path;
-    
-    // Simulação da extração de dados via OCR
-    // Em um cenário real, você integraria uma biblioteca de OCR (ex.: Tesseract.js) para extrair os dados
-    const extractedData = {
-      type: 'Fatura',
-      client: 'João Silva Lda',
-      number: '12345',
-      order: '98765',
-      date: '2024-03-10'
-    };
 
-    // Gerar novo nome de arquivo com base nos metadados extraídos
-    const newFileName = `${extractedData.type} - ${extractedData.client} - ${extractedData.number} - Pedido ${extractedData.order} - ${extractedData.date}${path.extname(req.file.originalname)}`;
-    const newFilePath = path.join(path.dirname(filePath), newFileName);
+    const { type = 'Documento', client, number, order_id, date, user_id } = req.body;
+    const metadata = { type, client, number, order: order_id, date };
 
-    // Renomeia o arquivo
-    fs.renameSync(filePath, newFilePath);
+    // Nome descritivo quando há metadados; o prefixo temporal evita nomes repetidos
+    const parts = [type, client, number, order_id && `Pedido ${order_id}`, date].filter(Boolean).map(safe);
+    const extension = path.extname(req.file.originalname);
+    const newFileName = parts.length > 1
+      ? `${Date.now()}-${parts.join(' - ')}${extension}`
+      : req.file.filename;
+    fs.renameSync(req.file.path, path.join(UPLOAD_DIR, newFileName));
 
-    // Retorna o novo nome e caminho para a interface (ou salva no banco de dados conforme a necessidade)
-    res.json({
-      message: 'Documento processado e renomeado com sucesso!',
-      newFileName,
-      newFilePath
+    const document = await Document.create({
+      user_id: user_id || null,
+      order_id: order_id || null,
+      type,
+      file_name: newFileName,
+      file_path: '',
+      metadata,
+      uploaded_by: req.user.id
     });
+    await document.update({ file_path: `/api/documents/${document.id}/file` });
+
+    res.json({ message: 'Documento guardado com sucesso!', newFileName, document });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Cliente: os seus documentos. Equipa: todos.
+exports.getMyDocuments = async (req, res) => {
+  try {
+    const where = STAFF.includes(req.user.role) ? {} : { user_id: req.user.id };
+    const documents = await Document.findAll({ where, order: [['uploaded_at', 'DESC']] });
+    res.json(documents);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Descarrega o ficheiro (só o dono do documento ou a equipa)
+exports.downloadDocument = async (req, res) => {
+  try {
+    const document = await Document.findByPk(req.params.id);
+    if (!document || (!STAFF.includes(req.user.role) && Number(document.user_id) !== Number(req.user.id))) {
+      return res.status(404).json({ error: 'Documento não encontrado.' });
+    }
+    const filePath = path.join(UPLOAD_DIR, path.basename(document.file_name));
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Ficheiro não encontrado.' });
+    res.sendFile(filePath);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -14,6 +14,7 @@
     }
     .contract-card p { margin: 5px 0; }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <div class="container">
@@ -34,7 +35,7 @@
   </div>
   
   <script>
-    const API_BASE = 'http://localhost:5000/api/employee-contracts';
+    const API_BASE = '/api/employee-contracts';
     
     async function loadContracts() {
       try {

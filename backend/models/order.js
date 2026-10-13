@@ -8,6 +8,9 @@ module.exports = (sequelize, DataTypes) => {
     client_id: {
       type: DataTypes.INTEGER.UNSIGNED
     },
+    equipment_id: {
+      type: DataTypes.INTEGER.UNSIGNED
+    },
     // Vendedor responsável pela venda (recebe a comissão nas regras "só vendedor")
     seller_id: {
       type: DataTypes.INTEGER.UNSIGNED
@@ -49,14 +52,25 @@ module.exports = (sequelize, DataTypes) => {
     contract_signed: {
       type: DataTypes.BOOLEAN,
       defaultValue: false
+    },
+    discount_applied: {
+      type: DataTypes.DECIMAL(12, 2),
+      defaultValue: 0
+    },
+    notes: {
+      type: DataTypes.TEXT
+    },
+    document_url: {
+      type: DataTypes.STRING
     }
   }, {
-    tableName: 'orders',
-    underscored: true
+    tableName: 'orders'
   });
 
   Order.associate = (models) => {
     Order.belongsTo(models.User, { as: 'seller', foreignKey: 'seller_id' });
+    Order.belongsTo(models.User, { as: 'client', foreignKey: 'client_id' });
+    Order.belongsTo(models.Equipment, { as: 'equipment', foreignKey: 'equipment_id' });
     Order.hasMany(models.OrderParticipant, { as: 'participants', foreignKey: 'order_id' });
     Order.hasMany(models.Commission, { as: 'commissions', foreignKey: 'order_id' });
   };

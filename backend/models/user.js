@@ -15,13 +15,23 @@ module.exports = (sequelize, DataTypes) => {
     password: {
       type: DataTypes.STRING
     },
+    // client | collaborator | admin
     role: {
       type: DataTypes.STRING,
       defaultValue: 'client'
+    },
+    is_social_security_exempt: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
     }
   }, {
     tableName: 'users',
-    underscored: true
+    defaultScope: {
+      attributes: { exclude: ['password'] }
+    },
+    scopes: {
+      withPassword: { attributes: { include: ['password'] } }
+    }
   });
   return User;
 };

@@ -25,6 +25,7 @@
       font-size: 1em;
     }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <div class="container">
@@ -35,7 +36,7 @@
   </div>
   
   <script>
-    const API_BASE = 'http://localhost:5000/api';
+    const API_BASE = '/api';
 
     document.getElementById('export-btn').addEventListener('click', async () => {
       try {

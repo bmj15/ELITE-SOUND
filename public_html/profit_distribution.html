@@ -20,6 +20,7 @@
       margin-top: 30px;
     }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <header>
@@ -67,7 +68,7 @@
   </div>
 
   <script>
-    const API_BASE = 'http://localhost:5000/api';
+    const API_BASE = '/api';
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const eur = (v) => `€${parseFloat(v || 0).toFixed(2)}`;
 

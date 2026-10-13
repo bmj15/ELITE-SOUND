@@ -9,6 +9,7 @@
     .comparison-table { width: 100%; border-collapse: collapse; }
     .comparison-table th, .comparison-table td { border: 1px solid #ccc; padding: 8px; text-align: left; }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <div class="compare-container">
@@ -22,7 +23,7 @@
   </div>
 
   <script>
-    const API_BASE = 'http://localhost:5000/api/equipment';
+    const API_BASE = '/api/equipment';
 
     document.getElementById('compare-form').addEventListener('submit', async (e) => {
       e.preventDefault();

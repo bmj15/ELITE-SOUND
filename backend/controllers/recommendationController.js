@@ -1,4 +1,5 @@
 // backend/controllers/recommendationController.js
+const { Op } = require('sequelize');
 const { Equipment } = require('../models');
 
 exports.getRecommendations = async (req, res) => {
@@ -16,7 +17,8 @@ exports.getRecommendations = async (req, res) => {
     const recommendations = await Equipment.findAll({
       where: {
         category_id: equipment.category_id,
-        id: { $ne: equipmentId }
+        id: { [Op.ne]: equipmentId },
+        active: true
       },
       limit: 3
     });

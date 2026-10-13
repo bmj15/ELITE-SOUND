@@ -4,14 +4,16 @@ const { Cashback, Order, CashbackTransaction } = require('../models');
 exports.applyCashback = async (req, res) => {
   try {
     // Dados esperados: orderId, userId, amountToApply
-    const { orderId, userId, amountToApply } = req.body;
-    if (!orderId || !userId || !amountToApply) {
+    const { orderId, amountToApply } = req.body;
+    // Só o admin pode aplicar cashback de outro utilizador
+    const userId = req.user.role === 'admin' && req.body.userId ? req.body.userId : req.user.id;
+    if (!orderId || !amountToApply || parseFloat(amountToApply) <= 0) {
       return res.status(400).json({ error: 'Campos obrigatórios não informados.' });
     }
 
     // Buscar o pedido
     const order = await Order.findByPk(orderId);
-    if (!order) {
+    if (!order || (req.user.role !== 'admin' && Number(order.client_id) !== Number(userId))) {
       return res.status(404).json({ error: 'Pedido não encontrado.' });
     }
 

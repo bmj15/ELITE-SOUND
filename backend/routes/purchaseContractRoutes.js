@@ -2,10 +2,9 @@
 const express = require('express');
 const router = express.Router();
 const purchaseContractController = require('../controllers/purchaseContractController');
-const authMiddleware = require('../middleware/auth'); // Middleware de autenticação
-const authorize = require('../middleware/authorize'); // Middleware de autorização
+const { staff } = require('../middleware/roles');
 
 // Rota para gerar contrato para um pedido de compra (apenas para colaboradores)
-router.post('/generate', authMiddleware, authorize('collaborator'), purchaseContractController.generateContractForPurchase);
+router.post('/generate', staff, purchaseContractController.generateContractForPurchase);
 
 module.exports = router;

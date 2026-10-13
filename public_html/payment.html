@@ -33,6 +33,7 @@
       cursor: pointer;
     }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <div class="container payment-container">
@@ -60,7 +61,12 @@
   </div>
 
   <script>
-    const API_BASE = 'http://localhost:5000/api';
+    // Preenche o pedido quando a página é aberta a partir do dashboard (payment.html?orderId=…)
+    document.addEventListener('DOMContentLoaded', () => {
+      const orderId = new URLSearchParams(window.location.search).get('orderId');
+      if (orderId) document.getElementById('orderId').value = orderId;
+    });
+    const API_BASE = '/api';
 
     document.getElementById('payment-form').addEventListener('submit', async (e) => {
       e.preventDefault();

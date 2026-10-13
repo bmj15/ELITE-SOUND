@@ -86,3 +86,40 @@ footer {
   padding: 20px 0;
   font-size: 0.9em;
 }
+
+/* Menus do dashboard */
+.menu-section {
+  margin: 20px 0;
+}
+
+.menu-links {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.menu-links a {
+  display: block;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  background: #fdfdfd;
+  color: #222;
+  text-decoration: none;
+}
+
+.menu-links a:hover {
+  background: #f0f0f0;
+}
+
+/* Navegação em ecrãs pequenos */
+header nav ul {
+  flex-wrap: wrap;
+}
+
+/* Tabelas largas fazem scroll em vez de rebentar a página */
+.table-wrap {
+  overflow-x: auto;
+}

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Login - Elite Sound</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js"></script>
 </head>
 <body>
   <div class="container">
@@ -23,7 +24,7 @@
   </div>
   
   <script>
-    const API_BASE = 'http://localhost:5000/api';
+    const API_BASE = '/api';
 
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -43,6 +44,7 @@
         if(response.ok) {
           // Armazena o token e redireciona para o dashboard ou área do cliente
           localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
           window.location.href = 'dashboard.html';
         } else {
           document.getElementById('login-message').textContent = data.error || 'Erro ao efetuar login';

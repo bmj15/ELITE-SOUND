@@ -11,6 +11,7 @@
     button { margin-top: 15px; padding: 10px 20px; background-color: #28a745; border: none; color: #fff; border-radius: 3px; cursor: pointer; }
     .reimbursement-card { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 3px; background-color: #f9f9f9; }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <div class="container">
@@ -33,7 +34,7 @@
   </div>
   
   <script>
-    const API_BASE = 'http://localhost:5000/api/reimbursements';
+    const API_BASE = '/api/reimbursements';
 
     async function loadReimbursements() {
       try {

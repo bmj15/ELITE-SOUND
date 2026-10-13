@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dashboard - Elite Sound</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js"></script>
 </head>
 <body>
   <header>
@@ -15,8 +16,6 @@
           <li><a href="index.html">Catálogo</a></li>
           <li><a href="dashboard.html">Minha Conta</a></li>
           <li><a href="order_history.html">Histórico de Pedidos</a></li>
-          <li><a href="my_commissions.html">As Minhas Comissões</a></li>
-          <li><a href="commissions.html">Comissões (admin)</a></li>
           <li><a href="#" id="logout">Sair</a></li>
         </ul>
       </nav>
@@ -31,10 +30,60 @@
         <!-- Lista de pedidos será carregada aqui -->
       </div>
     </section>
+
+    <section class="menu-section">
+      <h3>A Minha Área</h3>
+      <ul class="menu-links">
+        <li><a href="index.html">Catálogo e reservas</a></li>
+        <li><a href="order_history.html">Histórico de pedidos</a></li>
+        <li><a href="documentos.html">Os meus documentos</a></li>
+        <li><a href="notifications.html">Notificações</a></li>
+        <li><a href="chat.html">Falar connosco</a></li>
+        <li><a href="special_offers.html">Ofertas especiais</a></li>
+        <li><a href="reviews.html">Avaliações</a></li>
+      </ul>
+    </section>
+
+    <section class="menu-section" id="staff-menu" hidden>
+      <h3>Equipa</h3>
+      <ul class="menu-links">
+        <li><a href="my_commissions.html">As minhas comissões e participação</a></li>
+        <li><a href="payment_confirmation.html">Pagamentos pendentes</a></li>
+        <li><a href="admin_tasks.html">Tarefas</a></li>
+        <li><a href="fornecedores.html">Fornecedores</a></li>
+        <li><a href="purchase_orders.html">Pedidos de compra</a></li>
+        <li><a href="purchase_contract.html">Contrato de compra</a></li>
+        <li><a href="invoice_upload.html">Carregar documentos</a></li>
+        <li><a href="fiscal_obligations.html">Obrigações fiscais</a></li>
+        <li><a href="legal_alerts.html">Avisos legais</a></li>
+        <li><a href="reembolso.html">Pedir reembolso</a></li>
+        <li><a href="price_calculation.html">Simular preço</a></li>
+      </ul>
+    </section>
+
+    <section class="menu-section" id="admin-menu" hidden>
+      <h3>Administração</h3>
+      <ul class="menu-links">
+        <li><a href="users.html">Utilizadores e papéis</a></li>
+        <li><a href="equipments_admin.html">Equipamentos</a></li>
+        <li><a href="commission_rules.html">Regras de comissão</a></li>
+        <li><a href="commissions.html">Comissões</a></li>
+        <li><a href="profit_distribution.html">Distribuição do lucro</a></li>
+        <li><a href="configurations.html">Configurações</a></li>
+        <li><a href="email_config.html">E-mail</a></li>
+        <li><a href="reimbursements.html">Reembolsos</a></li>
+        <li><a href="employee_contracts.html">Contratos de colaboradores</a></li>
+        <li><a href="social_security_exemption.html">Segurança Social</a></li>
+        <li><a href="admin_faq.html">FAQ</a></li>
+        <li><a href="trigger_notification.html">Enviar notificação</a></li>
+        <li><a href="report_export.html">Relatório mensal</a></li>
+        <li><a href="audit_logs.html">Auditoria</a></li>
+      </ul>
+    </section>
   </div>
   
   <script>
-    const API_BASE = 'http://localhost:5000/api';
+    const API_BASE = '/api';
     
     // Função para buscar os dados do usuário autenticado
     async function loadUser() {
@@ -52,6 +101,10 @@
         if(!response.ok) throw new Error('Erro ao buscar dados do usuário');
         const data = await response.json();
         document.getElementById('user-name').textContent = data.user.name;
+        localStorage.setItem('user', JSON.stringify(data.user));
+        const isStaff = ['admin', 'collaborator'].includes(data.user.role);
+        document.getElementById('staff-menu').hidden = !isStaff;
+        document.getElementById('admin-menu').hidden = data.user.role !== 'admin';
       } catch (error) {
         console.error(error);
         window.location.href = 'login.html';
@@ -89,6 +142,9 @@
           <p><strong>Status:</strong> ${order.status}</p>
           <p><strong>Data de Levantamento:</strong> ${new Date(order.pickup_date).toLocaleString()}</p>
           <p><strong>Data de Devolução:</strong> ${new Date(order.return_date).toLocaleString()}</p>
+          <p><strong>Valor:</strong> €${parseFloat(order.total_value || 0).toFixed(2)} · <strong>Pago:</strong> €${parseFloat(order.amount_paid || 0).toFixed(2)}</p>
+          ${order.contract_signed ? '' : `<p><a href="order_contract.html?orderId=${order.id}">Ver e assinar o contrato</a></p>`}
+          ${order.status === 'PAGAMENTO_PENDENTE' ? `<p><a href="payment.html?orderId=${order.id}">Pagar</a></p>` : ''}
         `;
         ordersList.appendChild(orderDiv);
       });

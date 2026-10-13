@@ -20,6 +20,7 @@
     table { border-collapse: collapse; width: 100%; }
     td, th { border: 1px solid #ddd; padding: 4px; }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <header>
@@ -120,7 +121,7 @@
   </div>
 
   <script>
-    const API_BASE = 'http://localhost:5000/api';
+    const API_BASE = '/api';
     const token = localStorage.getItem('token');
     if (!token) window.location.href = 'login.html';
     const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };

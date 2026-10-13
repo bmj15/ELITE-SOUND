@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Documentos Fiscais - Elite Sound</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js"></script>
 </head>
 <body>
   <header>
@@ -29,7 +30,7 @@
   </div>
   
   <script>
-    const API_BASE = 'http://localhost:5000/api';
+    const API_BASE = '/api';
 
     async function loadDocuments() {
       const token = localStorage.getItem('token');
@@ -65,7 +66,7 @@
           <p><strong>Tipo:</strong> ${doc.type}</p>
           <p><strong>Número:</strong> ${doc.metadata ? doc.metadata.number : 'N/A'}</p>
           <p><strong>Data:</strong> ${doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : ''}</p>
-          <p><a href="${doc.file_path}" target="_blank">Visualizar Documento</a></p>
+          <p><a href="${doc.file_path}?token=${encodeURIComponent(localStorage.getItem('token'))}" target="_blank">Visualizar Documento</a></p>
           <hr>
         `;
         listDiv.appendChild(docDiv);

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Equipamentos - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js"></script>
+  <style>
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    td, th { border: 1px solid #ddd; padding: 6px; text-align: left; }
+    .form-section { margin-top: 30px; }
+    .form-section label { display: block; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Equipamentos</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="index.html">Ver catálogo</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <h2>Catálogo</h2>
+    <div class="table-wrap" id="equipments"></div>
+
+    <div class="form-section">
+      <h3 id="form-title">Novo Equipamento</h3>
+      <form id="equipment-form">
+        <input type="hidden" id="equipment_id">
+        <label for="name">Nome:</label>
+        <input type="text" id="name" required>
+        <label for="description">Descrição:</label>
+        <textarea id="description"></textarea>
+        <label for="price_hour">Preço por hora (€):</label>
+        <input type="number" id="price_hour" step="0.01" value="0">
+        <label for="price_day">Preço por dia (€):</label>
+        <input type="number" id="price_day" step="0.01" value="0">
+        <label for="price_week">Preço por semana (€):</label>
+        <input type="number" id="price_week" step="0.01" value="0">
+        <label for="cost_day">Custo por dia, sem IVA (€) — usado nas comissões sobre o lucro:</label>
+        <input type="number" id="cost_day" step="0.01" value="0">
+        <button type="submit">Guardar</button>
+        <button type="button" id="cancel-edit" hidden>Cancelar edição</button>
+      </form>
+      <div id="equipment-message"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+    if (!localStorage.getItem('token')) window.location.href = 'login.html';
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const FIELDS = ['name', 'description', 'price_hour', 'price_day', 'price_week', 'cost_day'];
+    let equipments = [];
+
+    async function loadEquipments() {
+      const response = await fetch(`${API_BASE}/equipments`);
+      equipments = await response.json();
+      $('equipments').innerHTML = equipments.length ? `<table>
+        <tr><th>Nome</th><th>Hora</th><th>Dia</th><th>Semana</th><th>Custo/dia</th><th></th></tr>
+        ${equipments.map(e => `<tr>
+          <td>${esc(e.name)}</td>
+          <td>€${e.price_hour}</td><td>€${e.price_day}</td><td>€${e.price_week}</td><td>€${e.cost_day}</td>
+          <td><button data-edit="${e.id}">Editar</button> <button data-remove="${e.id}">Remover do catálogo</button></td>
+        </tr>`).join('')}
+      </table>` : '<p>Sem equipamentos.</p>';
+    }
+
+    function resetForm() {
+      $('equipment-form').reset();
+      $('equipment_id').value = '';
+      $('form-title').textContent = 'Novo Equipamento';
+      $('cancel-edit').hidden = true;
+    }
+
+    $('equipments').addEventListener('click', async (e) => {
+      if (e.target.dataset.edit) {
+        const equipment = equipments.find(x => x.id == e.target.dataset.edit);
+        $('equipment_id').value = equipment.id;
+        FIELDS.forEach(f => $(f).value = equipment[f] ?? '');
+        $('form-title').textContent = 'Editar Equipamento';
+        $('cancel-edit').hidden = false;
+        $('equipment-form').scrollIntoView();
+      }
+      if (e.target.dataset.remove && confirm('Remover este equipamento do catálogo?')) {
+        await fetch(`${API_BASE}/equipments/${e.target.dataset.remove}`, { method: 'DELETE' });
+        loadEquipments();
+      }
+    });
+
+    $('cancel-edit').addEventListener('click', resetForm);
+
+    $('equipment-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = $('equipment_id').value;
+      const body = Object.fromEntries(FIELDS.map(f => [f, $(f).value]));
+      const response = await fetch(`${API_BASE}/equipments${id ? '/' + id : ''}`, {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await response.json();
+      $('equipment-message').textContent = response.ok ? 'Equipamento guardado.' : (data.error || 'Erro ao guardar.');
+      if (response.ok) { resetForm(); loadEquipments(); }
+    });
+
+    $('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    });
+
+    document.addEventListener('DOMContentLoaded', loadEquipments);
+  </script>
+</body>
+</html>

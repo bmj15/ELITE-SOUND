@@ -13,6 +13,7 @@
       background-color: #f9f9f9;
     }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <div class="container">
@@ -37,7 +38,7 @@
   </div>
   
   <script>
-    const API_BASE = 'http://localhost:5000/api/suppliers';
+    const API_BASE = '/api/suppliers';
     
     async function loadSuppliers() {
       try {

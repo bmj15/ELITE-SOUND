@@ -4,6 +4,7 @@ const { Op } = require('sequelize');
 const { sequelize, Commission, CommissionRule, CommissionTier, Order, OrderParticipant, User } = require('../models');
 const commissionService = require('../services/commissionService');
 const profitShareService = require('../services/profitShareService');
+const audit = require('../services/auditService');
 
 const RULE_FIELDS = [
   'name', 'active', 'priority', 'valid_from', 'valid_to', 'recipient_mode', 'split_mode',
@@ -80,6 +81,7 @@ exports.createRule = async (req, res) => {
       if (Array.isArray(req.body.tiers)) await saveTiers(created.id, req.body.tiers, transaction);
       return created;
     });
+    await audit.log(req, 'Regra de comissão criada', 'create', { rule_id: rule.id, name: rule.name });
     res.status(201).json(await CommissionRule.findByPk(rule.id, { include: [{ model: CommissionTier, as: 'tiers' }] }));
   } catch (error) {
     handleError(res, error);
@@ -94,6 +96,7 @@ exports.updateRule = async (req, res) => {
       await rule.update(pick(req.body, RULE_FIELDS), { transaction });
       if (Array.isArray(req.body.tiers)) await saveTiers(rule.id, req.body.tiers, transaction);
     });
+    await audit.log(req, 'Regra de comissão alterada', 'update', { rule_id: rule.id, ...req.body });
     res.json(await CommissionRule.findByPk(rule.id, { include: [{ model: CommissionTier, as: 'tiers' }] }));
   } catch (error) {
     handleError(res, error);
@@ -106,6 +109,7 @@ exports.deleteRule = async (req, res) => {
     const rule = await CommissionRule.findByPk(req.params.id);
     if (!rule) return res.status(404).json({ error: 'Regra não encontrada.' });
     await rule.update({ active: false });
+    await audit.log(req, 'Regra de comissão desativada', 'delete', { rule_id: rule.id });
     res.json({ message: 'Regra desativada com sucesso.' });
   } catch (error) {
     handleError(res, error);
@@ -187,6 +191,7 @@ exports.payCommissions = async (req, res) => {
       return res.status(400).json({ error: 'Indique as comissões a marcar como pagas.' });
     }
     const paid = await commissionService.markPaid(ids);
+    await audit.log(req, 'Comissões pagas', 'payment', { ids: paid.map(c => c.id) });
     res.json({ message: `${paid.length} comissão(ões) marcada(s) como paga(s).`, paid: paid.map(c => c.id) });
   } catch (error) {
     handleError(res, error);
@@ -283,6 +288,7 @@ exports.getMyParticipation = async (req, res) => {
 exports.convertCommission = async (req, res) => {
   try {
     const result = await profitShareService.convert(req.user.id, Number(req.params.id), req.body.amount);
+    await audit.log(req, 'Comissão convertida em participação', 'create', { commission_id: Number(req.params.id), amount: req.body.amount });
     res.json({ message: `Convertido em ${result.conversion.units} unidade(s) de participação.`, ...result });
   } catch (error) {
     handleError(res, error);

@@ -1,5 +1,5 @@
 // URL base da API (ajuste conforme seu ambiente)
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 // Função para carregar os equipamentos do catálogo
 async function loadEquipments() {

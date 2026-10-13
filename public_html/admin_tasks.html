@@ -44,6 +44,7 @@
       cursor: pointer;
     }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <header>
@@ -87,7 +88,7 @@
   </div>
   
   <script>
-    const API_BASE = 'http://localhost:5000/api';
+    const API_BASE = '/api';
 
     // Função para carregar as tarefas
     async function loadTasks() {

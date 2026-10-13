@@ -1,11 +1,10 @@
 // backend/controllers/employeeContractController.js
-const { Contract } = require('../models');
+const { EmploymentContract } = require('../models');
 
 // Lista todos os contratos de colaboradores
 exports.getContracts = async (req, res) => {
   try {
-    const contracts = await Contract.findAll({
-      where: { type: 'employment' },
+    const contracts = await EmploymentContract.findAll({
       order: [['created_at', 'DESC']]
     });
     res.json(contracts);
@@ -19,7 +18,7 @@ exports.updateContractStatus = async (req, res) => {
   try {
     const { contractId } = req.params;
     const { status, comments } = req.body; // status: 'signed', 'rejected'
-    const contract = await Contract.findByPk(contractId);
+    const contract = await EmploymentContract.findByPk(contractId);
     if (!contract) {
       return res.status(404).json({ error: 'Contrato não encontrado.' });
     }

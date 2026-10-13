@@ -8,6 +8,7 @@
   <style>
     .faq-item { border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <header>
@@ -40,7 +41,7 @@
   </div>
   
   <script>
-    const API_BASE = 'http://localhost:5000/api';
+    const API_BASE = '/api';
     const token = localStorage.getItem('token');
     if (!token) {
       window.location.href = 'login.html';

@@ -7,6 +7,7 @@
   <style>
     .container { max-width: 500px; margin: 30px auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background: #fff; }
   </style>
+  <script src="js/api.js"></script>
 </head>
 <body>
   <div class="container">
@@ -22,7 +23,7 @@
   </div>
   
   <script>
-    const API_BASE = 'http://localhost:5000/api/availability';
+    const API_BASE = '/api/availability';
     
     document.getElementById('availability-form').addEventListener('submit', async (e) => {
       e.preventDefault();

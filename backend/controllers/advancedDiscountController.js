@@ -22,16 +22,21 @@ exports.applyAdvancedDiscount = async (req, res) => {
 
     // Buscar o pedido
     const order = await Order.findByPk(orderId);
-    if (!order) {
+    const isStaff = ['admin', 'collaborator'].includes(req.user.role);
+    if (!order || (!isStaff && Number(order.client_id) !== Number(req.user.id))) {
       return res.status(404).json({ error: 'Pedido não encontrado.' });
     }
+    if (parseFloat(order.discount_applied || 0) > 0 || order.contract_signed) {
+      return res.status(400).json({ error: 'Os descontos já foram aplicados ou o contrato já foi assinado.' });
+    }
+    const originalPrice = parseFloat(order.total_value);
 
     let discountValue = 0;
     let appliedRules = [];
 
     // Exemplo: Desconto para pagamento antecipado (10%)
     if (antecipado) {
-      const antecipadoDiscount = order.total_value * 0.10;
+      const antecipadoDiscount = originalPrice * 0.10;
       discountValue += antecipadoDiscount;
       appliedRules.push({ rule: 'Pagamento Antecipado', discount: antecipadoDiscount });
     }
@@ -42,10 +47,10 @@ exports.applyAdvancedDiscount = async (req, res) => {
       const coupon = await Discount.findOne({ where: { code: couponCode, is_active: true } });
       if (coupon) {
         let couponDiscount = 0;
-        if (coupon.discount_percentage > 0) {
-          couponDiscount = order.total_value * (coupon.discount_percentage / 100);
-        } else if (coupon.discount_value > 0) {
-          couponDiscount = coupon.discount_value;
+        if (parseFloat(coupon.discount_percentage) > 0) {
+          couponDiscount = originalPrice * (parseFloat(coupon.discount_percentage) / 100);
+        } else if (parseFloat(coupon.discount_value) > 0) {
+          couponDiscount = parseFloat(coupon.discount_value);
         }
         discountValue += couponDiscount;
         appliedRules.push({ rule: `Cupom ${couponCode}`, discount: couponDiscount });
@@ -58,13 +63,13 @@ exports.applyAdvancedDiscount = async (req, res) => {
     // Aqui, vamos supor que se o pedido tiver mais de 7 dias, aplica-se 5% adicional.
     const diffDays = (new Date(order.return_date) - new Date(order.pickup_date)) / (1000 * 3600 * 24);
     if (diffDays > 7) {
-      const longTermDiscount = order.total_value * 0.05;
+      const longTermDiscount = originalPrice * 0.05;
       discountValue += longTermDiscount;
       appliedRules.push({ rule: 'Reserva de Longa Duração (>7 dias)', discount: longTermDiscount });
     }
 
     // Calcular o novo valor do pedido
-    let finalPrice = order.total_value - discountValue;
+    let finalPrice = originalPrice - discountValue;
     if (finalPrice < 0) finalPrice = 0;
 
     // Atualizar o pedido (aqui, pode ser necessário registrar o desconto aplicado)
@@ -74,9 +79,10 @@ exports.applyAdvancedDiscount = async (req, res) => {
 
     res.json({
       message: 'Descontos aplicados com sucesso.',
-      originalPrice: order.total_value + discountValue,
+      originalPrice,
       discountValue,
       finalPrice,
+      cashbackAmount: Math.round(finalPrice * 5) / 100,
       appliedRules
     });
   } catch (error) {

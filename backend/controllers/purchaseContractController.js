@@ -31,9 +31,8 @@ exports.generateContractForPurchase = async (req, res) => {
     }
     // Gera o número do contrato
     const contractNumber = generateContractNumber();
-    // Aqui, você pode atualizar o registro do pedido com o número do contrato, se desejar:
-    // purchaseOrder.contractNumber = contractNumber;
-    // await purchaseOrder.save();
+    purchaseOrder.contract_number = contractNumber;
+    await purchaseOrder.save();
 
     res.json({ message: 'Contrato gerado com sucesso.', contractNumber });
   } catch (error) {

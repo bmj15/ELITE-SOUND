@@ -11,7 +11,7 @@ exports.generateQRCode = async (req, res) => {
     
     // Crie uma URL ou mensagem que você deseja codificar no QR Code.
     // Exemplo: uma URL que direcione para o levantamento do pedido.
-    const pickupUrl = `https://seusite.com/levantamento.html?orderId=${orderId}`;
+    const pickupUrl = `${req.protocol}://${req.get('host')}/order_contract.html?orderId=${encodeURIComponent(orderId)}`;
     
     // Gere o QR Code como Data URL (base64)
     const qrDataUrl = await QRCode.toDataURL(pickupUrl);

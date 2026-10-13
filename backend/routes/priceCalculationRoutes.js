@@ -2,11 +2,12 @@
 const express = require('express');
 const router = express.Router();
 const priceCalculationController = require('../controllers/priceCalculationController');
+const { staff } = require('../middleware/roles');
 
-// Endpoint para calcular o preço final do pedido com desconto e cashback
+// Simulação de preço (pública)
 router.post('/calculate-price', priceCalculationController.calculatePrice);
 
-// Endpoint para registrar uma transação de cashback
-router.post('/cashback', priceCalculationController.registerCashback);
+// Registo de cashback (equipa)
+router.post('/cashback', staff, priceCalculationController.registerCashback);
 
 module.exports = router;

@@ -8,6 +8,20 @@ async function getConfigValue(key) {
   return config ? config.config_value : null;
 }
 
+// Notificações do utilizador autenticado (as mais recentes primeiro)
+exports.getMyNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.findAll({
+      where: { user_id: req.user.id },
+      order: [['created_at', 'DESC']],
+      limit: 100
+    });
+    res.json(notifications);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 /**
  * Envia uma notificação automática para um usuário e registra a notificação no banco de dados.
  * Dados esperados no corpo da requisição:

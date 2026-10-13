@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Histórico de Pedidos - Elite Sound</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js"></script>
 </head>
 <body>
   <header>
@@ -29,7 +30,7 @@
   </div>
 
   <script>
-    const API_BASE = 'http://localhost:5000/api';
+    const API_BASE = '/api';
 
     // Função para buscar o histórico de pedidos do usuário autenticado
     async function loadOrderHistory() {

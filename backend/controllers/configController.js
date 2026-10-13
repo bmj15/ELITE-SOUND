@@ -1,5 +1,6 @@
 // backend/controllers/configController.js
 const { Configuration } = require('../models');
+const audit = require('../services/auditService');
 
 // Retorna todas as configurações
 exports.getConfigurations = async (req, res) => {
@@ -36,6 +37,8 @@ exports.updateConfiguration = async (req, res) => {
     }
     config.config_value = config_value;
     await config.save();
+    // A password do e-mail nunca vai para o log
+    await audit.log(req, 'Configuração alterada', 'update', { key, value: /PASS|TOKEN/i.test(key) ? '***' : config_value });
     res.json({ message: 'Configuração atualizada com sucesso', config });
   } catch (error) {
     res.status(500).json({ error: error.message });

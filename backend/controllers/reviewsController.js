@@ -12,8 +12,9 @@ exports.getReviews = async (req, res) => {
 
 exports.createReview = async (req, res) => {
   try {
-    const { order_id, client_id, rating, comment } = req.body;
-    if (!order_id || !client_id || !rating) {
+    const { order_id, rating, comment } = req.body;
+    const client_id = req.user.id;
+    if (!order_id || !rating) {
       return res.status(400).json({ error: 'Campos obrigatórios não informados.' });
     }
     const review = await Review.create({ order_id, client_id, rating, comment });
