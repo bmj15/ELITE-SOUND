@@ -15,16 +15,9 @@ comissões dos colaboradores com conversão em participação nos lucros, e gest
    Em *Local path* escolha, por exemplo,
    `C:\Users\Bruno\Desktop\AMBIENTE GASTRO\BXB INVESTIMENTOS\sistemas`
    (o GitHub Desktop cria lá dentro a pasta `ELITE-SOUND`).
-4. Abra a **Linha de Comandos** (tecla Windows → escreva `cmd`) e execute:
-
-   ```
-   cd "C:\Users\Bruno\Desktop\AMBIENTE GASTRO\BXB INVESTIMENTOS\sistemas\ELITE-SOUND\backend"
-   npm install
-   copy .env.example .env
-   npm start
-   ```
-
-5. Abra **http://localhost:5000** no browser.
+4. Abra a pasta `ELITE-SOUND` e dê **duplo clique em `INICIAR.bat`**.
+   Na primeira vez instala o que falta (alguns minutos) e depois abre o site em
+   **http://localhost:5000**. Não feche a janela preta enquanto usa o site.
 
 Na primeira vez é criado o administrador **admin@elitesound.local / admin123**.
 Mude-o no ficheiro `backend\.env` (`ADMIN_EMAIL` / `ADMIN_PASSWORD`) antes do primeiro arranque,
@@ -33,7 +26,7 @@ e troque também o `JWT_SECRET` por um texto longo e aleatório.
 ## Atualizar (sem fazer downloads)
 
 1. GitHub Desktop → **Fetch origin** → **Pull origin**.
-2. Na Linha de Comandos, dentro de `backend`: `npm install` e depois `npm start`.
+2. Duplo clique em `INICIAR.bat`.
 
 Os dados ficam em `backend\data\elitesound.sqlite` e os documentos carregados em `backend\uploads`.
 Estas pastas não vão para o GitHub. Faça cópias de segurança delas.
