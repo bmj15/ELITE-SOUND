@@ -188,7 +188,7 @@ const mostrarTip = (t, x, y) => { let tip = document.getElementById('chart-tip')
 const esconderTip = () => { const tip = document.getElementById('chart-tip'); if (tip) tip.style.display = 'none'; };
 document.addEventListener('focusin', e => { const t = e.target.closest && e.target.closest('[data-tip]'); if (!t) return; const r = t.getBoundingClientRect(); mostrarTip(t, r.left, r.bottom + 8); });
 document.addEventListener('focusout', esconderTip);
-document.addEventListener('touchstart', e => { const t = e.target.closest && e.target.closest('.info[data-tip]'); if (!t) return esconderTip(); const r = t.getBoundingClientRect(); mostrarTip(t, r.left - 120, r.bottom + 8); }, { passive: true });
+document.addEventListener('touchstart', e => { const t = e.target.closest && e.target.closest('.info-tip[data-tip]'); if (!t) return esconderTip(); const r = t.getBoundingClientRect(); mostrarTip(t, r.left - 120, r.bottom + 8); }, { passive: true });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') esconderTip(); });
 document.addEventListener('mousemove', e => {
   const t = e.target.closest && e.target.closest('[data-tip]');
@@ -2154,7 +2154,7 @@ SPAP.createApp = function (cfg) {
   };
   const info = k => { const g = GLOSS[k]; if (!g) return '';
     const tip = `<b>${esc(g.n)}</b>${g.pt ? ` · ${esc(g.pt)}` : ''}<br>${esc(g.d)}${g.f ? `<br><span class="tipf">${esc(g.f)}</span>` : ''}`;
-    return `<span class="info" tabindex="0" role="note" aria-label="${esc(g.n + ': ' + g.d)}" data-tip="${esc(tip)}">i</span>`; };
+    return `<span class="info-tip" tabindex="0" role="note" aria-label="${esc(g.n + ': ' + g.d)}" data-tip="${esc(tip)}">i</span>`; };
   const kn = (k, rot) => `${esc(rot || GLOSS[k].n)}${info(k)}`;
   app.info = info; app.kn = kn; app.GLOSS = GLOSS;
 

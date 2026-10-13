@@ -276,8 +276,9 @@ svg[viewBox="0 0 24 24"]{width:16px;height:16px;flex:none}
 .modal.wide:has(.doc-view){width:min(980px,100%)}
 
 /* análise financeira */
-.info{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1.5px solid currentColor;font:italic 700 10px/1 Georgia,'Times New Roman',serif;color:var(--muted);margin-left:6px;cursor:help;vertical-align:1px;flex:none;opacity:.85;text-transform:none;letter-spacing:0}
-.info:hover,.info:focus{color:var(--accent2);opacity:1;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent2) 25%,transparent)}
+/* (i) dos indicadores: nome próprio para não colidir com .alert.info e .badge.info */
+.info-tip{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1.5px solid currentColor;font:italic 700 10px/1 Georgia,'Times New Roman',serif;color:var(--muted);margin-left:6px;cursor:help;vertical-align:1px;flex:none;opacity:.85;text-transform:none;letter-spacing:0}
+.info-tip:hover,.info-tip:focus{color:var(--accent2);opacity:1;outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent2) 25%,transparent)}
 .chart-tip{max-width:340px;line-height:1.45}
 .chart-tip .tipf{display:block;margin-top:6px;font-family:var(--mono);font-size:11px;color:var(--muted);border-top:1px solid var(--line2);padding-top:5px}
 .sec-fin{margin-bottom:22px}
