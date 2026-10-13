@@ -19,6 +19,22 @@ Abra **`index.html`** no Chrome (duplo clique). Não é preciso instalar nada ne
 - No primeiro acesso ao sistema da subsidiária, o administrador define o PIN. Os utilizadores da holding são copiados (sem PIN).
 - A holding vê os indicadores de cada subsidiária e reconcilia as transferências no **Intercompany e grupo** (um separador por empresa).
 
+## Comissões dos vendedores
+Configuram-se em **Catálogo e cadastro → Regras de comissão** (alteração com a regra das duas pessoas). Aplicam-se às vendas registadas depois da alteração; as vendas já registadas mantêm as regras com que foram feitas.
+- **Quem recebe:** só o vendedor, ou **todos os incluídos na venda** (equipa). Com equipa, a comissão é dividida em partes iguais, por **pesos de cada papel** (vendedor, técnico, montagem, apoio) ou pela **% indicada em cada venda**. A equipa escolhe-se no formulário da venda.
+- **Calcular sobre:** o preço s/IVA, ou a **margem** (preço s/IVA − custo do serviço, definido em Serviços e preços).
+- **Tipo:** percentagem (a % de cada vendedor, ou a dos escalões) ou **valor fixo por venda**.
+- **Escalões e metas:** a % sobe com o volume do mês de cada pessoa (ex.: desde 0 € → 10%, desde 1000 € → 15%) e aplica-se a todas as vendas desse mês. Cada escalão pode ter um **bónus**, pago uma vez no mês em que a meta é atingida. Os bónus entram na comissão do mês e reduzem o lucro a distribuir.
+- As comissões continuam a ser pagas por pedido SPAP, por vendedor e por mês (página **Comissões**).
+
+## Participação nos lucros
+Ativa-se em **Catálogo e cadastro → Participação nos lucros** (regra das duas pessoas).
+- Em vez de receber a comissão em dinheiro, o vendedor pode **convertê-la em unidades de participação** (botão **Converter** na página Comissões), a um preço fixo por unidade (ex.: 10 €).
+- **Limite:** no máximo uma % de cada comissão mensal e/ou um valor em € por mês e por vendedor; aplica-se o mais restritivo. O resto continua a poder ser pedido em dinheiro.
+- A conversão é um pedido SPAP (caixa → *Fundo de participação dos colaboradores*), com aprovação e assinatura. As unidades só contam depois de o pedido ser **executado**.
+- Em cada mês, uma **% do lucro** (configurável, válida a partir do mês em que é alterada) vai para os titulares de unidades, repartida pelas unidades de cada um no fim do mês. O resto é distribuído pelos sócios conforme as quotas. Os pagamentos aos titulares aparecem na **Distribuição de resultados**.
+- A participação de colaboradores nos lucros pode ter implicações fiscais e laborais: valide com o contabilista certificado.
+
 ## Análise financeira
 Disponível na holding e em todas as subsidiárias (menu **Análise financeira**). Cada indicador tem um **(i)**: ao passar o cursor (ou ao tocar/navegar com o teclado) mostra o significado e a fórmula.
 - **Indicadores de negócio:** Revenue, Contribution margin, EBITDA e EBITDA margin, Net income e Net margin, **Break-even point**, Break-even units, Margin of safety, DOL, Cash position, Burn rate, Cash runway, OCF, CAPEX, FCF, Cash conversion, ROI, ROE, ROA, YoY, MoM, CAGR, Revenue run-rate, Average ticket, Variable cost ratio, OPEX, D&A — com gráficos e um **simulador de break-even**.

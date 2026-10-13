@@ -33,7 +33,9 @@ const Grupo = global.Grupo = {
     const anoRef = vs.some(v => v.data.startsWith(ano)) ? ano : (vs.map(v => v.data.slice(0, 4)).sort().pop() || ano);
     const doAno = vs.filter(v => v.data.startsWith(anoRef));
     const socio = ((d.mod && d.mod.socios) || []).find(s => s.conta === sub.contaHolding) || { quota: 0, id: '' };
-    const lucro = r2(doAno.reduce((s, v) => s + (v.lucro || 0), 0));
+    // bónus de metas das comissões (por mês) também reduzem o lucro
+    const bonus = Object.entries((d.mod && d.mod.bonus) || {}).filter(([mk]) => mk.startsWith(anoRef)).reduce((s, [, o]) => s + Object.values(o).reduce((t, x) => t + (+x || 0), 0), 0);
+    const lucro = r2(doAno.reduce((s, v) => s + (v.lucro || 0), 0) - bonus);
     return {
       ativo: (d.users || []).some(u => u.pinHash), fundos, caixa: saldo(sub.contaCaixa), temVendas: !!(d.mod && d.mod.vendas), ano: anoRef,
       fat: r2(doAno.reduce((s, v) => s + (v.base || 0), 0)), lucro, quota: socio.quota || 0, atrib: r2(lucro * (socio.quota || 0)),
