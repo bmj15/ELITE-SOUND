@@ -2,6 +2,12 @@
 
 Abra **`index.html`** no Chrome (duplo clique). Não é preciso instalar nada nem ter servidor.
 
+## Código no repositório (fonte única)
+O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). No computador:
+- Abra o sistema com **`ABRIR SISTEMA.bat`**, na pasta do repositório. Antes de abrir o Chrome, vai buscar ao GitHub a versão mais recente do código. Sem internet, abre a versão que já está no computador.
+- Os dados **não** vão para o repositório: ficam no Chrome deste computador. Atualizar o código não apaga nem altera dados.
+- Online, o mesmo código pode ser publicado pelo GitHub Pages (Settings → Pages → `master` / root). Os dados da versão online são separados dos da versão local; para os levar, use **Definições → Exportar cópia (.json)** e restaure-a lá.
+
 | Pasta | Conteúdo |
 |---|---|
 | `bxb-investimentos/` | **Holding do grupo**: subsidiárias, entidades, crédito e PIA (Processamento Integrado de Autorizações), aplicações em fundos |
