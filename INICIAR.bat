@@ -33,10 +33,10 @@ if not exist ".env" copy ".env.example" ".env" >nul
 
 echo.
 echo A arrancar o servidor. NAO feche esta janela enquanto usa o site.
-echo O browser vai abrir em http://localhost:5000
+echo O browser abre sozinho quando o servidor estiver pronto: http://localhost:5000
 echo Login inicial: admin@elitesound.local / admin123
 echo.
-start "" cmd /c "timeout /t 5 /nobreak >nul & start http://localhost:5000"
+set OPEN_BROWSER=1
 call npm start
 
 echo.
