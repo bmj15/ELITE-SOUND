@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Regras de Comissão - Elite Sound</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .rule-card {
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 3px;
+      background-color: #fdfdfd;
+    }
+    .rule-card.inactive { opacity: 0.5; }
+    .form-section { margin-top: 30px; }
+    .form-section label { display: block; margin-top: 10px; }
+    .hidden { display: none; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #ddd; padding: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Elite Sound - Regras de Comissão</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="commissions.html">Comissões</a></li>
+          <li><a href="profit_distribution.html">Distribuição do Lucro</a></li>
+          <li><a href="#" id="logout">Sair</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <h2>Regras</h2>
+    <p>Quando várias regras se aplicam a um pedido, é usada a de maior prioridade.</p>
+    <div id="rules-list"></div>
+
+    <div class="form-section">
+      <h3 id="form-title">Nova Regra</h3>
+      <form id="rule-form">
+        <input type="hidden" id="rule_id">
+
+        <label for="name">Nome:</label>
+        <input type="text" id="name" required>
+
+        <label for="priority">Prioridade:</label>
+        <input type="number" id="priority" value="0">
+
+        <label for="recipient_mode">Quem recebe a comissão:</label>
+        <select id="recipient_mode">
+          <option value="seller_only">Apenas o vendedor</option>
+          <option value="all_participants">Todos os incluídos no pedido</option>
+        </select>
+
+        <div id="split-section" class="hidden">
+          <label for="split_mode">Divisão entre os participantes:</label>
+          <select id="split_mode">
+            <option value="equal">Partes iguais</option>
+            <option value="by_role_weight">Peso por papel</option>
+            <option value="custom_percent">% definida em cada pedido</option>
+          </select>
+          <div id="weights-section" class="hidden">
+            <label for="role_weights">Pesos por papel (ex.: vendedor=60, tecnico=20, montagem=20):</label>
+            <input type="text" id="role_weights" placeholder="vendedor=60, tecnico=20, montagem=20">
+          </div>
+        </div>
+
+        <label for="base_type">Calcular sobre:</label>
+        <select id="base_type">
+          <option value="order_total">Valor total do pedido (com IVA)</option>
+          <option value="order_net">Valor sem IVA</option>
+          <option value="profit">Lucro (sem IVA − custo)</option>
+        </select>
+
+        <label for="calc_type">Tipo de comissão:</label>
+        <select id="calc_type">
+          <option value="percent">Percentagem</option>
+          <option value="fixed_per_sale">Valor fixo por venda (€)</option>
+        </select>
+
+        <label for="value" id="value-label">Percentagem (%):</label>
+        <input type="number" id="value" step="0.01" value="0">
+
+        <div id="tiers-toggle">
+          <label><input type="checkbox" id="use_tiers"> Usar escalões/metas mensais (a % depende do volume do mês)</label>
+        </div>
+        <div id="tiers-section" class="hidden">
+          <table>
+            <thead><tr><th>Volume mensal a partir de (€)</th><th>%</th><th>Bónus ao atingir (€)</th><th></th></tr></thead>
+            <tbody id="tiers-body"></tbody>
+          </table>
+          <button type="button" id="add-tier">Adicionar escalão</button>
+        </div>
+
+        <label for="order_type">Aplicar só a pedidos do tipo (opcional):</label>
+        <select id="order_type">
+          <option value="">Todos</option>
+          <option value="aluguer">Aluguer</option>
+          <option value="venda">Venda</option>
+          <option value="servico">Serviço</option>
+        </select>
+
+        <label for="min_order_value">Valor mínimo do pedido (opcional, €):</label>
+        <input type="number" id="min_order_value" step="0.01">
+
+        <label for="valid_from">Válida de / até (opcional):</label>
+        <input type="date" id="valid_from"> <input type="date" id="valid_to">
+
+        <button type="submit">Guardar Regra</button>
+        <button type="button" id="cancel-edit" class="hidden">Cancelar edição</button>
+      </form>
+      <div id="rule-message"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:5000/api';
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = 'login.html';
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let rules = [];
+
+    const LABELS = {
+      seller_only: 'Apenas o vendedor', all_participants: 'Todos os incluídos',
+      equal: 'partes iguais', by_role_weight: 'peso por papel', custom_percent: '% por pedido',
+      order_total: 'total com IVA', order_net: 'total sem IVA', profit: 'lucro'
+    };
+
+    function toggleSections() {
+      $('split-section').classList.toggle('hidden', $('recipient_mode').value !== 'all_participants');
+      $('weights-section').classList.toggle('hidden', $('split_mode').value !== 'by_role_weight');
+      const percent = $('calc_type').value === 'percent';
+      $('value-label').textContent = percent ? 'Percentagem (%):' : 'Valor por venda (€):';
+      $('tiers-toggle').classList.toggle('hidden', !percent);
+      $('tiers-section').classList.toggle('hidden', !(percent && $('use_tiers').checked));
+    }
+    ['recipient_mode', 'split_mode', 'calc_type', 'use_tiers'].forEach(id => $(id).addEventListener('change', toggleSections));
+
+    function addTierRow(tier = {}) {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><input type="number" step="0.01" class="tier-min" value="${tier.min_monthly_volume ?? ''}"></td>
+        <td><input type="number" step="0.01" class="tier-percent" value="${tier.percent ?? ''}"></td>
+        <td><input type="number" step="0.01" class="tier-bonus" value="${tier.bonus_amount ?? 0}"></td>
+        <td><button type="button">Remover</button></td>`;
+      row.querySelector('button').addEventListener('click', () => row.remove());
+      $('tiers-body').appendChild(row);
+    }
+    $('add-tier').addEventListener('click', () => addTierRow());
+
+    const parseWeights = (text) => Object.fromEntries(text.split(',').map(p => p.split('=').map(s => s.trim()))
+      .filter(([k, v]) => k && v).map(([k, v]) => [k, parseFloat(v)]));
+    const formatWeights = (w) => Object.entries(w || {}).map(([k, v]) => `${k}=${v}`).join(', ');
+
+    function describe(rule) {
+      const value = rule.calc_type === 'percent'
+        ? (rule.use_tiers ? 'escalões: ' + rule.tiers.map(t => `≥${t.min_monthly_volume}€ → ${t.percent}%${parseFloat(t.bonus_amount) ? ` (+${t.bonus_amount}€)` : ''}`).join('; ') : `${rule.value}%`)
+        : `${rule.value}€ por venda`;
+      const who = LABELS[rule.recipient_mode] + (rule.recipient_mode === 'all_participants' ? ` (${LABELS[rule.split_mode]}${rule.split_mode === 'by_role_weight' ? ': ' + formatWeights(rule.role_weights) : ''})` : '');
+      return `${esc(who)} · sobre ${LABELS[rule.base_type]} · ${esc(value)}${rule.order_type ? ' · só ' + esc(rule.order_type) : ''}`;
+    }
+
+    async function loadRules() {
+      try {
+        const response = await fetch(`${API_BASE}/commissions/rules`, { headers });
+        if (!response.ok) throw new Error();
+        rules = await response.json();
+        $('rules-list').innerHTML = rules.length ? '' : '<p>Nenhuma regra configurada.</p>';
+        rules.forEach(rule => {
+          const card = document.createElement('div');
+          card.className = 'rule-card' + (rule.active ? '' : ' inactive');
+          card.innerHTML = `
+            <h4>${esc(rule.name)} ${rule.active ? '' : '(inativa)'} — prioridade ${rule.priority}</h4>
+            <p>${describe(rule)}</p>
+            <button data-edit="${rule.id}">Editar</button>
+            ${rule.active ? `<button data-disable="${rule.id}">Desativar</button>` : ''}`;
+          $('rules-list').appendChild(card);
+        });
+      } catch (error) {
+        $('rules-list').innerHTML = '<p>Não foi possível carregar as regras.</p>';
+      }
+    }
+
+    $('rules-list').addEventListener('click', async (e) => {
+      if (e.target.dataset.edit) fillForm(rules.find(r => r.id == e.target.dataset.edit));
+      if (e.target.dataset.disable) {
+        await fetch(`${API_BASE}/commissions/rules/${e.target.dataset.disable}`, { method: 'DELETE', headers });
+        loadRules();
+      }
+    });
+
+    function fillForm(rule) {
+      $('form-title').textContent = 'Editar Regra';
+      $('cancel-edit').classList.remove('hidden');
+      $('rule_id').value = rule.id;
+      ['name', 'priority', 'recipient_mode', 'split_mode', 'base_type', 'calc_type', 'value'].forEach(f => $(f).value = rule[f] ?? '');
+      $('order_type').value = rule.order_type || '';
+      $('min_order_value').value = rule.min_order_value ?? '';
+      $('valid_from').value = rule.valid_from || '';
+      $('valid_to').value = rule.valid_to || '';
+      $('role_weights').value = formatWeights(rule.role_weights);
+      $('use_tiers').checked = !!rule.use_tiers;
+      $('tiers-body').innerHTML = '';
+      (rule.tiers || []).sort((a, b) => a.min_monthly_volume - b.min_monthly_volume).forEach(addTierRow);
+      toggleSections();
+      $('rule-form').scrollIntoView();
+    }
+
+    function resetForm() {
+      $('rule-form').reset();
+      $('rule_id').value = '';
+      $('tiers-body').innerHTML = '';
+      $('form-title').textContent = 'Nova Regra';
+      $('cancel-edit').classList.add('hidden');
+      toggleSections();
+    }
+    $('cancel-edit').addEventListener('click', resetForm);
+
+    $('rule-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = $('rule_id').value;
+      const body = {
+        name: $('name').value,
+        priority: parseInt($('priority').value || '0', 10),
+        recipient_mode: $('recipient_mode').value,
+        split_mode: $('split_mode').value,
+        role_weights: parseWeights($('role_weights').value),
+        base_type: $('base_type').value,
+        calc_type: $('calc_type').value,
+        value: parseFloat($('value').value || '0'),
+        use_tiers: $('calc_type').value === 'percent' && $('use_tiers').checked,
+        order_type: $('order_type').value || null,
+        min_order_value: $('min_order_value').value === '' ? null : parseFloat($('min_order_value').value),
+        valid_from: $('valid_from').value || null,
+        valid_to: $('valid_to').value || null,
+        active: true,
+        tiers: [...$('tiers-body').querySelectorAll('tr')].map(row => ({
+          min_monthly_volume: parseFloat(row.querySelector('.tier-min').value || '0'),
+          percent: parseFloat(row.querySelector('.tier-percent').value || '0'),
+          bonus_amount: parseFloat(row.querySelector('.tier-bonus').value || '0')
+        }))
+      };
+      try {
+        const response = await fetch(`${API_BASE}/commissions/rules${id ? '/' + id : ''}`, {
+          method: id ? 'PUT' : 'POST', headers, body: JSON.stringify(body)
+        });
+        const data = await response.json();
+        $('rule-message').textContent = response.ok ? 'Regra guardada com sucesso!' : (data.error || 'Erro ao guardar a regra.');
+        if (response.ok) { resetForm(); loadRules(); }
+      } catch (error) {
+        $('rule-message').textContent = 'Erro na comunicação com o servidor.';
+      }
+    });
+
+    $('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+
+    document.addEventListener('DOMContentLoaded', () => { toggleSections(); loadRules(); });
+  </script>
+</body>
+</html>

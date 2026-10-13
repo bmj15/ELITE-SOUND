@@ -29,6 +29,7 @@
         <ul>
           <li><a href="dashboard.html">Dashboard</a></li>
           <li><a href="purchase_orders.html">Pedidos de Compras</a></li>
+          <li><a href="commissions.html">Comissões</a></li>
           <li><a href="#" id="logout">Sair</a></li>
         </ul>
       </nav>
@@ -55,6 +56,9 @@
         
         <label for="distribution_details">Detalhes da Distribuição:</label>
         <textarea id="distribution_details" placeholder="Ex.: Conta A: 60%, Conta B: 40%"></textarea>
+
+        <label for="pool_percent">% do lucro para os colaboradores com participação:</label>
+        <input type="number" id="pool_percent" step="0.01" min="0" max="100" placeholder="Vazio = valor definido nas configurações">
         
         <button type="submit">Registrar Distribuição</button>
       </form>
@@ -64,6 +68,8 @@
 
   <script>
     const API_BASE = 'http://localhost:5000/api';
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const eur = (v) => `€${parseFloat(v || 0).toFixed(2)}`;
 
     async function loadDistributions() {
       const token = localStorage.getItem('token');
@@ -99,7 +105,12 @@
           <p><strong>Data:</strong> ${new Date(dist.distribution_date).toLocaleString()}</p>
           <p><strong>Lucro Total:</strong> €${dist.total_profit}</p>
           <p><strong>Valor Distribuído:</strong> €${dist.distributed_amount}</p>
-          <p><strong>Detalhes:</strong> ${dist.distribution_details || 'N/A'}</p>
+          <p><strong>Detalhes:</strong> ${esc(dist.distribution_details) || 'N/A'}</p>
+          <p><strong>Pool de participação:</strong> ${parseFloat(dist.pool_percent || 0)}% = ${eur(dist.pool_amount)} por ${parseFloat(dist.total_units || 0)} unidade(s)</p>
+          ${(dist.dividends || []).length ? `<ul>${dist.dividends.map(d => `<li>
+            ${esc(d.user ? d.user.name : 'Colaborador ' + d.user_id)}: ${parseFloat(d.units)} unidade(s) → ${eur(d.amount)}
+            ${d.status === 'paga' ? '(pago)' : `<button data-pay-dividend="${d.id}">Marcar como pago</button>`}
+          </li>`).join('')}</ul>` : ''}
         `;
         listDiv.appendChild(card);
       });
@@ -112,6 +123,7 @@
       const total_profit = document.getElementById('total_profit').value;
       const distributed_amount = document.getElementById('distributed_amount').value;
       const distribution_details = document.getElementById('distribution_details').value;
+      const pool_percent = document.getElementById('pool_percent').value;
       
       try {
         const response = await fetch(`${API_BASE}/profit_distribution`, {
@@ -120,7 +132,7 @@
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ distribution_date, total_profit, distributed_amount, distribution_details })
+          body: JSON.stringify({ distribution_date, total_profit, distributed_amount, distribution_details, pool_percent })
         });
         const data = await response.json();
         if (response.ok) {
@@ -133,6 +145,18 @@
       } catch (error) {
         document.getElementById('distribution-message').textContent = 'Erro na comunicação com o servidor.';
       }
+    });
+
+    document.getElementById('distribution-list').addEventListener('click', async (e) => {
+      const id = e.target.dataset.payDividend;
+      if (!id) return;
+      const token = localStorage.getItem('token');
+      await fetch(`${API_BASE}/profit_distribution/dividends/pay`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ ids: [parseInt(id, 10)] })
+      });
+      loadDistributions();
     });
 
     document.getElementById('logout').addEventListener('click', () => {

@@ -8,5 +8,8 @@ router.get('/:id/contract', orderController.getContract);
 // Rota para assinar o contrato
 router.post('/:id/sign', orderController.signContract);
 
+// Rota para cancelar o pedido (anula as comissões ainda não pagas)
+router.post('/:id/cancel', orderController.cancelOrder);
+
 // Outras rotas relacionadas a pedidos...
 module.exports = router;

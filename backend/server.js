@@ -31,6 +31,8 @@ const reimbursementsRoutes = require('./routes/reimbursementsRoutes');
 const recommendationRoutes = require('./routes/recommendationRoutes');
 const availabilityRoutes = require('./routes/availabilityRoutes');
 const specialOffersRoutes = require('./routes/specialOffersRoutes');
+const commissionRoutes = require('./routes/commissionRoutes');
+const profitDistributionRoutes = require('./routes/profitDistributionRoutes');
 
 // Registro das rotas na API
 app.use('/api/emails', emailRoutes);
@@ -57,6 +59,8 @@ app.use('/api/reimbursements', reimbursementsRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/special-offers', specialOffersRoutes);
+app.use('/api/commissions', commissionRoutes);
+app.use('/api/profit_distribution', profitDistributionRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

@@ -1,3 +1,6 @@
+const { Order } = require('../models');
+const commissionService = require('../services/commissionService');
+
 // Exemplo: endpoint para obter o contrato do pedido
 exports.getContract = async (req, res) => {
   try {
@@ -38,8 +41,35 @@ exports.signContract = async (req, res) => {
       order.contract_signed = true;
       await order.save();
     }
-    
-    res.json({ message: 'Contrato assinado com sucesso', order });
+
+    // Pedido confirmado: gera as comissões (pendentes até o pedido estar pago).
+    // Um erro nas comissões não impede a assinatura; é devolvido como aviso.
+    let commissionWarning;
+    if (signed) {
+      try {
+        await commissionService.generateForOrder(order.id);
+      } catch (error) {
+        commissionWarning = `Comissões não geradas: ${error.message}`;
+      }
+    }
+
+    res.json({ message: 'Contrato assinado com sucesso', order, commissionWarning });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Cancela o pedido e anula as comissões ainda não pagas
+exports.cancelOrder = async (req, res) => {
+  try {
+    const order = await Order.findByPk(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
+
+    order.status = 'CANCELADO';
+    await order.save();
+    const cancelled = await commissionService.cancelForOrder(order.id);
+
+    res.json({ message: 'Pedido cancelado com sucesso', order, cancelledCommissions: cancelled.length });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

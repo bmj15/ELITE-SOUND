@@ -1,4 +1,7 @@
 // backend/controllers/paymentController.js
+const { Order } = require('../models');
+const commissionService = require('../services/commissionService');
+
 exports.processPayment = async (req, res) => {
   try {
     // Dados esperados: orderId, amount, cardNumber, expiryDate, cvv
@@ -15,8 +18,16 @@ exports.processPayment = async (req, res) => {
     // Simulação de processamento: aguarde 1 segundo
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Aqui você atualizaria o status do pedido e registraria o pagamento no banco de dados.
-    // Por simplicidade, retornamos apenas uma mensagem de sucesso.
+    // Regista o valor pago no pedido; quando fica pago a 100% as comissões passam a "a pagar"
+    const order = await Order.findByPk(orderId);
+    if (order) {
+      order.amount_paid = parseFloat(order.amount_paid || 0) + parseFloat(amount || 0);
+      await order.save();
+      if (commissionService.isFullyPaid(order)) {
+        await commissionService.markPayable(order.id);
+      }
+    }
+
     res.json({ message: 'Pagamento processado com sucesso para o pedido ' + orderId });
   } catch (error) {
     res.status(500).json({ error: error.message });
