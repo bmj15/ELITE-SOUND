@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Subsidiária · Gestão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/spap.css?v=8">
+<style>
+  .eq{display:flex;gap:3px;align-items:flex-end;height:18px}
+  .eq i{width:3px;background:currentColor;border-radius:2px;animation:eq 1s ease-in-out infinite}
+  .eq i:nth-child(2){animation-delay:.2s}.eq i:nth-child(3){animation-delay:.4s}.eq i:nth-child(4){animation-delay:.1s}
+  @keyframes eq{0%,100%{height:4px}50%{height:18px}}
+  .nf{min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="../shared/vendor/qrcode.min.js"></script>
+<script src="../shared/vendor/jsQR.min.js"></script>
+<script src="../shared/spap.js?v=15"></script>
+<script src="../shared/grupo.js?v=1"></script>
+<script src="../shared/modelos.js?v=2"></script>
+<script>
+(function () {
+  'use strict';
+  const key = new URLSearchParams(location.search).get('s') || 'elite';
+  const sub = Grupo.get(key);
+  if (!sub || !SPAP.modelos[sub.modelo]) {
+    document.getElementById('app').innerHTML = `<div class="nf"><div><h1 style="margin:0 0 8px">Subsidiária não encontrada</h1>
+      <p class="muted">Esta subsidiária não está registada no grupo. As subsidiárias são criadas no sistema da holding BXB Investimentos.</p>
+      <a class="btn primary" href="../bxb-investimentos/index.html#/subsidiarias">Ir para a BXB Investimentos</a></div></div>`;
+    return;
+  }
+  // cores de marca da subsidiária
+  const raiz = document.documentElement.style;
+  raiz.setProperty('--accent', sub.cor1 || '#7c5cff'); raiz.setProperty('--accent2', sub.cor2 || '#22d3ee'); raiz.setProperty('--accent-ink', '#fff');
+  if (sub.ativa === false) {
+    document.getElementById('app').innerHTML = `<div class="nf"><div><h1 style="margin:0 0 8px">${SPAP.esc(sub.nome)} está desativada</h1><p class="muted">A holding desativou o acesso a este sistema.</p><a class="btn" href="../bxb-investimentos/index.html#/subsidiarias">Ir para a BXB Investimentos</a></div></div>`;
+    return;
+  }
+  const m = SPAP.modelos[sub.modelo](sub);
+  const ped = (p, k) => ({ key: k, numero: p.numero, autorizacao: p.autorizacao, data: p.dataExecucao || p.dataPrevista, valor: p.valor, descricao: p.descricao, categoria: p.categoria });
+  const app = SPAP.createApp({
+    key: sub.key, nome: sub.nome, sigla: sub.sigla, tagline: m.tagline, logo: m.logo, heroTitle: m.heroTitle, heroText: m.heroText,
+    home: m.home, grupoModulos: sub.nome, alcadaPadrao: m.alcadaPadrao, migrarV3: m.migrarV3, seed: m.seed, modules: m.modules,
+    previsao: m.previsao, movimentoValido: m.movimentoValido, provaExtra: m.provaExtra, analise: m.analise,
+    contaPropria: c => c.categoria === 'TESOURARIA',
+    outroSistema: { href: '../bxb-investimentos/index.html', label: 'Ir para a holding BXB' },
+    // ligação à holding: o que a BXB transfere para a conta desta subsidiária, e o que esta envia para a holding
+    intercompany: { parceiro: 'bxb', nome: 'BXB Investimentos', sigla: 'BXB', href: '../bxb-investimentos/index.html', contaDestino: sub.contaCaixa,
+      recebidas: d => d.pedidos.filter(p => p.estado === 'EXECUTADO' && p.contaDestino === sub.contaNaHolding && p.valor > 0).map(p => ped(p, 'ic:bxb:' + p.id)),
+      enviadas: d => d.pedidos.filter(p => p.estado === 'EXECUTADO' && p.contaDestino === sub.contaHolding && p.valor > 0).map(p => ped(p, 'ic:' + sub.key + ':' + p.id)) },
+  });
+  if (m.registar) m.registar(app);
+  app.start();
+})();
+</script>
+</body>
+</html>
