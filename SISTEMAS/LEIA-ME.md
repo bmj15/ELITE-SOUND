@@ -24,6 +24,13 @@ O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). 
 ## Grupo e subsidiárias
 - A **BXB Investimentos é a holding**. Em **Grupo e subsidiárias** cria-se uma subsidiária nova (nome, sigla, NIF, setor, cores e participação da BXB) e escolhe-se o modelo de sistema:
   - **Comércio e serviços** — vendas, catálogo, comissões e distribuição de resultados (o modelo da Elite Sound);
+  - **Planeamento financeiro** — o Planeador Financeiro dentro do grupo (`shared/modelo-planeamento.js`):
+    - **Rendimentos:** recibos de vencimento e projeção anual, com os subsídios de férias e de Natal estimados.
+    - **Despesas fixas:** convertidas em valor mensal.
+    - **Dívidas e créditos:** taxas TAN/TAEG e comissão legal de amortização antecipada.
+    - **Simulador:** compara as estratégias avalanche, snowball e equilibrada, com fundo de emergência e poupança.
+    - **Objetivos e saúde financeira.**
+    - **Pagamentos:** as prestações, as despesas, as amortizações e a entrada dos vencimentos na tesouraria são pedidos SPAP. A conta do credor ou fornecedor é criada automaticamente. O que ainda não foi pedido entra na previsão de liquidez;
   - **Base** — só contas, pagamentos, autorizações e relatórios.
 - Criar ou alterar uma subsidiária segue a regra das duas pessoas. A subsidiária recebe um **sistema próprio** (livro de contas, utilizadores, PIN, autorizações e auditoria independentes), uma conta na holding e aparece no portal.
 - No primeiro acesso ao sistema da subsidiária, o administrador define o PIN. Os utilizadores da holding são copiados (sem PIN).
