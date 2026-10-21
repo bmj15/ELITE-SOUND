@@ -1,12 +1,16 @@
 # Sistemas de Gestão — Elite Sound e BXB Investimentos
 
-Abra **`index.html`** no Chrome (duplo clique). Não é preciso instalar nada nem ter servidor.
+Dê **duplo clique em `ABRIR SISTEMA.bat`**, na pasta do repositório. O sistema abre no Chrome em **http://localhost:8080** (servidor local). Não feche a janela preta enquanto usa o sistema; para parar, feche-a.
 
-## Código no repositório (fonte única)
-O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). No computador:
-- Abra o sistema com **`ABRIR SISTEMA.bat`**, na pasta do repositório. Antes de abrir o Chrome, vai buscar ao GitHub a versão mais recente do código. Sem internet, abre a versão que já está no computador.
-- Os dados **não** vão para o repositório: ficam no Chrome deste computador. Atualizar o código não apaga nem altera dados.
-- Online, o mesmo código pode ser publicado pelo GitHub Pages (Settings → Pages → `master` / root). Os dados da versão online são separados dos da versão local; para os levar, use **Definições → Exportar cópia (.json)** e restaure-a lá.
+## Servidor local e código no repositório (fonte única)
+O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). O `ABRIR SISTEMA.bat`:
+1. vai buscar ao GitHub a versão mais recente do código (sem internet, usa a que já está no computador);
+2. arranca o **servidor local** (`servidor.js`, precisa do **Node.js**; se faltar, o ficheiro abre a página de download);
+3. abre **http://localhost:8080** no Chrome.
+
+- O servidor só aceita ligações deste computador. Se o abrir outra vez com o servidor já ligado, apenas abre o browser.
+- Os dados **não** vão para o repositório: ficam no Chrome deste computador, associados ao endereço `localhost:8080`. Atualizar o código não apaga nem altera dados.
+- **Mudança do arranque antigo (uma única vez):** os dados de quando o sistema era aberto diretamente como ficheiro (`index.html`) não aparecem em `localhost:8080`. Abra a versão antiga (duplo clique em `SISTEMAS\index.html`), faça **Definições → Exportar cópia (.json)** na BXB Investimentos e na Elite Sound, e restaure cada cópia no sistema correspondente em http://localhost:8080.
 
 | Pasta | Conteúdo |
 |---|---|

@@ -1,7 +1,15 @@
 @echo off
+rem Corre a partir de uma copia temporaria: assim a atualizacao pelo git pode
+rem substituir este ficheiro sem baralhar a execucao.
+if not "%~1"=="--copia" (
+  copy /y "%~f0" "%TEMP%\abrir-sistema-bxb.bat" >nul
+  "%TEMP%\abrir-sistema-bxb.bat" --copia "%~dp0"
+  exit /b
+)
 chcp 65001 >nul
 title Grupo BXB - Sistemas de Gestao
-cd /d "%~dp0"
+set "RAIZ=%~2"
+cd /d "%RAIZ%"
 echo A obter a versao mais recente do codigo no GitHub...
 where git >nul 2>nul
 if errorlevel 1 (
@@ -14,14 +22,25 @@ if errorlevel 1 (
     for /f "delims=" %%v in ('git log -1 --format^="%%h %%cd" --date^=format:"%%d/%%m/%%Y %%H:%%M"') do echo Versao: %%v
   )
 )
-set "PAGINA=%~dp0SISTEMAS\index.html"
-if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" (
-  start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" "%PAGINA%"
-) else if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" (
-  start "" "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" "%PAGINA%"
-) else if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" (
-  start "" "%LocalAppData%\Google\Chrome\Application\chrome.exe" "%PAGINA%"
-) else (
-  start "" "%PAGINA%"
+rem Abre o sistema no Chrome (os dados ficam guardados no browser)
+set "BROWSER="
+if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "BROWSER=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
+if not defined BROWSER if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" set "BROWSER=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
+if not defined BROWSER if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" set "BROWSER=%LocalAppData%\Google\Chrome\Application\chrome.exe"
+
+rem Servidor local: http://localhost:8080 (precisa do Node.js)
+where node >nul 2>nul
+if errorlevel 1 (
+  echo.
+  echo O Node.js nao esta instalado. E preciso para o servidor local.
+  echo Vou abrir a pagina de download: instale a versao LTS e volte a abrir este ficheiro.
+  start "" https://nodejs.org
+  pause
+  exit /b 1
 )
-timeout /t 3 >nul
+echo.
+echo A arrancar o servidor local...
+node "%RAIZ%servidor.js"
+echo.
+echo O servidor parou. Se apareceu um erro acima, envie-o ao suporte.
+pause
