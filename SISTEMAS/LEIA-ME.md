@@ -33,7 +33,7 @@ O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). 
     - **Pagamentos:** as prestações, as despesas, as amortizações e a entrada dos vencimentos na tesouraria são pedidos SPAP. A conta do credor ou fornecedor é criada automaticamente. O que ainda não foi pedido entra na previsão de liquidez;
   - **Base** — só contas, pagamentos, autorizações e relatórios.
 - Criar ou alterar uma subsidiária segue a regra das duas pessoas. A subsidiária recebe um **sistema próprio** (livro de contas, utilizadores, PIN, autorizações e auditoria independentes), uma conta na holding e aparece no portal.
-- No primeiro acesso ao sistema da subsidiária, o administrador define o PIN. Os utilizadores da holding são copiados (sem PIN).
+- No primeiro acesso ao sistema da subsidiária, o administrador define o PIN. Ao criar a subsidiária escolhe-se que utilizadores da holding têm acesso e com que papel (pelo menos um administrador). Os outros não são copiados. Entram sem PIN.
 - A holding vê os indicadores de cada subsidiária e reconcilia as transferências no **Intercompany e grupo** (um separador por empresa).
 
 ## Comissões dos vendedores

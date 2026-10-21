@@ -89,6 +89,10 @@ function formSubsidiaria(s0) {
       <div class="fld"><label>NIF</label><input class="inp mono" name="nif" value="${esc(s.nif || '')}"></div>
       <div class="fld"><label>Setor / descrição curta</label><input class="inp" name="setor" value="${esc(s.setor || '')}" placeholder="ex.: Organização de eventos"></div>
       ${novo ? `<div class="fld full"><label>Modelo de sistema</label><div class="stack" style="gap:8px">${Object.entries(Grupo.MODELOS).map(([k, m]) => `<label class="check" style="align-items:flex-start;padding:10px 12px;border:1px solid var(--line2);border-radius:10px"><input type="radio" name="modelo" value="${k}" ${s.modelo === k ? 'checked' : ''} style="margin-top:3px"><span><b>${esc(m.nome)}</b><br><span class="muted" style="font-size:13px">${esc(m.desc)}</span></span></label>`).join('')}</div></div>` : ''}
+      ${novo ? `<div class="fld full"><label>Utilizadores com acesso a esta subsidiária</label><div class="stack" style="gap:6px">${app.db.users.filter(u => u.ativo !== false).map(u => `<div class="row between" style="padding:8px 12px;border:1px solid var(--line2);border-radius:10px;gap:10px;flex-wrap:wrap">
+        <label class="check" style="margin:0"><input type="checkbox" data-u="${esc(u.id)}" ${u.id === app.user.id ? 'checked' : ''}> <b>${esc(u.nome)}</b> <span class="faint" style="font-size:12px">@${esc(u.username)}</span></label>
+        <select class="inp inp-sm" data-ur="${esc(u.id)}" style="width:auto">${Object.entries(SPAP.ROLES).map(([k, r]) => `<option value="${k}" ${u.role === k ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select></div>`).join('')}</div>
+        <span class="hint">Só os utilizadores marcados recebem acesso. Depois podem ser acrescentados no sistema da subsidiária, em Utilizadores e alçadas.</span></div>` : ''}
       <div class="fld"><label>Participação da BXB (%)</label><input class="inp num" type="number" min="0" max="100" step="0.01" name="participacao" value="${r2((+s.participacao || 0) * 100)}"><span class="hint">${novo ? 'Define a quota da BXB nos resultados da subsidiária.' : 'Alterar aqui não muda as quotas já definidas no sistema da subsidiária.'}</span></div>
       <div class="fld"><label>Cores da marca</label><div class="row"><input type="color" name="cor1" value="${esc(s.cor1)}" style="width:52px;height:38px;border:0;background:none"><input type="color" name="cor2" value="${esc(s.cor2)}" style="width:52px;height:38px;border:0;background:none"><div id="prev" style="flex:1;height:38px;border-radius:10px"></div></div></div>
       ${novo ? '' : `<div class="fld"><label>&nbsp;</label><label class="check"><input type="checkbox" name="ativa" ${s.ativa !== false ? 'checked' : ''}> Sistema ativo</label></div>`}</form>`,
@@ -100,9 +104,12 @@ function formSubsidiaria(s0) {
       if (novo) {
         const sub = { key: 'sub-' + slug(f.nome) + '-' + uid().slice(-4), nome: f.nome, sigla: f.sigla.toUpperCase(), nif: f.nif, setor: f.setor, modelo, cor1: f.cor1, cor2: f.cor2, participacao: part, ativa: true,
           criadaEm: today(), contaCaixa: 'CAIXA', contaOperacional: 'OPERACIONAL', contaHolding: 'HOLDING',
-          utilizadores: app.db.users.filter(u => u.ativo !== false).map(u => ({ id: u.id, nome: u.nome, username: u.username, role: u.role, limite: u.limite })) };
+          utilizadores: app.db.users.filter(u => u.ativo !== false && (el.querySelector(`[data-u="${u.id}"]`) || {}).checked)
+            .map(u => ({ id: u.id, nome: u.nome, username: u.username, role: el.querySelector(`[data-ur="${u.id}"]`).value, limite: u.limite })) };
+        if (!sub.utilizadores.length) { ui.toast('Escolhe pelo menos um utilizador para a subsidiária', 'warn'); return false; }
+        if (!sub.utilizadores.some(u => u.role === 'ADMIN')) { ui.toast('Pelo menos um dos utilizadores tem de ser Administrador da subsidiária', 'warn'); return false; }
         const r = await app.proporAlteracao('SUBSIDIARIA_CRIAR', { sub }, `${sub.nome} (${Grupo.MODELOS[modelo].nome})`,
-          [['Empresa', '—', sub.nome], ['Modelo de sistema', '—', Grupo.MODELOS[modelo].nome], ['Participação da BXB', '—', pct(part)], ['Utilizadores copiados', '—', String(sub.utilizadores.length)]]);
+          [['Empresa', '—', sub.nome], ['Modelo de sistema', '—', Grupo.MODELOS[modelo].nome], ['Participação da BXB', '—', pct(part)], ['Utilizadores com acesso', '—', sub.utilizadores.map(u => u.nome + ' (' + SPAP.ROLES[u.role].label + ')').join(', ')]]);
         if (!r) return false;
       } else {
         const campos = { nome: f.nome, sigla: f.sigla.toUpperCase(), nif: f.nif, setor: f.setor, cor1: f.cor1, cor2: f.cor2, participacao: part, ativa: !!f.ativa };
