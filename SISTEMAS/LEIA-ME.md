@@ -26,6 +26,10 @@ O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). 
   - **Comércio e serviços** — vendas, catálogo, comissões e distribuição de resultados (o modelo da Elite Sound);
   - **Planeamento financeiro** — o Planeador Financeiro dentro do grupo (`shared/modelo-planeamento.js`):
     - **Rendimentos:** recibos de vencimento e projeção anual, com os subsídios de férias e de Natal estimados.
+    - **Ler recibos (PDF/foto):** escolhem-se vários recibos de uma vez. Os valores lidos aparecem numa tabela para rever antes de gravar. Recibos repetidos ou sem líquido ficam por gravar até serem marcados.
+      - Os PDFs com texto são lidos diretamente; os digitalizados e as fotografias passam por OCR em português (`shared/leitor-recibos.js`).
+      - A primeira leitura precisa de Internet para carregar o leitor (pdf.js / Tesseract).
+      - Há um modelo afinado para a Joaquim Chaves Clínicas Médicas: o IRS é a soma de todas as linhas de retenção, incluindo acertos de meses anteriores e subsídios. Para outros recibos usa-se o modelo genérico.
     - **Despesas fixas:** convertidas em valor mensal.
     - **Dívidas e créditos:** taxas TAN/TAEG e comissão legal de amortização antecipada.
     - **Simulador:** compara as estratégias avalanche, snowball e equilibrada, com fundo de emergência e poupança.

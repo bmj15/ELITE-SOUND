@@ -353,6 +353,70 @@ function editarRecibo(x) {
       audit('PF_RECIBO', `${MESES[r.mes - 1]} ${r.ano} · líquido ${eur(r.liquido)}`); },
     onDelete: novo ? null : y => { m.recibos = m.recibos.filter(z => z !== y); audit('PF_RECIBO_REMOVIDO', `${MESES[y.mes - 1]} ${y.ano}`); } });
 }
+/* ---------- Leitura automática de recibos (PDF / fotografia) ---------- */
+function escolherRecibos() {
+  if (!SPAP.leitorRecibos) { ui.toast('O leitor de recibos não está disponível nesta página.', 'bad'); return; }
+  const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true; inp.accept = '.pdf,application/pdf,image/*';
+  inp.onchange = () => { if (inp.files.length) lerRecibos([...inp.files]); };
+  inp.click();
+}
+async function lerRecibos(ficheiros) {
+  const pm = ui.modal({ title: 'A ler recibos', locked: true, body: `<p class="muted" style="margin:0" id="lr">A preparar…</p>` });
+  const msg = t => { const e = pm.el.querySelector('#lr'); if (e) e.textContent = t; };
+  const lidos = [];
+  for (let i = 0; i < ficheiros.length; i++) {
+    const f = ficheiros[i], pre = ficheiros.length > 1 ? `${i + 1}/${ficheiros.length} · ${f.name}: ` : `${f.name}: `;
+    try { const { texto, metodo } = await SPAP.leitorRecibos.lerTexto(f, t => msg(pre + t)); msg(pre + 'a interpretar…'); lidos.push({ nome: f.name, metodo, d: SPAP.leitorRecibos.analisar(texto) }); }
+    catch (e) { lidos.push({ nome: f.name, erro: e.message || String(e) }); }
+  }
+  pm.close();
+  if (lidos.every(x => x.erro)) {
+    ui.modal({ title: 'Não foi possível ler os recibos', body: `<div class="stack" style="gap:8px">${lidos.map(x => `<div><b>${esc(x.nome)}</b><div class="muted" style="font-size:13px">${esc(x.erro)}</div></div>`).join('')}
+      <div class="alert info">${icon('alert')}<div>Pode continuar a registar o recibo à mão em <b>Registar recibo</b>.</div></div></div>`, actions: [{ label: 'Fechar', kind: 'primary' }] });
+    return;
+  }
+  reverRecibos(lidos);
+}
+function reverRecibos(lidos) {
+  const m = M(), ult = m.recibos.slice().sort((a, b) => b.ano - a.ano || b.mes - a.mes)[0];
+  const num = (n, v) => `<input class="inp inp-sm num" type="number" step="any" name="${n}" value="${v == null ? '' : esc(v)}" style="width:92px">`;
+  const linhas = lidos.map((x, i) => {
+    if (x.erro) return `<tr><td></td><td><b>${esc(x.nome)}</b><div class="faint" style="font-size:11.5px">não lido</div></td><td colspan="11"><span class="badge bad">erro</span> <span class="muted" style="font-size:12px">${esc(x.erro)}</span></td></tr>`;
+    const d = x.d, avisos = [];
+    if (!(d.liquido > 0)) avisos.push('líquido não encontrado');
+    if (!d.ano || !d.mes) avisos.push('mês não encontrado');
+    if (d.ano && d.mes && m.recibos.some(r => +r.ano === +d.ano && +r.mes === +d.mes)) avisos.push(`já existe um recibo de ${MESES[d.mes - 1]} ${d.ano}`);
+    if (lidos.some((y, j) => j < i && y.d && y.d.ano === d.ano && y.d.mes === d.mes)) avisos.push('outro recibo do mesmo mês neste lote');
+    const bloqueia = avisos.some(a => !a.startsWith('outro'));
+    const ano = d.ano || +today().slice(0, 4), mes = d.mes || +today().slice(5, 7);
+    return `<tr data-i="${i}" style="vertical-align:top"><td><input type="checkbox" name="inc" ${bloqueia ? '' : 'checked'}></td>
+      <td style="min-width:150px"><b style="font-size:12.5px;word-break:break-all">${esc(x.nome)}</b><div class="faint" style="font-size:11.5px">${esc(x.metodo)}${d.modelo ? ' · ' + esc(d.modelo) : ''}</div>
+        ${avisos.length ? `<div style="margin-top:4px">${avisos.map(a => `<span class="badge warn" style="margin:2px 2px 0 0">${esc(a)}</span>`).join('')}</div>` : ''}${d.notas.length ? `<div class="faint" style="font-size:11px;margin-top:3px">${esc(d.notas.join(' · '))}</div>` : ''}</td>
+      <td><input class="inp inp-sm num" type="number" name="ano" value="${ano}" style="width:72px"></td>
+      <td><select class="inp inp-sm" name="mes" style="min-width:112px">${MESES.map((n, k) => `<option value="${k + 1}" ${k + 1 === +mes ? 'selected' : ''}>${n}</option>`).join('')}</select></td>
+      <td>${num('bruto', d.bruto)}</td><td>${num('liquido', d.liquido)}</td><td>${num('irs', d.irs)}</td><td>${num('ss', d.ss)}</td><td>${num('refeicao', d.refeicao)}</td>
+      <td>${num('subFeriasValor', d.subFerias ? d.subFeriasValor : null)}</td><td>${num('subNatalValor', d.subNatal ? d.subNatalValor : null)}</td>
+      <td><input class="inp inp-sm" name="entidade" value="${esc(d.entidade || (ult && ult.nifEntidade === d.nifEntidade ? ult.entidade || '' : ''))}" style="width:150px"></td>
+      <td><input class="inp inp-sm mono" name="nifEntidade" value="${esc(d.nifEntidade || '')}" style="width:96px"></td></tr>`;
+  }).join('');
+  ui.modal({ title: 'Rever recibos lidos', wide: true, sub: 'Confirme os valores antes de gravar. As linhas com aviso ficam por gravar até as marcar.',
+    body: `<div class="tbl-wrap"><table class="tbl"><thead><tr><th></th><th>Ficheiro</th><th>Ano</th><th>Mês</th><th class="r">Bruto</th><th class="r">Líquido</th><th class="r">IRS</th><th class="r">SS</th><th class="r">Refeição</th><th class="r">Sub. férias</th><th class="r">Sub. Natal</th><th>Entidade</th><th>NIF</th></tr></thead><tbody>${linhas}</tbody></table></div>`,
+    onOpen: el => { const md = el.querySelector('.modal'); if (md) md.style.width = 'min(1400px, 96vw)'; },
+    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('check') + 'Gravar recibos', kind: 'primary', onClick: el => {
+      const novos = [];
+      for (const tr of el.querySelectorAll('tr[data-i]')) {
+        if (!tr.querySelector('[name=inc]').checked) continue;
+        const x = lidos[+tr.dataset.i], v = n => tr.querySelector(`[name=${n}]`).value.trim(), nv = n => v(n) === '' ? 0 : r2(+v(n) || 0);
+        const r = { id: 'R' + uid(), ano: parseInt(v('ano'), 10), mes: +v('mes'), entidade: v('entidade'), nifEntidade: v('nifEntidade'), bruto: nv('bruto'), liquido: nv('liquido'), irs: nv('irs'), ss: nv('ss'), refeicao: nv('refeicao'),
+          subFerias: nv('subFeriasValor') > 0, subFeriasValor: nv('subFeriasValor'), subNatal: nv('subNatalValor') > 0, subNatalValor: nv('subNatalValor'), notas: '', ficheiro: x.nome, lidoPor: x.metodo, criadoEm: new Date().toISOString() };
+        if (!(r.liquido > 0) || !(r.ano >= 2000)) { ui.toast(`${esc(x.nome)}: indique o ano e o líquido recebido`, 'warn'); return false; }
+        novos.push(r);
+      }
+      if (!novos.length) { ui.toast('Nenhum recibo marcado para gravar', 'warn'); return false; }
+      novos.forEach(r => { m.recibos.push(r); audit('PF_RECIBO', `${MESES[r.mes - 1]} ${r.ano} · líquido ${eur(r.liquido)} · lido de ${r.ficheiro} (${r.lidoPor})`); });
+      app.save(); ui.toast(`${novos.length} ${novos.length === 1 ? 'recibo gravado' : 'recibos gravados'}`, 'ok');
+      setTab('pf-ano', String(novos[novos.length - 1].ano)); app.refresh(); } }] });
+}
 function rendimentos(v) {
   const T = tabs('pf-rend', 'rec', [['rec', 'Recibos de vencimento'], ['proj', 'Projeção anual']]), m = M(), kn = app.kn, ed = podeEditar();
   const anos = [...new Set([+today().slice(0, 4), ...m.recibos.map(r => +r.ano)])].sort((a, b) => b - a);
@@ -361,7 +425,7 @@ function rendimentos(v) {
   const est = estimarLiquido(m.recibos);
   if (T.t === 'rec') {
     const rs = m.recibos.filter(r => +r.ano === ano).sort((a, b) => b.mes - a.mes);
-    v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano</span>${anoSel}</div>${ed ? `<button class="btn primary" id="nr">${icon('plus')} Registar recibo</button>` : ''}</div>
+    v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano</span>${anoSel}</div>${ed ? `<div class="row"><button class="btn" id="lr">${icon('upload')} Ler recibos (PDF/foto)</button><button class="btn primary" id="nr">${icon('plus')} Registar recibo</button></div>` : ''}</div>
       <div class="grid g4">${kpi(`${icon('wallet')} Líquido recebido ${ano}`, eur(sum(rs, 'liquido')), `${rs.length} ${rs.length === 1 ? 'recibo' : 'recibos'}`, '', true)}${kpi('Bruto ' + ano, eur(sum(rs, 'bruto')))}${kpi('IRS retido', eur(sum(rs, 'irs')), `SS ${eur(sum(rs, 'ss'))}`)}
         ${kpi(kn('pf_liqrec', 'Líquido recorrente'), eur(salarioBase()), +m.plano.salarioBase ? 'definido nos parâmetros' : est.n ? esc(est.metodo) : 'sem recibos')}</div>
       <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Recibos ${ano}</h3><span class="sub">clique numa linha para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Mês</th><th>Entidade</th><th class="r">Bruto</th><th class="r">IRS</th><th class="r">SS</th><th class="r">Refeição</th><th class="r">Líquido</th><th>Subsídios</th><th>Entrada na tesouraria</th></tr></thead><tbody>
@@ -371,6 +435,7 @@ function rendimentos(v) {
     v.querySelectorAll('[data-r]').forEach(tr => tr.onclick = e => { if (e.target.closest('button,a') || !ed) return; editarRecibo(m.recibos.find(r => r.id === tr.dataset.r)); });
     v.querySelectorAll('[data-e]').forEach(b => b.onclick = () => registarEntrada(m.recibos.find(r => r.id === b.dataset.e)));
     const nr = v.querySelector('#nr'); if (nr) nr.onclick = () => editarRecibo();
+    const lr = v.querySelector('#lr'); if (lr) lr.onclick = escolherRecibos;
   } else {
     const P = projecao(ano), refOn = m.plano.incluirRefeicao;
     v.innerHTML = `${T.html}<div class="row" style="margin-bottom:16px"><span class="muted">Ano</span>${anoSel}</div>
