@@ -160,9 +160,12 @@ function analisar(texto, { nifProprio } = {}) {
 // junta os pedaços de texto do pdf.js em linhas (mesma altura na página), da esquerda para a direita
 function linhasDaPagina(items) {
   const ls = [];
-  items.filter(i => i.str && i.str.trim()).forEach(i => { const x = i.transform[4], y = i.transform[5];
-    let l = ls.find(z => Math.abs(z.y - y) <= 2.5); if (!l) { l = { y, p: [] }; ls.push(l); } l.p.push({ x, s: i.str }); });
-  return ls.sort((a, b) => b.y - a.y).map(l => l.p.sort((a, b) => a.x - b.x).map(p => p.s.trim()).join(' ')).join('\n');
+  items.filter(i => i.str && i.str.trim()).forEach(i => { const x = i.transform[4], y = i.transform[5], fs = Math.hypot(i.transform[0], i.transform[1]) || 10;
+    let l = ls.find(z => Math.abs(z.y - y) <= 2.5); if (!l) { l = { y, p: [] }; ls.push(l); } l.p.push({ x, fim: x + (i.width || 0), fs, s: i.str }); });
+  // pedaços colados (ex.: letras acentuadas desenhadas à parte, "Cart" + "õ" + "es") juntam-se sem espaço
+  return ls.sort((a, b) => b.y - a.y).map(l => l.p.sort((a, b) => a.x - b.x).reduce((acc, p, k, arr) => {
+    if (!k) return p.s.trim(); const ant = arr[k - 1], colado = p.x - ant.fim < Math.min(p.fs, ant.fs) * 0.12 && !/\s$/.test(ant.s) && !/^\s/.test(p.s);
+    return acc + (colado ? '' : ' ') + p.s.trim(); }, '')).join('\n');
 }
 async function ocr(imagens, progresso) {
   await script(TESS);

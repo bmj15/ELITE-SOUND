@@ -35,7 +35,7 @@ const BENCH = { dtiAviso: 0.35, dtiCritico: 0.50, poupMin: 0.10, poupBoa: 0.20, 
 const PLANO_PADRAO = () => ({ salarioBase: 0, outrosRendimentos: 0, incluirRefeicao: true, extraFixo: 0, emergMeses: 3, emergProgressivo: 0,
   fundoOrigem: 'tesouraria', fundoInicial: 0, poupancaTipo: 'none', poupancaFixa: 0, poupancaPct: 0, horizonte: 240, diaSalario: 1 });
 
-const M = () => { const m = app.db.mod; ['recibos', 'despesas', 'dividas', 'objetivos'].forEach(k => { if (!Array.isArray(m[k])) m[k] = []; });
+const M = () => { const m = app.db.mod; ['recibos', 'despesas', 'dividas', 'objetivos', 'extratos'].forEach(k => { if (!Array.isArray(m[k])) m[k] = []; });
   m.plano = Object.assign(PLANO_PADRAO(), m.plano || {}); return m; };
 
 /* ---------- Motor: taxas, comissões e prestações ---------- */
@@ -56,9 +56,22 @@ function mesesParaLiquidar(d) {
   return Math.ceil(-Math.log(1 - r * P / A) / Math.log(1 + r));
 }
 const mensalDesp = e => (+e.valor || 0) / ((PERIODOS.find(p => p[0] === e.periodicidade) || [0, 0, 1])[2]);
-const despAtivas = () => M().despesas.filter(e => e.ativo !== false);
+// despesas com início e/ou fim (AAAA-MM) só contam nos meses em que estão em vigor
+const ymHoje = () => today().slice(0, 7);
+const vigente = (e, ym = ymHoje()) => (!e.inicio || ym >= e.inicio) && (!e.fim || ym <= e.fim);
+const despAtivas = () => M().despesas.filter(e => e.ativo !== false && vigente(e));
 const divAtivas = () => M().dividas.filter(d => d.ativo !== false && (+d.capital || 0) > 0.005);
-const despesasMensais = () => r2(despAtivas().reduce((s, e) => s + mensalDesp(e), 0));
+// parte desta pessoa nas despesas comuns de uma "Casa partilhada" do grupo (lida do livro da casa, só leitura)
+function casaParte(ym = ymHoje()) {
+  const pl = M().plano; if (!pl.casa || !pl.membroCasa) return null;
+  let d = null; try { d = JSON.parse(localStorage.getItem('spap:' + pl.casa)); } catch (e) { }
+  const s = window.Grupo && Grupo.get(pl.casa), nome = s ? s.nome : pl.casa;
+  if (!d || !d.mod || !Array.isArray(d.mod.despesas)) return { nome, valor: 0, n: 0, semDados: true };
+  const ds = d.mod.despesas.filter(e => e.ativo !== false && vigente(e, ym) && +((e.partes || {})[pl.membroCasa]) > 0);
+  const membro = (d.mod.membros || []).find(x => x.id === pl.membroCasa);
+  return { nome, membro: membro ? membro.nome : '', valor: r2(ds.reduce((t, e) => t + mensalDesp(e) * +e.partes[pl.membroCasa], 0)), n: ds.length };
+}
+const despesasMensais = () => r2(despAtivas().reduce((s, e) => s + mensalDesp(e), 0) + ((casaParte() || {}).valor || 0));
 const prestacoesMensais = () => r2(divAtivas().reduce((s, d) => s + (+d.prestacao || 0), 0));
 
 /* ---------- Motor: rendimentos e projeção anual ---------- */
@@ -257,7 +270,7 @@ function pedirDespesa(x) {
 function pedirPrestacao(x) {
   const d = proxima(x), key = chaveDiv(x, d);
   if (vivos(key).length) { app.go('pedidos/' + vivos(key)[0].id); return; }
-  const destino = garantirConta(x, 'CRÉDITO', 'CR');
+  const cartao = x.cartaoDe ? M().dividas.find(y => y.id === x.cartaoDe) : null, destino = garantirConta(cartao || x, 'CRÉDITO', 'CR');
   app.novoPedido({ categoria: 'MENSALIDADE / PRESTAÇÃO', contaOrigem: x.contaOrigem || CAIXA, contaDestino: destino, valor: +x.prestacao || 0, metodo: 'DÉBITO',
     descricao: `Prestação ${x.nome} · ${MESES[+d.slice(5, 7) - 1]} ${d.slice(0, 4)}`, dataPrevista: d, origem: { mod: 'dividas', key } });
 }
@@ -280,7 +293,7 @@ function campo(c, x) {
   if (c.type === 'select') return `<div class="fld ${c.full ? 'full' : ''}"><label>${c.label}</label><select class="inp" name="${c.k}">${c.opts.map(o => `<option value="${esc(o[0])}" ${String(o[0]) === String(val) ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select>${c.hint ? `<span class="hint">${c.hint}</span>` : ''}</div>`;
   const v2 = c.type === 'pct' ? (val == null || val === '' ? '' : r2((+val || 0) * 10000) / 100) : (val ?? '');
   const num = ['money', 'pct', 'number', 'int'].includes(c.type);
-  return `<div class="fld ${c.full ? 'full' : ''}"><label>${c.label}${c.type === 'pct' ? ' (%)' : c.type === 'money' ? ' (€)' : ''}</label><input class="inp ${num ? 'num' : ''}" name="${c.k}" ${num ? `type="number" step="${c.type === 'int' ? 1 : 'any'}"` : c.type === 'date' ? 'type="date"' : ''} ${c.min != null ? `min="${c.min}"` : ''} ${c.max != null ? `max="${c.max}"` : ''} value="${esc(v2)}" ${c.ph ? `placeholder="${esc(c.ph)}"` : ''}>${c.hint ? `<span class="hint">${c.hint}</span>` : ''}</div>`;
+  return `<div class="fld ${c.full ? 'full' : ''}"><label>${c.label}${c.type === 'pct' ? ' (%)' : c.type === 'money' ? ' (€)' : ''}</label><input class="inp ${num ? 'num' : ''}" name="${c.k}" ${num ? `type="number" step="${c.type === 'int' ? 1 : 'any'}"` : c.type === 'date' ? 'type="date"' : c.type === 'month' ? 'type="month"' : ''} ${c.min != null ? `min="${c.min}"` : ''} ${c.max != null ? `max="${c.max}"` : ''} value="${esc(v2)}" ${c.ph ? `placeholder="${esc(c.ph)}"` : ''}>${c.hint ? `<span class="hint">${c.hint}</span>` : ''}</div>`;
 }
 function lerCampos(el, cols) {
   const f = ui.formData(el);
@@ -309,7 +322,7 @@ function visao(v) {
   const I = indicadores(), ano = +today().slice(0, 4), P = projecao(ano), kn = app.kn;
   const cor = I.score >= 75 ? 'var(--ok)' : I.score >= 50 ? 'var(--warn)' : 'var(--bad)';
   const R = compararEstrategias(), melhor = ESTRATEGIAS.map(e => R[e[0]]).sort((a, b) => (a.meses.length - b.meses.length) || (a.juros - b.juros))[0];
-  v.innerHTML = `${I.alertas.map(([k, t]) => `<div class="alert ${k}" style="margin-bottom:10px">${icon('alert')}<div>${t}</div></div>`).join('')}
+  v.innerHTML = `${podeEditar() ? `<div class="row" style="justify-content:flex-end;margin-bottom:10px"><button class="btn sm" id="imp">${icon('download')} Importar do Planeador</button></div>` : ''}${I.alertas.map(([k, t]) => `<div class="alert ${k}" style="margin-bottom:10px">${icon('alert')}<div>${t}</div></div>`).join('')}
     <div class="grid g4" style="margin-top:${I.alertas.length ? 6 : 0}px">
       ${kpi(`${icon('wallet')} ${kn('pf_rend', 'Rendimento líquido mensal')}`, eur(I.rend), `média a 12 meses · ${P.n} ${P.n === 1 ? 'mês' : 'meses'} com recibo em ${ano}`, '', true)}
       ${kpi(`${icon('list')} ${kn('pf_desp', 'Despesas fixas / mês')}`, eur(I.desp), `<a href="#/despesas">${despAtivas().length} despesas</a>`)}
@@ -327,6 +340,7 @@ function visao(v) {
           <div id="chd"></div>` : '<div class="empty">Sem dívidas ativas. Registe créditos e cartões em <a href="#/dividas">Dívidas e créditos</a>.</div>'}</div>
     </div>
     <div class="card" style="margin-top:16px"><div class="card-h"><h3>${kn('pf_proj', 'Rendimento líquido')} ${ano}</h3><span class="sub">real ${eur(P.ytd)} · projetado ${eur(P.total)} · <a href="#/rendimentos" data-aba="pf-rend=proj">ver projeção</a></span></div><div id="chr"></div></div>`;
+  const imp = v.querySelector('#imp'); if (imp) imp.onclick = importarPlaneador;
   chart.bars(v.querySelector('#chr'), { labels: MES3, stacked: true, series: [
     { name: 'Real', values: P.linhas.map(l => l.real || 0) }, { name: 'Projetado', values: P.linhas.map(l => l.real == null ? l.proj : 0), color: 'var(--accent2)' },
     ...(M().plano.incluirRefeicao && P.refeicaoTotal ? [{ name: 'Subsídio de refeição', values: P.linhas.map(l => l.refeicao), color: 'var(--info)' }] : [])] });
@@ -459,17 +473,19 @@ const COLS_DESP = () => [{ k: 'nome', label: 'Designação', ph: 'ex.: Renda, El
   { k: 'mes', label: 'Mês da 1.ª cobrança', type: 'select', opts: MESES.map((n, i) => [i + 1, n]), hint: 'Só conta nas despesas trimestrais, semestrais e anuais.' },
   { k: 'dia', label: 'Dia de cobrança', type: 'int', min: 1, max: 28 }, { k: 'entidade', label: 'Entidade a pagar', ph: 'ex.: EDP Comercial' },
   { k: 'contaOrigem', label: 'Pagar a partir de', type: 'select', opts: optsContas() },
+  { k: 'inicio', label: 'Desde (mês)', type: 'month', hint: 'Opcional.' }, { k: 'fim', label: 'Até (mês)', type: 'month', hint: 'Opcional: despesas temporárias.' },
   { k: 'variavel', label: 'Valor variável (é uma média)', type: 'check' }, { k: 'ativo', label: 'Ativa', type: 'check' }];
 function despesas(v) {
   const m = M(), ed = podeEditar(), at = despAtivas(), tot = despesasMensais(), kn = app.kn;
   const porCat = CATS_DESP.map(c => ({ label: c, value: r2(at.filter(e => e.categoria === c).reduce((s, e) => s + mensalDesp(e), 0)) })).filter(x => x.value > 0);
   v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Encargos que se repetem (renda, serviços, seguros…). As prestações de créditos registam-se em <a href="#/dividas">Dívidas e créditos</a>.</span>${ed ? `<button class="btn primary" id="nd">${icon('plus')} Nova despesa</button>` : ''}</div>
-    <div class="grid g3">${kpi(`${icon('list')} ${kn('pf_desp', 'Despesas fixas / mês')}`, eur(tot), `${at.length} ativas`, '', true)}${kpi('Por ano', eur(tot * 12))}${kpi('Peso no rendimento', rendimentoMensal() > 0 ? pct(tot / rendimentoMensal()) : '—', 'face ao rendimento líquido mensal')}</div>
+    ${(() => { const c = casaParte(); return c ? `<div class="alert info" style="margin-bottom:16px">${icon('users')}<div>${c.semDados ? `A casa partilhada <b>${esc(c.nome)}</b> ainda não foi aberta neste computador: a sua parte nas despesas comuns não está a ser contada.` : `Inclui <b>${eur(c.valor)}</b> por mês da parte${c.membro ? ' de ' + esc(c.membro) : ''} nas ${c.n} despesas comuns de <b>${esc(c.nome)}</b>.`} A ligação define-se em <a href="#/simulador" data-aba="pf-sim=par">Parâmetros do plano</a>.</div></div>` : ''; })()}
+    <div class="grid g3">${kpi(`${icon('list')} ${kn('pf_desp', 'Despesas fixas / mês')}`, eur(tot), `${at.length} ativas${casaParte() ? ' + parte na casa' : ''}`, '', true)}${kpi('Por ano', eur(tot * 12))}${kpi('Peso no rendimento', rendimentoMensal() > 0 ? pct(tot / rendimentoMensal()) : '—', 'face ao rendimento líquido mensal')}</div>
     <div class="grid g2" style="margin-top:16px;grid-template-columns:2fr 1fr">
       <div class="card flush"><div class="card-h"><h3>Despesas</h3><span class="sub">o pedido de pagamento segue o circuito de autorização</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th>Periodicidade</th><th class="r">Valor</th><th class="r">Mensal</th><th>Próxima</th><th>Pedido</th></tr></thead><tbody>
-      ${m.despesas.map(e => { const d = proxima(e, e.periodicidade), ps = estadoPed(chaveDesp(e, d)); return `<tr class="${ed ? 'click' : ''}" data-d="${e.id}" style="${e.ativo === false ? 'opacity:.5' : ''}"><td><b>${esc(e.nome)}</b><div class="faint" style="font-size:12px">${esc(e.categoria || '')}${e.entidade ? ' · ' + esc(e.entidade) : ''}${e.variavel ? ' · variável' : ''}</div></td>
+      ${m.despesas.map(e => { const d = proxima(e, e.periodicidade), ps = estadoPed(chaveDesp(e, d)), on = e.ativo !== false && vigente(e); return `<tr class="${ed ? 'click' : ''}" data-d="${e.id}" style="${on ? '' : 'opacity:.5'}"><td><b>${esc(e.nome)}</b><div class="faint" style="font-size:12px">${esc(e.categoria || '')}${e.entidade ? ' · ' + esc(e.entidade) : ''}${e.variavel ? ' · variável' : ''}${e.inicio || e.fim ? ` · ${e.inicio ? 'desde ' + fmtMes(e.inicio) : ''}${e.inicio && e.fim ? ' ' : ''}${e.fim ? 'até ' + fmtMes(e.fim) : ''}` : ''}</div></td>
         <td>${esc((PERIODOS.find(p => p[0] === e.periodicidade) || [0, e.periodicidade])[1])}</td><td class="r num">${eur(e.valor)}</td><td class="r num">${eur(mensalDesp(e))}</td><td>${date(d)}</td>
-        <td>${e.ativo === false ? '<span class="faint">inativa</span>' : ps || (app.can('criar') ? `<button class="btn sm" data-p="${e.id}">Pedir ${eur(e.valor)}</button>` : '—')}</td></tr>`; }).join('') || '<tr><td colspan="6" class="empty">Sem despesas fixas.</td></tr>'}</tbody></table></div></div>
+        <td>${e.ativo === false ? '<span class="faint">inativa</span>' : !vigente(e) ? `<span class="faint">${e.fim && e.fim < ymHoje() ? 'terminou' : 'ainda não começou'}</span>` : ps || (app.can('criar') ? `<button class="btn sm" data-p="${e.id}">Pedir ${eur(e.valor)}</button>` : '—')}</td></tr>`; }).join('') || '<tr><td colspan="6" class="empty">Sem despesas fixas.</td></tr>'}</tbody></table></div></div>
       <div class="card"><div class="card-h"><h3>Por categoria</h3><span class="sub">equivalente mensal</span></div><div id="dn"></div></div></div>`;
   chart.donut(v.querySelector('#dn'), { items: porCat, center: eur(tot), sub: 'por mês' });
   const ed1 = e => { const novo = !e, x = e || { categoria: 'Outros', periodicidade: 'mensal', mes: +today().slice(5, 7), dia: 1, contaOrigem: CAIXA, ativo: true, valor: 0 };
@@ -491,16 +507,20 @@ const COLS_DIV = () => [{ k: 'nome', label: 'Designação', ph: 'ex.: Crédito h
 function dividas(v) {
   const m = M(), ed = podeEditar(), ds = divAtivas(), kn = app.kn, tot = sum(ds, 'capital');
   const jurosMes = r2(ds.reduce((s, d) => s + d.capital * taxaMensal(d), 0)), tan = tot > 0 ? ds.reduce((s, d) => s + d.taxa * d.capital, 0) / tot : 0;
-  v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Créditos, cartões e empréstimos. O capital em dívida atualiza-se aqui depois de cada prestação ou amortização.</span>${ed ? `<button class="btn primary" id="nv">${icon('plus')} Nova dívida</button>` : ''}</div>
+  v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Créditos, cartões e empréstimos. O capital em dívida atualiza-se aqui depois de cada prestação ou amortização, ou ao ler o extrato do cartão.</span>${ed ? `<div class="row"><button class="btn" id="lx">${icon('upload')} Ler extratos de cartão (PDF)</button><button class="btn primary" id="nv">${icon('plus')} Nova dívida</button></div>` : ''}</div>
     <div class="grid g4">${kpi(`${icon('credit')} Capital em dívida`, eur(tot), `${ds.length} dívidas ativas`, '', true)}${kpi(kn('pf_prest', 'Prestações / mês'), eur(prestacoesMensais()))}
       ${kpi('Juros deste mês', eur(jurosMes), 'sobre o capital atual')}${kpi(kn('pf_custo', 'Taxa média ponderada'), pct(tan))}</div>
     <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Dívidas</h3><span class="sub">clique numa linha para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Dívida</th><th class="r">Capital</th><th class="r">${kn('pf_tan', 'Taxa')}</th><th class="r">Prestação</th><th class="r">Juro / mês</th><th>Fim só com prestações</th><th>Prestação seguinte</th><th></th></tr></thead><tbody>
-    ${m.dividas.map(d => { const n = mesesParaLiquidar(d), pr = proxima(d), ps = estadoPed(chaveDiv(d, pr)), on = d.ativo !== false && d.capital > 0.005;
-      return `<tr class="${ed ? 'click' : ''}" data-v="${d.id}" style="${on ? '' : 'opacity:.5'}"><td><b>${esc(d.nome)}</b><div class="faint" style="font-size:12px">${esc(nomeTipo(d.tipo))}${d.credor ? ' · ' + esc(d.credor) : ''}</div></td>
+    ${ordenarDividas(m.dividas).map(d => { const n = mesesParaLiquidar(d), pr = proxima(d), ps = estadoPed(chaveDiv(d, pr)), on = d.ativo !== false && d.capital > 0.005, cart = d.cartaoDe ? m.dividas.find(y => y.id === d.cartaoDe) : null;
+      return `<tr class="${ed ? 'click' : ''}" data-v="${d.id}" style="${on ? '' : 'opacity:.5'}"><td style="${cart ? 'padding-left:28px' : ''}"><b>${esc(d.nome)}</b><div class="faint" style="font-size:12px">${cart ? `plano PagaSimples · ${esc(cart.nome)}${d.prazo ? ` · ${d.prazo} prestações` : ''}` : `${esc(nomeTipo(d.tipo))}${d.credor ? ' · ' + esc(d.credor) : ''}${d.limite ? ` · limite ${eur(d.limite)}` : ''}${d.ultimoExtrato ? ` · extrato n.º ${d.ultimoExtrato.numero} de ${date(d.ultimoExtrato.data)}` : ''}`}</div></td>
       <td class="r num">${eur(d.capital)}</td><td class="r num">${pct(d.taxa)} <span class="faint" style="font-size:11px">${esc((d.tipoTaxa || '').replace('-', ' '))}</span></td><td class="r num">${eur(d.prestacao)}</td><td class="r num">${eur(d.capital * taxaMensal(d))}</td>
       <td>${!on ? '<span class="badge ok">liquidada</span>' : n === Infinity ? '<span class="badge bad">nunca (juro > prestação)</span>' : `${n} meses`}</td>
       <td>${on ? ps || (app.can('criar') ? `<button class="btn sm" data-p="${d.id}">Pedir ${eur(d.prestacao)}</button>` : date(pr)) : '—'}</td>
-      <td class="r">${on && app.can('criar') ? `<button class="btn sm ghost" data-a="${d.id}">Amortizar</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="8" class="empty">Sem dívidas registadas.</td></tr>'}</tbody></table></div></div>`;
+      <td class="r">${on && app.can('criar') ? `<button class="btn sm ghost" data-a="${d.id}">Amortizar</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="8" class="empty">Sem dívidas registadas.</td></tr>'}</tbody></table></div></div>
+    ${m.extratos.length ? `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Extratos de cartão</h3><span class="sub">${m.extratos.length} extratos · clique para ver os movimentos</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Cartão</th><th>N.º</th><th class="r">Saldo em dívida</th><th class="r">A pagar</th><th>Data limite</th><th class="r">Movimentos</th></tr></thead><tbody>
+      ${m.extratos.slice().sort((a, b) => String(b.data).localeCompare(String(a.data))).slice(0, 36).map(x => { const c = m.dividas.find(y => y.id === x.divida); return `<tr class="click" data-x="${x.id}"><td>${date(x.data)}</td><td>${esc(c ? c.nome : x.conta)}</td><td class="mono">${esc(String(x.numero ?? '—'))}</td><td class="r num">${eur(x.saldo)}</td><td class="r num">${eur(x.pagar)}</td><td>${x.dataLimite ? date(x.dataLimite) : '—'}</td><td class="r">${(x.movimentos || []).length}</td></tr>`; }).join('')}</tbody></table></div></div>` : ''}`;
+  v.querySelectorAll('[data-x]').forEach(tr => tr.onclick = () => verExtrato(m.extratos.find(x => x.id === tr.dataset.x)));
+  const lx = v.querySelector('#lx'); if (lx) lx.onclick = escolherExtratos;
   const ed1 = d0 => { const novo = !d0, x = d0 || { tipo: 'consumo', tipoTaxa: 'TAN-fixa', dia: 1, contaOrigem: CAIXA, ativo: true, capital: 0, taxa: 0, prestacao: 0, comissao: null };
     editar({ titulo: 'Dívida / crédito', cols: COLS_DIV(), x, novo, validar: f => !f.nome ? 'Indique a designação' : f.capital < 0 ? 'Capital inválido' : null,
       onSave: f => { if (f.comissao == null) f.comissao = comissaoLegal(f.tipo, f.tipoTaxa, f.meses); Object.assign(x, f); if (novo) { x.id = 'V' + uid(); m.dividas.push(x); }
@@ -518,6 +538,145 @@ function dividas(v) {
   const nv = v.querySelector('#nv'); if (nv) nv.onclick = () => ed1();
 }
 
+
+/* ---------- Cartões de crédito: extratos (PDF) ---------- */
+// cartões primeiro, cada um seguido dos seus planos PagaSimples
+function ordenarDividas(ds) {
+  const planos = ds.filter(d => d.cartaoDe && ds.some(c => c.id === d.cartaoDe));
+  return ds.filter(d => !planos.includes(d)).flatMap(d => [d, ...planos.filter(p => p.cartaoDe === d.id)]);
+}
+const diaDe = iso => iso ? Math.min(28, +String(iso).slice(8, 10) || 5) : null;
+// aplica um extrato lido: atualiza (ou cria) o cartão e os planos PagaSimples, e guarda o extrato no histórico
+function aplicarExtrato(x, ov = {}) {
+  const m = M(), conta = x.conta || ('cartao-' + (x.fimCartao || uid()));
+  let c = m.dividas.find(d => d.tipo === 'cartao' && !d.cartaoDe && d.contaCartao === conta);
+  const novo = !c;
+  if (!c) { c = { id: 'V' + uid(), tipo: 'cartao', tipoTaxa: 'TAN-fixa', comissao: 0, contaOrigem: CAIXA, ativo: true, contaCartao: conta, capital: 0, taxa: 0, prestacao: 0, dia: 5 }; m.dividas.push(c); }
+  const recente = !c.ultimoExtrato || String(x.data || '') >= String(c.ultimoExtrato.data || '');
+  if (!m.extratos.some(e => e.conta === conta && e.numero === x.numero)) m.extratos.push({ id: 'X' + uid(), divida: c.id, conta, numero: x.numero, data: x.data, periodoIni: x.periodoIni, periodoFim: x.periodoFim,
+    limite: x.limite, saldo: x.saldo, rotativo: x.rotativo, pagar: x.pagar, minimo: x.minimo, dataLimite: x.dataLimite, tan: x.tan, opcaoPct: x.opcaoPct,
+    planos: (x.planos || []).map(p => ({ descricao: p.descricao, inicio: p.inicio, montante: p.montante, prazo: p.prazo, tan: p.tan, saldo: p.saldo, proxima: p.proxima, prestacao: p.prestacao })),
+    movimentos: (x.movimentos || []).map(mv => ({ data: mv.data, descricao: mv.descricao, valor: mv.valor, tipo: mv.tipo })), ficheiro: ov.ficheiro || x.ficheiro || '', importadoEm: new Date().toISOString() });
+  if (recente) {
+    const nome = ov.nome || c.nome || `Cartão ${x.produto || ''} ····${x.fimCartao || conta.slice(-4)}`.replace(/\s+/g, ' ');
+    Object.assign(c, { nome, credor: x.emissor || c.credor || '', produto: x.produto || c.produto, fimCartao: x.fimCartao || c.fimCartao, limite: x.limite ?? c.limite,
+      capital: r2(ov.rotativo ?? x.rotativo ?? x.saldo ?? c.capital), taxa: ov.taxa ?? x.tan ?? c.taxa, prestacao: r2(ov.prestacao ?? x.prestacaoCartao ?? c.prestacao),
+      dia: diaDe(x.dataLimite) || c.dia, ultimoExtrato: { numero: x.numero, data: x.data } });
+    if (ov.titular !== undefined) c.titular = ov.titular;
+    const chaves = new Set();
+    (x.planos || []).forEach(p => {
+      const chave = `${conta}|${p.descricao}|${p.inicio || ''}`; chaves.add(chave);
+      let d = m.dividas.find(y => y.chavePlano === chave);
+      if (!d) { d = { id: 'V' + uid(), tipo: 'cartao', tipoTaxa: 'TAN-fixa', comissao: 0, contaOrigem: c.contaOrigem || CAIXA, ativo: true, cartaoDe: c.id, chavePlano: chave }; m.dividas.push(d); }
+      Object.assign(d, { nome: 'PagaSimples ' + p.descricao, credor: c.credor, capital: r2(p.saldo ?? d.capital ?? 0), taxa: p.tan ?? d.taxa ?? 0, prestacao: r2(p.prestacao ?? d.prestacao ?? 0),
+        meses: p.emFalta ?? d.meses ?? null, montante: p.montante, prazo: p.prazo, inicio: p.inicio, dia: c.dia });
+    });
+    // planos do cartão que deixaram de aparecer no extrato mais recente estão liquidados
+    m.dividas.filter(y => y.cartaoDe === c.id && y.chavePlano && !chaves.has(y.chavePlano) && (+y.capital || 0) > 0).forEach(y => { y.capital = 0; y.liquidadaEm = x.data; });
+  }
+  return { cartao: c, novo, recente };
+}
+function escolherExtratos() {
+  if (!SPAP.leitorRecibos || !SPAP.leitorExtratos) { ui.toast('O leitor de extratos não está disponível nesta página.', 'bad'); return; }
+  const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true; inp.accept = '.pdf,application/pdf,image/*';
+  inp.onchange = () => { if (inp.files.length) lerExtratos([...inp.files]); };
+  inp.click();
+}
+async function lerExtratos(ficheiros) {
+  const pm = ui.modal({ title: 'A ler extratos', locked: true, body: `<p class="muted" style="margin:0" id="lr">A preparar…</p>` });
+  const msg = t => { const e = pm.el.querySelector('#lr'); if (e) e.textContent = t; };
+  const lidos = [];
+  for (let i = 0; i < ficheiros.length; i++) {
+    const f = ficheiros[i], pre = `${ficheiros.length > 1 ? i + 1 + '/' + ficheiros.length + ' · ' : ''}${f.name}: `;
+    try { const { texto, metodo } = await SPAP.leitorRecibos.lerTexto(f, t => msg(pre + t)); const d = SPAP.leitorExtratos.analisar(texto); d.ficheiro = f.name; lidos.push({ nome: f.name, metodo, d }); }
+    catch (e) { lidos.push({ nome: f.name, erro: e.message || String(e) }); }
+  }
+  pm.close();
+  if (lidos.every(x => x.erro)) {
+    ui.modal({ title: 'Não foi possível ler os extratos', body: `<div class="stack" style="gap:8px">${lidos.map(x => `<div><b>${esc(x.nome)}</b><div class="muted" style="font-size:13px">${esc(x.erro)}</div></div>`).join('')}
+      <div class="alert info">${icon('alert')}<div>Pode continuar a registar o cartão à mão em <b>Nova dívida</b> (tipo "Cartão de crédito").</div></div></div>`, actions: [{ label: 'Fechar', kind: 'primary' }] });
+    return;
+  }
+  reverExtratos(lidos);
+}
+function reverExtratos(lidos) {
+  const m = M(), ok = lidos.filter(x => !x.erro).sort((a, b) => String(a.d.data || '').localeCompare(String(b.d.data || '')));
+  const num = (n, v, w = 96) => `<input class="inp inp-sm num" type="number" step="any" name="${n}" value="${v == null ? '' : esc(v)}" style="width:${w}px">`;
+  const blocos = ok.map((x, i) => {
+    const d = x.d, c = m.dividas.find(y => y.tipo === 'cartao' && !y.cartaoDe && y.contaCartao === d.conta), avisos = [];
+    const ultimo = ok.filter(y => y.d.conta === d.conta).pop() === x;
+    if (m.extratos.some(e => e.conta === d.conta && e.numero === d.numero)) avisos.push('este extrato já foi lido');
+    if (d.saldo == null) avisos.push('saldo em dívida não encontrado');
+    if (!d.conta) avisos.push('n.º de conta-cartão não encontrado');
+    const historico = !ultimo || (c && c.ultimoExtrato && String(d.data || '') < String(c.ultimoExtrato.data || ''));
+    const bloqueia = avisos.length > 0;
+    return `<div class="card" data-i="${lidos.indexOf(x)}" style="margin-bottom:12px"><div class="row between" style="align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <label class="check" style="align-items:flex-start"><input type="checkbox" name="inc" ${bloqueia ? '' : 'checked'} style="margin-top:3px"><span><b>${esc(x.nome)}</b><br><span class="faint" style="font-size:12px">${esc(x.metodo)} · ${esc(d.modelo)}${d.produto ? ' · ' + esc(d.produto) : ''} · conta-cartão ${esc(d.conta || '—')}</span></span></label>
+      <span>${c ? `<span class="badge info">atualiza ${esc(c.nome)}</span>` : '<span class="badge acc">cartão novo</span>'} ${historico ? '<span class="badge">só histórico (há extrato mais recente)</span>' : ''}</span></div>
+      ${avisos.length ? `<div style="margin-top:6px">${avisos.map(a => `<span class="badge warn" style="margin-right:4px">${esc(a)}</span>`).join('')}</div>` : ''}
+      <div class="kv" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:10px"><div><span>Extrato</span><b>n.º ${esc(String(d.numero ?? '—'))} · ${d.data ? date(d.data) : '—'}</b></div><div><span>Saldo em dívida</span><b class="num">${eur(d.saldo)}</b></div>
+        <div><span>Montante a pagar</span><b class="num">${eur(d.pagar)}</b> <span class="faint" style="font-size:11px">mín. ${eur(d.minimo)}</span></div><div><span>Data limite</span><b>${d.dataLimite ? date(d.dataLimite) : '—'}</b></div></div>
+      ${historico ? '' : `<div class="row" style="gap:10px;margin-top:10px;flex-wrap:wrap">
+        <div class="fld"><label>Nome do cartão</label><input class="inp inp-sm" name="nome" value="${esc(c ? c.nome : `Cartão ${d.produto || ''} ····${d.fimCartao || String(d.conta || '').slice(-4)}`.replace(/\s+/g, ' '))}" style="width:230px"></div>
+        <div class="fld"><label>Saldo do cartão sem planos (€)</label>${num('rotativo', d.rotativo, 120)}</div>
+        <div class="fld"><label>TAN (%)</label>${num('taxa', d.tan == null ? null : r2(d.tan * 10000) / 100, 80)}</div>
+        <div class="fld"><label>Prestação do cartão (€)</label>${num('prestacao', d.prestacaoCartao, 110)}</div></div>`}
+      ${d.planos.length ? `<div class="tbl-wrap" style="margin-top:10px"><table class="tbl"><thead><tr><th>Plano PagaSimples</th><th>Início</th><th class="r">Montante</th><th class="r">Em dívida</th><th class="r">TAN</th><th class="r">Prestação</th><th class="r">Em falta</th></tr></thead><tbody>
+        ${d.planos.map(p => `<tr><td>${esc(p.descricao)}</td><td>${p.inicio ? date(p.inicio) : '—'}</td><td class="r num">${eur(p.montante)}</td><td class="r num">${eur(p.saldo)}</td><td class="r num">${p.tan == null ? '—' : pct(p.tan)}</td><td class="r num">${eur(p.prestacao)}</td><td class="r">${p.emFalta ?? '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      <div class="faint" style="font-size:12px;margin-top:8px">${d.movimentos.length} movimentos${d.notas.length ? ' · ' + esc(d.notas.join(' · ')) : ''}</div></div>`;
+  }).join('');
+  const erros = lidos.filter(x => x.erro).map(x => `<div class="alert bad" style="margin-bottom:8px">${icon('alert')}<div><b>${esc(x.nome)}</b>: ${esc(x.erro)}</div></div>`).join('');
+  ui.modal({ title: 'Rever extratos lidos', wide: true, sub: 'Cada cartão fica como dívida própria e cada plano PagaSimples como dívida associada ao cartão. Confirme os valores antes de gravar.', body: erros + blocos,
+    onOpen: el => { const md = el.querySelector('.modal'); if (md) md.style.width = 'min(1200px, 96vw)'; },
+    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('check') + 'Gravar extratos', kind: 'primary', onClick: el => {
+      const sel = [...el.querySelectorAll('.card[data-i]')].filter(b => b.querySelector('[name=inc]').checked);
+      if (!sel.length) { ui.toast('Nenhum extrato marcado para gravar', 'warn'); return false; }
+      let n = 0;
+      sel.forEach(b => { const x = lidos[+b.dataset.i], g = k => { const e = b.querySelector(`[name=${k}]`); return e && e.value.trim() !== '' ? e.value.trim() : null; };
+        const ov = { ficheiro: x.nome }; if (g('nome')) ov.nome = g('nome'); if (g('rotativo') != null) ov.rotativo = +g('rotativo'); if (g('taxa') != null) ov.taxa = +g('taxa') / 100; if (g('prestacao') != null) ov.prestacao = +g('prestacao');
+        const r = aplicarExtrato(x.d, ov); n++; audit('PF_EXTRATO', `${r.cartao.nome} · extrato n.º ${x.d.numero ?? '—'} de ${x.d.data || '—'} · saldo ${eur(x.d.saldo)}${r.recente ? '' : ' (histórico)'}`); });
+      app.save(); ui.toast(`${n} ${n === 1 ? 'extrato gravado' : 'extratos gravados'}`, 'ok'); app.refresh(); } }] });
+}
+function verExtrato(x) {
+  if (!x) return; const c = M().dividas.find(y => y.id === x.divida);
+  ui.modal({ title: `Extrato n.º ${esc(String(x.numero ?? '—'))} · ${esc(c ? c.nome : x.conta)}`, wide: true, sub: `${x.periodoIni ? date(x.periodoIni) + ' a ' + date(x.periodoFim) : date(x.data)}${x.ficheiro ? ' · ' + esc(x.ficheiro) : ''}`,
+    body: `<div class="kv" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div><span>Saldo em dívida</span><b class="num">${eur(x.saldo)}</b></div><div><span>Montante a pagar</span><b class="num">${eur(x.pagar)}</b></div><div><span>Mínimo</span><b class="num">${eur(x.minimo)}</b></div><div><span>Data limite</span><b>${x.dataLimite ? date(x.dataLimite) : '—'}</b></div></div>
+      <div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>Data</th><th>Movimento</th><th>Tipo</th><th class="r">Montante</th></tr></thead><tbody>
+      ${(x.movimentos || []).map(mv => `<tr><td>${date(mv.data)}</td><td>${esc(mv.descricao)}</td><td><span class="badge ${mv.tipo === 'Pagamento' ? 'ok' : mv.tipo === 'Compra' ? '' : 'warn'}">${esc(mv.tipo)}</span></td><td class="r num ${mv.valor < 0 ? 'pos' : ''}">${eur(mv.valor)}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">Sem movimentos.</td></tr>'}</tbody></table></div>
+      ${(x.planos || []).length ? `<div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>Plano PagaSimples</th><th class="r">Em dívida</th><th class="r">Prestação</th><th class="r">Prestação n.º</th></tr></thead><tbody>${x.planos.map(p => `<tr><td>${esc(p.descricao)}</td><td class="r num">${eur(p.saldo)}</td><td class="r num">${eur(p.prestacao)}</td><td class="r">${p.proxima ? `${p.proxima}/${p.prazo}` : '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}`,
+    actions: [{ label: 'Fechar', kind: 'primary' }] });
+}
+
+/* ---------- Importação do Planeador Financeiro (ficheiro gerado a partir do sistema antigo) ---------- */
+function importarPlaneador() {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return; let j;
+    try { j = JSON.parse(await f.text()); } catch (e) { ui.toast('O ficheiro não é um ficheiro de importação válido.', 'bad'); return; }
+    if (!j || j.formato !== 'planeador-bxb') { ui.toast('Este ficheiro não foi gerado a partir do Planeador Financeiro.', 'bad'); return; }
+    if (j.perfil !== 'pessoal') { ui.toast('Este ficheiro é de uma casa partilhada: importe-o num sistema do tipo "Casa partilhada".', 'warn'); return; }
+    const m = M(), tem = (l, o) => l.some(x => x.origem === o);
+    const novos = { rec: (j.recibos || []).filter(r => !tem(m.recibos, r.origem)), desp: (j.despesas || []).filter(r => !tem(m.despesas, r.origem)),
+      cred: (j.creditos || []).filter(r => !tem(m.dividas, r.origem)), ext: (j.extratos || []).filter(x => !m.extratos.some(e => e.conta === x.conta && e.numero === x.numero)) };
+    const cartoes = new Set(novos.ext.map(x => x.conta)).size;
+    ui.modal({ title: 'Importar do Planeador Financeiro', sub: `${esc(f.name)} · ${esc((j.pessoa || {}).nome || '')}`, body: `<div class="kv" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+        <div><span>Recibos de vencimento</span><b>${novos.rec.length} de ${(j.recibos || []).length}</b></div><div><span>Despesas fixas</span><b>${novos.desp.length} de ${(j.despesas || []).length}</b></div>
+        <div><span>Créditos</span><b>${novos.cred.length} de ${(j.creditos || []).length}</b></div><div><span>Extratos de cartão</span><b>${novos.ext.length} de ${(j.extratos || []).length}${cartoes ? ` · ${cartoes} cartões` : ''}</b></div></div>
+      <p class="muted" style="font-size:13px;margin:14px 0 0">O que já tinha sido importado antes não é repetido. Os cartões ficam com os valores do extrato mais recente e os planos PagaSimples como dívidas próprias.${(j.despesasCasa || []).length ? ` As ${(j.despesasCasa || []).length} despesas partilhadas ficam no sistema da casa (ficheiro próprio).` : ''}</p>`,
+      actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('download') + 'Importar', kind: 'primary', onClick: () => {
+        novos.rec.forEach(r => m.recibos.push(Object.assign({ id: 'R' + uid(), criadoEm: new Date().toISOString() }, r)));
+        novos.desp.forEach(r => m.despesas.push(Object.assign({ id: 'D' + uid(), contaOrigem: CAIXA, ativo: true }, r)));
+        novos.cred.forEach(r => m.dividas.push(Object.assign({ id: 'V' + uid(), contaOrigem: CAIXA, ativo: true }, r)));
+        novos.ext.slice().sort((a, b) => String(a.data).localeCompare(String(b.data))).forEach(x => aplicarExtrato(x, { ficheiro: x.ficheiro }));
+        if (j.plano) ['salarioBase', 'emergMeses', 'emergProgressivo', 'poupancaTipo', 'poupancaFixa', 'poupancaPct'].forEach(k => { if (j.plano[k] != null) m.plano[k] = j.plano[k]; });
+        // liga o plano à casa partilhada indicada no ficheiro, se já existir no grupo
+        if (j.casa && !m.plano.casa) { const c = ((window.Grupo && Grupo.lista()) || []).find(x => x.modelo === 'casa' && x.nome.toLowerCase() === String(j.casa.nome || '').toLowerCase()); if (c) { m.plano.casa = c.key; m.plano.membroCasa = j.casa.membro; } }
+        audit('PF_IMPORTACAO', `Planeador Financeiro (${f.name}): ${novos.rec.length} recibos, ${novos.desp.length} despesas, ${novos.cred.length} créditos, ${novos.ext.length} extratos`);
+        app.save(); ui.toast('Dados importados', 'ok'); app.refresh(); } }] });
+  };
+  inp.click();
+}
+
 /* ---------- Simulador de estratégias e parâmetros do plano ---------- */
 const COLS_PLANO = () => [
   { k: 'salarioBase', label: 'Salário líquido recorrente', type: 'money', hint: `Deixe 0 para estimar pelos recibos (${eur(estimarLiquido(M().recibos).base)}).` },
@@ -529,16 +688,29 @@ const COLS_PLANO = () => [
   { k: 'fundoInicial', label: 'Valor do fundo (se manual)', type: 'money' },
   { k: 'poupancaTipo', label: 'Poupança mensal', type: 'select', opts: [['none', 'Sem poupança separada'], ['fixed', 'Valor fixo'], ['percentage', '% do rendimento'], ['percentage_surplus', '% do excedente'], ['percentage_after_min_payments', '% do excedente depois das prestações']] },
   { k: 'poupancaFixa', label: 'Poupança fixa', type: 'money' }, { k: 'poupancaPct', label: 'Poupança em %', type: 'pct' },
-  { k: 'horizonte', label: 'Horizonte da simulação (meses)', type: 'int', min: 12, max: 480 }];
+  { k: 'horizonte', label: 'Horizonte da simulação (meses)', type: 'int', min: 12, max: 480 },
+  { k: 'casaLigacao', label: 'Casa partilhada', type: 'select', opts: opcoesCasa(), hint: 'A sua parte nas despesas comuns da casa conta como despesa fixa neste plano.' }];
+// casas partilhadas do grupo e os seus membros (lidos do livro de cada casa)
+function opcoesCasa() {
+  const out = [['', 'Nenhuma']];
+  ((window.Grupo && Grupo.lista()) || []).filter(s => s.modelo === 'casa' && s.ativa !== false).forEach(s => {
+    let d = null; try { d = JSON.parse(localStorage.getItem('spap:' + s.key)); } catch (e) { }
+    const ms = (d && d.mod && d.mod.membros) || [];
+    if (!ms.length) out.push([s.key + '|', `${s.nome} (ainda sem membros)`]); else ms.forEach(mb => out.push([s.key + '|' + mb.id, `${s.nome} · ${mb.nome}`]));
+  });
+  return out;
+}
 function simulador(v) {
   const T = tabs('pf-sim', 'est', [['est', 'Comparar estratégias'], ['plano', 'Plano mês a mês'], ['par', 'Parâmetros do plano']]), m = M(), kn = app.kn;
   if (T.t === 'par') {
     const cols = COLS_PLANO();
+    m.plano.casaLigacao = m.plano.casa ? m.plano.casa + '|' + (m.plano.membroCasa || '') : '';
     v.innerHTML = `${T.html}<div class="card"><div class="card-h"><h3>Parâmetros do plano</h3><span class="sub">usados no painel, no simulador e nos objetivos</span></div><form class="form" id="pp">${cols.map(c => campo(c, m.plano)).join('')}</form>
       <div class="row" style="justify-content:flex-end;margin-top:14px">${podeEditar() ? `<button class="btn primary" id="gp">Guardar parâmetros</button>` : ''}</div></div>`;
     bindTabs(v);
     const gp = v.querySelector('#gp'); if (gp) gp.onclick = () => { const f = lerCampos(v.querySelector('#pp'), cols);
       f.horizonte = Math.max(12, Math.min(480, f.horizonte || 240)); f.emergProgressivo = Math.max(0, f.emergProgressivo || 0); f.poupancaPct = f.poupancaPct || 0;
+      const [casa, membroCasa] = String(f.casaLigacao || '').split('|'); f.casa = casa || ''; f.membroCasa = membroCasa || ''; delete f.casaLigacao;
       Object.assign(m.plano, f); audit('PF_PLANO', 'Parâmetros do plano financeiro alterados'); app.save(); ui.toast('Parâmetros guardados', 'ok'); app.refresh(); };
     return;
   }
@@ -640,7 +812,7 @@ return {
   // despesas e prestações por pedir, e o salário projetado, entram na previsão de liquidez
   previsao: (a, ini, fim) => {
     const out = [], hoje = today(), de = ini && ini > hoje ? ini : hoje, ate = fim || SPAP.addMonths(hoje, 3), pl = M().plano;
-    despAtivas().forEach(e => ocorrencias(e, e.periodicidade, de, ate).forEach(d => { if (!vivos(chaveDesp(e, d)).length) out.push({ conta: e.contaOrigem || CAIXA, data: d, valor: -(+e.valor || 0), tipo: 'Despesa fixa', descricao: e.nome }); }));
+    M().despesas.filter(e => e.ativo !== false).forEach(e => ocorrencias(e, e.periodicidade, de, ate).forEach(d => { if (vigente(e, d.slice(0, 7)) && !vivos(chaveDesp(e, d)).length) out.push({ conta: e.contaOrigem || CAIXA, data: d, valor: -(+e.valor || 0), tipo: 'Despesa fixa', descricao: e.nome }); }));
     divAtivas().forEach(x => ocorrencias(x, 'mensal', de, ate).forEach(d => { if (!vivos(chaveDiv(x, d)).length) out.push({ conta: x.contaOrigem || CAIXA, data: d, valor: -(+x.prestacao || 0), tipo: 'Prestação', descricao: x.nome }); }));
     ocorrencias({ dia: pl.diaSalario || 1 }, 'mensal', de, ate).forEach(d => {
       const y = +d.slice(0, 4), m = +d.slice(5, 7), rs = M().recibos.filter(r => +r.ano === y && +r.mes === m);

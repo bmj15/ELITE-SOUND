@@ -30,11 +30,21 @@ O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). 
       - Os PDFs com texto são lidos diretamente; os digitalizados e as fotografias passam por OCR em português (`shared/leitor-recibos.js`).
       - A primeira leitura precisa de Internet para carregar o leitor (pdf.js / Tesseract).
       - Há um modelo afinado para a Joaquim Chaves Clínicas Médicas: o IRS é a soma de todas as linhas de retenção, incluindo acertos de meses anteriores e subsídios. Para outros recibos usa-se o modelo genérico.
-    - **Despesas fixas:** convertidas em valor mensal.
+    - **Despesas fixas:** convertidas em valor mensal, com mês de início e de fim opcionais. Se o plano estiver ligado a uma Casa partilhada, a parte da pessoa nas despesas comuns conta como despesa fixa.
     - **Dívidas e créditos:** taxas TAN/TAEG e comissão legal de amortização antecipada.
+    - **Ler extratos de cartão (PDF):** porta do leitor de extratos Santander do Planeador (`shared/leitor-extratos.js`).
+      - Cada cartão é atualizado pelo extrato mais recente: o saldo fica sem os planos PagaSimples, a prestação é o montante a pagar sem as prestações dos planos, e a taxa é a TAN.
+      - Cada plano PagaSimples fica como dívida própria, ligada ao cartão. Um plano que desaparece do extrato fica liquidado.
+      - Os extratos ficam no histórico, com os movimentos.
+    - **Importar do Planeador** (Painel): importa um ficheiro gerado a partir do sistema antigo (recibos, despesas, créditos e extratos). O que já foi importado não se repete.
     - **Simulador:** compara as estratégias avalanche, snowball e equilibrada, com fundo de emergência e poupança.
     - **Objetivos e saúde financeira.**
     - **Pagamentos:** as prestações, as despesas, as amortizações e a entrada dos vencimentos na tesouraria são pedidos SPAP. A conta do credor ou fornecedor é criada automaticamente. O que ainda não foi pedido entra na previsão de liquidez;
+  - **Casa partilhada** — as despesas comuns de uma casa (`shared/modelo-casa.js`):
+    - para cada despesa: quem a paga e a parte de cada membro (em %);
+    - o acerto mensal: quem transfere quanto a quem;
+    - as dívidas entre membros (quem deve a quem), que se marcam como pagas.
+    - Cada membro tem o seu próprio sistema de Planeamento financeiro, privado, ligado à casa em Parâmetros do plano.
   - **Base** — só contas, pagamentos, autorizações e relatórios.
 - Criar ou alterar uma subsidiária segue a regra das duas pessoas. A subsidiária recebe um **sistema próprio** (livro de contas, utilizadores, PIN, autorizações e auditoria independentes), uma conta na holding e aparece no portal.
 - No primeiro acesso ao sistema da subsidiária, o administrador define o PIN. Ao criar a subsidiária escolhe-se que utilizadores da holding têm acesso e com que papel (pelo menos um administrador). Os outros não são copiados. Entram sem PIN.

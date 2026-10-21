@@ -15,6 +15,7 @@ const ELITE = {
 const MODELOS = {
   servicos: { nome: 'Comércio e serviços', desc: 'Vendas, catálogo, comissões de vendedores e distribuição de resultados pelos sócios (como a Elite Sound).' },
   planeamento: { nome: 'Planeamento financeiro', desc: 'Rendimentos e recibos de vencimento, despesas fixas, dívidas e créditos, simulador de amortização (avalanche, snowball, equilibrada), objetivos e saúde financeira (como o Planeador Financeiro).' },
+  casa: { nome: 'Casa partilhada', desc: 'Despesas comuns de uma casa: quem paga, a parte de cada membro, o acerto mensal e quem deve a quem. Cada membro liga o seu plano pessoal a esta casa.' },
   base: { nome: 'Base', desc: 'Contas, pedidos de pagamento, autorizações, orçamentos e relatórios — sem módulo de vendas.' },
 };
 const r2 = v => Math.round((+v || 0) * 100) / 100;
