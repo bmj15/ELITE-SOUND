@@ -230,6 +230,7 @@ function indicadores() {
   if (emerg != null && emerg < BENCH.emergMin) alertas.push(['bad', `O fundo de emergência cobre menos de 1 mês de despesas (${eur(fundo)}).`]);
   if (poup != null && poup < BENCH.poupMin) alertas.push(['warn', exc < 0 ? `As saídas mensais superam o rendimento em ${eur(-exc)}.` : `A taxa de poupança é só ${pct(poup)} (recomendado ≥ 10%).`]);
   ds.filter(d => d.tipo === 'cartao' ? (+d.taxa || 0) >= BENCH.tanCartao : (+d.taxa || 0) > BENCH.tanAlta).forEach(d => alertas.push(['warn', `<b>${esc(d.nome)}</b> tem uma taxa de ${pct(d.taxa)}: é a dívida mais cara a amortizar primeiro.`]));
+  ds.filter(d => d.incumprimento).forEach(d => { const u = d.ultimoExtrato || {}; alertas.unshift(['bad', `<b>${esc(d.nome)}</b> está em incumprimento${d.incumprimento.montante ? `: <b>${eur(d.incumprimento.montante)}</b> em atraso` : ''}${d.incumprimento.bloqueado ? ' e a utilização está bloqueada pelo banco' : ''}.${u.pagar ? ` O extrato n.º ${u.numero} pede ${eur(u.pagar)}${u.dataLimite ? ' até ' + date(u.dataLimite) : ''}.` : ''} Veja em <a href="#/dividas">Dívidas e créditos</a>.`]); });
   ds.filter(d => mesesParaLiquidar(d) === Infinity).forEach(d => alertas.push(['bad', `A prestação de <b>${esc(d.nome)}</b> não cobre os juros: a dívida cresce todos os meses.`]));
   return { rend, desp, prest, exc, divida, fundo, dti, poup, emerg, tanMedia, comp, score, nota, alertas };
 }
@@ -514,7 +515,7 @@ function dividas(v) {
     ${ordenarDividas(m.dividas).map(d => { const n = mesesParaLiquidar(d), pr = proxima(d), ps = estadoPed(chaveDiv(d, pr)), on = d.ativo !== false && d.capital > 0.005, cart = d.cartaoDe ? m.dividas.find(y => y.id === d.cartaoDe) : null;
       return `<tr class="${ed ? 'click' : ''}" data-v="${d.id}" style="${on ? '' : 'opacity:.5'}"><td style="${cart ? 'padding-left:28px' : ''}"><b>${esc(d.nome)}</b><div class="faint" style="font-size:12px">${cart ? `plano PagaSimples · ${esc(cart.nome)}${d.prazo ? ` · ${d.prazo} prestações` : ''}` : `${esc(nomeTipo(d.tipo))}${d.credor ? ' · ' + esc(d.credor) : ''}${d.limite ? ` · limite ${eur(d.limite)}` : ''}${d.ultimoExtrato ? ` · extrato n.º ${d.ultimoExtrato.numero} de ${date(d.ultimoExtrato.data)}` : ''}`}</div></td>
       <td class="r num">${eur(d.capital)}</td><td class="r num">${pct(d.taxa)} <span class="faint" style="font-size:11px">${esc((d.tipoTaxa || '').replace('-', ' '))}</span></td><td class="r num">${eur(d.prestacao)}</td><td class="r num">${eur(d.capital * taxaMensal(d))}</td>
-      <td>${!on ? '<span class="badge ok">liquidada</span>' : n === Infinity ? '<span class="badge bad">nunca (juro > prestação)</span>' : `${n} meses`}</td>
+      <td>${!on ? (d.canceladoEm ? `<span class="badge warn" data-tip="O banco cancelou o plano em ${date(d.canceladoEm)} e o valor em dívida passou para o saldo do cartão.">cancelado · passou para o cartão</span>` : '<span class="badge ok">liquidada</span>') : d.incumprimento ? `<span class="badge bad">em incumprimento${d.incumprimento.montante ? ' · ' + eur(d.incumprimento.montante) + ' em atraso' : ''}</span>${d.incumprimento.bloqueado ? ' <span class="badge bad">bloqueado</span>' : ''}` : n === Infinity ? '<span class="badge bad">nunca (juro > prestação)</span>' : `${n} meses`}</td>
       <td>${on ? ps || (app.can('criar') ? `<button class="btn sm" data-p="${d.id}">Pedir ${eur(d.prestacao)}</button>` : date(pr)) : '—'}</td>
       <td class="r">${on && app.can('criar') ? `<button class="btn sm ghost" data-a="${d.id}">Amortizar</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="8" class="empty">Sem dívidas registadas.</td></tr>'}</tbody></table></div></div>
     ${m.extratos.length ? `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Extratos de cartão</h3><span class="sub">${m.extratos.length} extratos · clique para ver os movimentos</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Cartão</th><th>N.º</th><th class="r">Saldo em dívida</th><th class="r">A pagar</th><th>Data limite</th><th class="r">Movimentos</th></tr></thead><tbody>
@@ -554,14 +555,14 @@ function aplicarExtrato(x, ov = {}) {
   if (!c) { c = { id: 'V' + uid(), tipo: 'cartao', tipoTaxa: 'TAN-fixa', comissao: 0, contaOrigem: CAIXA, ativo: true, contaCartao: conta, capital: 0, taxa: 0, prestacao: 0, dia: 5 }; m.dividas.push(c); }
   const recente = !c.ultimoExtrato || String(x.data || '') >= String(c.ultimoExtrato.data || '');
   if (!m.extratos.some(e => e.conta === conta && e.numero === x.numero)) m.extratos.push({ id: 'X' + uid(), divida: c.id, conta, numero: x.numero, data: x.data, periodoIni: x.periodoIni, periodoFim: x.periodoFim,
-    limite: x.limite, saldo: x.saldo, rotativo: x.rotativo, pagar: x.pagar, minimo: x.minimo, dataLimite: x.dataLimite, tan: x.tan, opcaoPct: x.opcaoPct,
+    limite: x.limite, saldo: x.saldo, rotativo: x.rotativo, pagar: x.pagar, minimo: x.minimo, dataLimite: x.dataLimite, tan: x.tan, opcaoPct: x.opcaoPct, incumprimento: x.incumprimento || null,
     planos: (x.planos || []).map(p => ({ descricao: p.descricao, inicio: p.inicio, montante: p.montante, prazo: p.prazo, tan: p.tan, saldo: p.saldo, proxima: p.proxima, prestacao: p.prestacao })),
     movimentos: (x.movimentos || []).map(mv => ({ data: mv.data, descricao: mv.descricao, valor: mv.valor, tipo: mv.tipo })), ficheiro: ov.ficheiro || x.ficheiro || '', importadoEm: new Date().toISOString() });
   if (recente) {
     const nome = ov.nome || c.nome || `Cartão ${x.produto || ''} ····${x.fimCartao || conta.slice(-4)}`.replace(/\s+/g, ' ');
     Object.assign(c, { nome, credor: x.emissor || c.credor || '', produto: x.produto || c.produto, fimCartao: x.fimCartao || c.fimCartao, limite: x.limite ?? c.limite,
       capital: r2(ov.rotativo ?? x.rotativo ?? x.saldo ?? c.capital), taxa: ov.taxa ?? x.tan ?? c.taxa, prestacao: r2(ov.prestacao ?? x.prestacaoCartao ?? c.prestacao),
-      dia: diaDe(x.dataLimite) || c.dia, ultimoExtrato: { numero: x.numero, data: x.data } });
+      dia: diaDe(x.dataLimite) || c.dia, ultimoExtrato: { numero: x.numero, data: x.data, pagar: x.pagar, minimo: x.minimo, dataLimite: x.dataLimite }, incumprimento: x.incumprimento || null });
     if (ov.titular !== undefined) c.titular = ov.titular;
     const chaves = new Set();
     (x.planos || []).forEach(p => {
@@ -571,8 +572,11 @@ function aplicarExtrato(x, ov = {}) {
       Object.assign(d, { nome: 'PagaSimples ' + p.descricao, credor: c.credor, capital: r2(p.saldo ?? d.capital ?? 0), taxa: p.tan ?? d.taxa ?? 0, prestacao: r2(p.prestacao ?? d.prestacao ?? 0),
         meses: p.emFalta ?? d.meses ?? null, montante: p.montante, prazo: p.prazo, inicio: p.inicio, dia: c.dia });
     });
-    // planos do cartão que deixaram de aparecer no extrato mais recente estão liquidados
-    m.dividas.filter(y => y.cartaoDe === c.id && y.chavePlano && !chaves.has(y.chavePlano) && (+y.capital || 0) > 0).forEach(y => { y.capital = 0; y.liquidadaEm = x.data; });
+    // planos que deixaram de aparecer: cancelados pelo banco (o valor passou para o saldo do cartão) ou liquidados
+    const cancelados = (x.planosCancelados || []).length > 0 || (x.movimentos || []).some(mv => /CANC\.?\s*P(AGA)?SIMPLES/i.test(mv.descricao));
+    m.dividas.filter(y => y.cartaoDe === c.id && y.chavePlano && !chaves.has(y.chavePlano)).forEach(y => {
+      if (cancelados && !y.canceladoEm && ((+y.capital || 0) > 0 || y.liquidadaEm === x.data)) { y.capital = 0; y.canceladoEm = x.data; delete y.liquidadaEm; }
+      else if ((+y.capital || 0) > 0) { y.capital = 0; y.liquidadaEm = x.data; } });
   }
   return { cartao: c, novo, recente };
 }

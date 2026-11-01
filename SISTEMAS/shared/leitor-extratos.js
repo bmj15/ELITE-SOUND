@@ -73,7 +73,7 @@ function planos(d, t) {
 }
 
 /* ---------- Movimentos ---------- */
-const TIPOS = [[/\bPSIM[\s-]/, 'Prestação PagaSimples'], [/\bIMP\.?\s*SELO|\bIMPOSTO\s+DO\s+SELO|\bI[.\s]+S[.\s]*\(?\d{2}\.\d|\bIS\s*[-/(]|^\s*[1I]\.?\s*S\b/, 'Imposto do selo'],
+const TIPOS = [[/CANC\.?\s*P(AGA)?SIMPLES/, 'Plano cancelado'], [/RECUP\.?\s*VAL/, 'Comissão de recuperação'], [/\bPSIM[\s-]/, 'Prestação PagaSimples'], [/\bIMP\.?\s*SELO|\bIMPOSTO\s+DO\s+SELO|\bI[.\s]+S[.\s]*\(?\d{2}\.\d|\bIS\s*[-/(]|^\s*[1I]\.?\s*S\b/, 'Imposto do selo'],
   [/\bJUROS?\b|\bENCARGOS\s+FINANC/, 'Juros'], [/\bANUIDADE\b|\bCOMISS[ÃAÂ]+O\b|\bMANUTEN|\bDISPONIBILIZA/, 'Comissão'], [/\bPAG(?:T|TO|AMENTO)\b|\bRECEBIDO\b|\bDEVOLU/, 'Pagamento'],
   [/\bLEVANTAMENTO\b|\bATM\b|\bMB\b\s*-\s*|\bCASH\s*ADVANCE/, 'Adiantamento'], [/\bTRANSF/, 'Transferência']];
 const tipoMov = s => (TIPOS.find(([re]) => re.test(String(s).toUpperCase())) || [0, 'Compra'])[1];
@@ -101,6 +101,12 @@ function analisar(texto) {
     const b = marca(texto), p = PRODUTOS.find(([, re]) => re.test(texto));
     d.fimCartao = b.fim; d.produto = p ? (b.marca && !p[0].toLowerCase().includes(b.marca.toLowerCase()) ? `${p[0]} · ${b.marca}` : p[0]) : b.marca;
     cabecalho(d, texto); planos(d, texto); movimentos(d, texto);
+    // incumprimento: montante em atraso e bloqueio do cartão; planos cancelados passam para o saldo do cartão
+    const mi = texto.match(/Montante\s+Total\s+de\s+Incumprimento\s+([\d.\s]+,\d{2})/i), bloq = /utiliza[çc][ãa]o\s+foi\s+bloqueada/i.test(texto);
+    const atraso = mi ? num(mi[1]) || 0 : 0;
+    if (atraso > 0.004 || bloq) { d.incumprimento = { montante: mi ? num(mi[1]) : null, bloqueado: bloq }; d.notas.push(`Cartão em incumprimento${mi ? ': ' + mi[1] + ' € em atraso' : ''}${bloq ? ' · utilização bloqueada' : ''}`); }
+    d.planosCancelados = d.movimentos.filter(mv => mv.tipo === 'Plano cancelado').map(mv => mv.valor);
+    if (d.planosCancelados.length) d.notas.push(`${d.planosCancelados.length} plano(s) PagaSimples cancelado(s) pelo banco: o valor passou para o saldo do cartão`);
   } else { cabecalho(d, texto); movimentos(d, texto); d.notas.push('Banco não reconhecido: confirme os valores'); }
   // o saldo em dívida inclui os saldos dos planos PagaSimples (confirmado pelo montante a pagar: % do rotativo + prestações dos planos);
   // se o saldo for menor do que os planos, os planos já não estão lá incluídos
