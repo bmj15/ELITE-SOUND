@@ -649,13 +649,51 @@ function reverExtratos(lidos) {
         const r = aplicarExtrato(x.d, ov); n++; audit('PF_EXTRATO', `${r.cartao.nome} · extrato n.º ${x.d.numero ?? '—'} de ${x.d.data || '—'} · saldo ${eur(x.d.saldo)}${r.recente ? '' : ' (histórico)'}`); });
       app.save(); ui.toast(`${n} ${n === 1 ? 'extrato gravado' : 'extratos gravados'}`, 'ok'); app.refresh(); } }] });
 }
+// divisões de compras do cartão com outros membros da casa (dívidas no registo comum com referência à compra)
+const refCompra = (x, mv) => ({ conta: x.conta, extrato: x.numero, data: mv.data, descricao: mv.descricao, valor: mv.valor });
+const mesmaCompra = (a, b) => a && b && a.conta === b.conta && a.data === b.data && a.descricao === b.descricao && Math.abs((+a.valor || 0) - (+b.valor || 0)) < 0.005;
+const divisoesDe = (x, mv) => { const L = ligacaoCasa(); if (!L) return []; const ref = refCompra(x, mv); return CC().registo(L.casa).dividas.filter(d => mesmaCompra(d.ref, ref) && !d.anulada); };
+function dividirCompra(x, mv, c) {
+  const L = ligacaoCasa(), ex = L && CC().extrato(L.casa); if (!ex) return;
+  const outros = ex.membros.filter(m => m.id !== L.eu), nomeCartao = c ? c.nome : x.conta;
+  ui.modal({ title: 'Dividir compra com a casa', sub: `${esc(mv.descricao)} · ${date(mv.data)} · <b>${eur(mv.valor)}</b> · ${esc(nomeCartao)}`,
+    body: `<form class="form"><div class="fld"><label>Com quem</label><select class="inp" name="outro">${outros.map(o => `<option value="${o.id}">${esc(o.nome)}</option>`).join('')}</select></div>
+      <div class="fld"><label>Como dividir</label><select class="inp" name="modo"><option value="pct">Percentagem</option><option value="valor">Valor</option></select></div>
+      <div class="fld"><label id="lq">Parte do outro (%)</label><input class="inp num" type="number" step="any" name="q" value="50"></div>
+      <div class="fld"><label>Parte do outro (€)</label><input class="inp num" name="calc" readonly></div>
+      <div class="fld full"><label>Descrição</label><input class="inp" name="descricao"></div></form>`,
+    onOpen: el => { const upd = () => { const f = ui.formData(el), o = outros.find(z => z.id === f.outro) || outros[0];
+        el.querySelector('#lq').textContent = f.modo === 'pct' ? 'Parte do outro (%)' : 'Parte do outro (€)';
+        const val = f.modo === 'pct' ? r2(mv.valor * (+f.q || 0) / 100) : r2(+f.q || 0); el.querySelector('[name=calc]').value = eur(val);
+        const d = el.querySelector('[name=descricao]'); if (!d.dataset.mexido) d.value = `Parte de ${o.nome.split(' ')[0]} · ${mv.descricao} (${nomeCartao}, ${date(mv.data)})`; };
+      el.querySelector('[name=descricao]').addEventListener('input', e => { e.target.dataset.mexido = '1'; });
+      el.querySelectorAll('select,input[name=q]').forEach(i => i.addEventListener('input', upd)); el.querySelectorAll('select').forEach(i => i.addEventListener('change', upd)); upd(); },
+    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: 'Dividir', kind: 'primary', onClick: el => { const f = ui.formData(el);
+      const val = f.modo === 'pct' ? r2(mv.valor * (+f.q || 0) / 100) : r2(+f.q || 0);
+      if (!(val > 0) || val > mv.valor + 0.005) { ui.toast('A parte do outro tem de estar entre 0 e o valor da compra', 'warn'); return false; }
+      CC().alterar(L.casa, r => r.dividas.push({ id: 'Dv' + uid(), de: f.outro, para: L.eu, valor: val, data: mv.data, descricao: f.descricao, ref: refCompra(x, mv), criadoPor: app.user.nome, sistema: sub.key }));
+      audit('CASA_DIVISAO_COMPRA', `${ex.nomeM(f.outro)} deve ${eur(val)} · ${mv.descricao} (${nomeCartao}, ${mv.data})`); app.save();
+      ui.toast(`Compra dividida: ${esc(ex.nomeM(f.outro).split(' ')[0])} deve-lhe ${eur(val)}`, 'ok'); setTimeout(() => verExtrato(x), 50); } }] });
+}
+async function anularDivisao(x, id) {
+  const L = ligacaoCasa(); if (!L) return; const d = CC().registo(L.casa).dividas.find(z => z.id === id); if (!d) return;
+  if (!await ui.confirm('Anular divisão', `Retirar a dívida "${esc(d.descricao)}" (${eur(d.valor)}) da conta corrente da casa?`, { okLabel: 'Anular', danger: true })) return;
+  CC().alterar(L.casa, r => { const z = r.dividas.find(y => y.id === id); if (z) Object.assign(z, { anulada: true, anuladaEm: today(), anuladaPor: app.user.nome }); });
+  audit('CASA_DIVISAO_ANULADA', `${d.descricao} · ${eur(d.valor)}`); app.save(); setTimeout(() => verExtrato(x), 50);
+}
 function verExtrato(x) {
-  if (!x) return; const c = M().dividas.find(y => y.id === x.divida);
+  if (!x) return; const c = M().dividas.find(y => y.id === x.divida), casa = ligacaoCasa(), ex = casa && CC().extrato(casa.casa);
   ui.modal({ title: `Extrato n.º ${esc(String(x.numero ?? '—'))} · ${esc(c ? c.nome : x.conta)}`, wide: true, sub: `${x.periodoIni ? date(x.periodoIni) + ' a ' + date(x.periodoFim) : date(x.data)}${x.ficheiro ? ' · ' + esc(x.ficheiro) : ''}`,
     body: `<div class="kv" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div><span>Saldo em dívida</span><b class="num">${eur(x.saldo)}</b></div><div><span>Montante a pagar</span><b class="num">${eur(x.pagar)}</b></div><div><span>Mínimo</span><b class="num">${eur(x.minimo)}</b></div><div><span>Data limite</span><b>${x.dataLimite ? date(x.dataLimite) : '—'}</b></div></div>
-      <div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>Data</th><th>Movimento</th><th>Tipo</th><th class="r">Montante</th></tr></thead><tbody>
-      ${(x.movimentos || []).map(mv => `<tr><td>${date(mv.data)}</td><td>${esc(mv.descricao)}</td><td><span class="badge ${mv.tipo === 'Pagamento' ? 'ok' : mv.tipo === 'Compra' ? '' : 'warn'}">${esc(mv.tipo)}</span></td><td class="r num ${mv.valor < 0 ? 'pos' : ''}">${eur(mv.valor)}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">Sem movimentos.</td></tr>'}</tbody></table></div>
+      <div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>Data</th><th>Movimento</th><th>Tipo</th><th class="r">Montante</th>${ex ? '<th>Divisão com a casa</th>' : ''}</tr></thead><tbody>
+      ${(x.movimentos || []).map((mv, i) => { const dv = ex ? divisoesDe(x, mv) : [];
+        return `<tr><td>${date(mv.data)}</td><td>${esc(mv.descricao)}</td><td><span class="badge ${mv.tipo === 'Pagamento' ? 'ok' : mv.tipo === 'Compra' ? '' : 'warn'}">${esc(mv.tipo)}</span></td><td class="r num ${mv.valor < 0 ? 'pos' : ''}">${eur(mv.valor)}</td>
+        ${ex ? `<td style="white-space:nowrap">${dv.map(d => `<span class="badge acc">dividida · ${esc(ex.nomeM(d.de).split(' ')[0])} ${eur(d.valor)}</span>${d.sistema === sub.key ? ` <button type="button" class="btn sm ghost" data-an="${d.id}" title="Anular divisão">${icon('x')}</button>` : ''}`).join(' ')}
+          ${!dv.length && mv.tipo === 'Compra' && mv.valor > 0 && podeEditar() ? `<button type="button" class="btn sm" data-dv="${i}">${icon('users')} Dividir com a casa</button>` : ''}${dv.length ? `<div class="faint" style="font-size:11px">a sua parte ${eur(mv.valor - dv.reduce((t, d) => t + d.valor, 0))}</div>` : ''}</td>` : ''}</tr>`; }).join('') || `<tr><td colspan="${ex ? 5 : 4}" class="empty">Sem movimentos.</td></tr>`}</tbody></table></div>
       ${(x.planos || []).length ? `<div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>Plano PagaSimples</th><th class="r">Em dívida</th><th class="r">Prestação</th><th class="r">Prestação n.º</th></tr></thead><tbody>${x.planos.map(p => `<tr><td>${esc(p.descricao)}</td><td class="r num">${eur(p.saldo)}</td><td class="r num">${eur(p.prestacao)}</td><td class="r">${p.proxima ? `${p.proxima}/${p.prazo}` : '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}`,
+    onOpen: (el, close) => {
+      el.querySelectorAll('[data-dv]').forEach(b => b.onclick = () => { close(); dividirCompra(x, x.movimentos[+b.dataset.dv], c); });
+      el.querySelectorAll('[data-an]').forEach(b => b.onclick = () => { close(); anularDivisao(x, b.dataset.an); }); },
     actions: [{ label: 'Fechar', kind: 'primary' }] });
 }
 

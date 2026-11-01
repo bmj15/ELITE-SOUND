@@ -62,7 +62,7 @@ const Conta = SPAP.contaCasa = {
     // dívidas pontuais: as do livro da casa (importadas) e as criadas nos planos pessoais
     (d.mod.acertos || []).filter(a => !String(a.origem || '').startsWith('mensal:') && !(a.mes) && !['concluido', 'pago'].includes(a.estado)).forEach(a =>
       linhas.push({ tipo: 'divida', id: a.id, data: a.data, de: a.de, para: a.para, valor: r2(a.valor), descricao: a.descricao, notas: a.notas }));
-    R.dividas.forEach(a => linhas.push(Object.assign({ tipo: 'divida' }, a)));
+    R.dividas.filter(a => !a.anulada).forEach(a => linhas.push(Object.assign({ tipo: 'divida' }, a)));
     R.pagamentos.forEach(p => linhas.push(Object.assign({ tipo: 'pagamento' }, p)));
     linhas.sort((a, b) => String(a.data).localeCompare(String(b.data)) || (a.tipo === 'pagamento') - (b.tipo === 'pagamento'));
     // saldo de cada par: obrigações menos pagamentos concluídos (positivo = "de" deve a "para")

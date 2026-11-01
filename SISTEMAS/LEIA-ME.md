@@ -36,6 +36,10 @@ O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). 
       - Cada cartão é atualizado pelo extrato mais recente: o saldo fica sem os planos PagaSimples, a prestação é o montante a pagar sem as prestações dos planos, e a taxa é a TAN.
       - Cada plano PagaSimples fica como dívida própria, ligada ao cartão. Um plano que desaparece do extrato fica liquidado.
       - Os extratos ficam no histórico, com os movimentos.
+      - **Dividir com a casa**: em cada compra do extrato (Extratos de cartão → abrir), divide-se a compra com outro membro da casa (em % ou valor).
+        - Cria a dívida na conta corrente da casa, com a referência à compra.
+        - A compra fica marcada como "dividida", com a parte de cada um.
+        - Quem dividiu pode anular a divisão.
     - **Casa** (conta corrente com os outros membros da casa ligada, `shared/conta-casa.js`):
       - o saldo e o extrato, com os acertos mensais calculados a partir das despesas comuns, as dívidas pontuais e os pagamentos;
       - quem deve faz "Registar pagamento" (assinado); quem recebe é avisado na **Caixa de entrada** do seu plano e confirma com assinatura, e o pagamento fica **concluído**;
