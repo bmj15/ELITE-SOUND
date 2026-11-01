@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Acessos ao servidor · Grupo BXB</title>
+<script src="shared/servidor-dados.js?v=1"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/spap.css?v=10">
+<style>body{padding:24px;background:var(--bg)} .wrap{width:min(960px,100%);margin:0 auto} h1{font-size:30px;letter-spacing:-1px;margin:0 0 6px}</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row between" style="margin-bottom:12px"><a href="index.html" class="muted">← Portal</a><span class="muted" id="quem"></span></div>
+  <h1>Acessos ao servidor</h1>
+  <p class="muted" style="margin:0 0 16px">Cada pessoa entra no servidor com a sua conta e só recebe os dados dos sistemas assinalados. Dentro de cada sistema continua a entrar com o seu utilizador e PIN.</p>
+  <div id="c"></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var S = window.BXBServidor || {}, c = document.getElementById('c');
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (x) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x]; }); };
+  if (!S.sessao) { location.replace('entrar.html?voltar=' + encodeURIComponent('/SISTEMAS/acessos.html')); return; }
+  document.getElementById('quem').textContent = S.sessao.nome;
+  var H = { 'Content-Type': 'application/json', 'X-BXB': '1' };
+  var api = function (m, url, corpo) { return fetch(url, { method: m, headers: H, body: corpo ? JSON.stringify(corpo) : undefined }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }); };
+  var sistemas = [{ key: 'bxb', nome: 'BXB Investimentos (holding)' }];
+  function senha() {
+    c.insertAdjacentHTML('beforeend', '<div class="card" style="margin-top:16px"><div class="card-h"><h3>A minha palavra-passe</h3></div><form class="form" id="fp"><div class="fld"><label>Atual</label><input class="inp" type="password" name="atual" autocomplete="current-password"></div><div class="fld"><label>Nova (mín. 8)</label><input class="inp" type="password" name="nova" autocomplete="new-password"></div><div class="fld full"><button class="btn" type="submit">Mudar</button> <span id="mp"></span></div></form></div>');
+    document.getElementById('fp').onsubmit = function (e) { e.preventDefault(); var f = Object.fromEntries(new FormData(e.target)); api('POST', '/api/palavra', f).then(function (r) { document.getElementById('mp').textContent = r.ok ? 'Palavra-passe mudada.' : r.j.erro; if (r.ok) e.target.reset(); }); };
+  }
+  if (!S.sessao.admin) { c.innerHTML = '<div class="alert info"><div>Só administradores gerem as contas.</div></div>'; senha(); return; }
+  // dados que ainda só existem neste navegador (antes do servidor): enviar sem apagar o que já está no servidor
+  var locais = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('spap:') === 0 && k !== 'spap:theme') locais.push(k); }
+  var migracao = document.createElement('div'); c.parentNode.insertBefore(migracao, c);
+  function verMigracao() {
+    api('GET', '/api/versoes').then(function (r) { var srv = r.j || {}, faltam = locais.filter(function (k) { return !(k in srv); });
+      if (!faltam.length) { migracao.innerHTML = new URLSearchParams(location.search).get('migrar') ? '<div class="alert ok" style="margin-bottom:16px"><div>Os dados deste navegador já estão no servidor. <a href="index.html">Abrir o portal</a></div></div>' : ''; return; }
+      migracao.innerHTML = '<div class="card" style="margin-bottom:16px;border-color:var(--warn)"><div class="card-h"><h3>Dados deste navegador</h3></div><p class="muted" style="margin:0 0 12px">Este navegador tem <b>' + faltam.length + '</b> registos dos sistemas (holding, subsidiárias, planos, casa…) que ainda não estão no servidor. ' + (Object.keys(srv).length ? 'Só são enviados os que faltam: nada do que já está no servidor é substituído.' : 'Envie-os agora: até lá os sistemas não abrem, para não começarem vazios.') + ' Os dados ficam também neste navegador, como cópia.</p>' +
+        '<button class="btn primary" id="mig">Enviar os dados deste navegador para o servidor</button> <span id="migr" class="muted"></span></div>';
+      document.getElementById('mig').onclick = function () { var b = this; b.disabled = true; var ok = 0, erros = 0;
+        faltam.reduce(function (p, k) { return p.then(function () { return api('PUT', '/api/dados/' + encodeURIComponent(k), { valor: localStorage.getItem(k), versao: 0 }).then(function (r) { if (r.ok) ok++; else erros++; document.getElementById('migr').textContent = ok + ' enviados' + (erros ? ', ' + erros + ' com erro' : ''); }); }); }, Promise.resolve())
+          .then(function () { if (!erros) migracao.innerHTML = '<div class="alert ok" style="margin-bottom:16px"><div>' + ok + ' registos enviados para o servidor. <a href="index.html">Abrir o portal</a></div></div>'; else b.disabled = false; }); };
+    });
+  }
+  if (locais.length) verMigracao();
+  api('GET', '/api/dados').then(function (r) {
+    try { (JSON.parse(((r.j || {})['spap:grupo'] || {}).valor || '[]') || []).forEach(function (s) { sistemas.push({ key: s.key, nome: s.nome }); }); } catch (e) { }
+    if (sistemas.length === 1) sistemas.push({ key: 'elite', nome: 'Elite Sound' });
+    carregar();
+  });
+  function carregar() {
+    api('GET', '/api/contas').then(function (r) {
+      if (!r.ok) { c.innerHTML = '<div class="alert bad"><div>' + esc(r.j.erro) + '</div></div>'; return; }
+      var nomeSis = function (k) { var s = sistemas.find(function (x) { return x.key === k; }); return s ? s.nome : k; };
+      c.innerHTML = '<div class="card flush"><div class="card-h"><h3>Contas</h3><button class="btn sm primary" id="nova">+ Nova conta</button></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Utilizador</th><th>Acesso</th><th></th></tr></thead><tbody>' +
+        r.j.map(function (x) { return '<tr><td><b>' + esc(x.nome) + '</b></td><td class="mono">' + esc(x.utilizador) + '</td><td>' + (x.admin || x.sistemas.indexOf('*') >= 0 ? '<span class="badge acc">administrador · todos os sistemas</span>' : x.sistemas.map(function (k) { return '<span class="badge plain" style="margin:2px">' + esc(nomeSis(k)) + '</span>'; }).join('') || '<span class="faint">nenhum</span>') + '</td><td class="r"><button class="btn sm" data-ed="' + x.id + '">Editar</button>' + (x.id !== S.sessao.id ? ' <button class="btn sm ghost" data-rm="' + x.id + '">Remover</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div></div><div id="form"></div>';
+      document.getElementById('nova').onclick = function () { form(null); };
+      c.querySelectorAll('[data-ed]').forEach(function (b) { b.onclick = function () { form(r.j.find(function (x) { return x.id === b.dataset.ed; })); }; });
+      c.querySelectorAll('[data-rm]').forEach(function (b) { b.onclick = function () { if (confirm('Remover esta conta? Deixa de conseguir entrar no servidor.')) api('DELETE', '/api/contas/' + b.dataset.rm).then(carregar); }; });
+      senha();
+    });
+  }
+  function form(x) {
+    var novo = !x; x = x || { nome: '', utilizador: '', admin: false, sistemas: [] };
+    var f = document.getElementById('form');
+    f.innerHTML = '<div class="card" style="margin-top:16px"><div class="card-h"><h3>' + (novo ? 'Nova conta' : 'Editar ' + esc(x.nome)) + '</h3></div><form class="form" id="fc">' +
+      '<div class="fld"><label>Nome</label><input class="inp" name="nome" value="' + esc(x.nome) + '"></div><div class="fld"><label>Utilizador</label><input class="inp mono" name="utilizador" value="' + esc(x.utilizador) + '"></div>' +
+      '<div class="fld"><label>Palavra-passe' + (novo ? ' (mín. 8)' : ' (deixe vazio para manter)') + '</label><input class="inp" type="password" name="palavra" autocomplete="new-password"></div>' +
+      '<div class="fld"><label>&nbsp;</label><label class="check"><input type="checkbox" name="admin" ' + (x.admin ? 'checked' : '') + '> Administrador (todos os sistemas e gestão de contas)</label></div>' +
+      '<div class="fld full"><label>Sistemas a que tem acesso</label><div class="stack" style="gap:6px">' + sistemas.map(function (s) { return '<label class="check"><input type="checkbox" data-sis="' + esc(s.key) + '" ' + (x.sistemas.indexOf(s.key) >= 0 ? 'checked' : '') + '> ' + esc(s.nome) + '</label>'; }).join('') + '</div><span class="hint">Os planos pessoais são privados: dê a cada pessoa só o seu plano e os sistemas partilhados (ex.: a Casa).</span></div>' +
+      '<div class="fld full"><button class="btn primary" type="submit">Guardar</button> <button class="btn ghost" type="button" id="cx">Cancelar</button> <span id="em"></span></div></form></div>';
+    document.getElementById('cx').onclick = function () { f.innerHTML = ''; };
+    document.getElementById('fc').onsubmit = function (e) { e.preventDefault(); var d = Object.fromEntries(new FormData(e.target));
+      var corpo = { id: x.id, nome: d.nome, utilizador: d.utilizador, palavra: d.palavra || undefined, admin: !!e.target.admin.checked, sistemas: Array.prototype.map.call(e.target.querySelectorAll('[data-sis]:checked'), function (i) { return i.dataset.sis; }) };
+      api('POST', '/api/contas', corpo).then(function (r) { if (!r.ok) { document.getElementById('em').textContent = r.j.erro; return; } carregar(); }); };
+  }
+})();
+</script>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('spap:theme')||'dark')}catch(e){}</script>
+</body>
+</html>

@@ -155,3 +155,18 @@ Disponível na holding e em todas as subsidiárias (menu **Análise financeira**
 - Os dados ficam guardados **no próprio navegador** (Chrome, neste computador).
 - Faça cópias com regularidade em **Definições → Exportar cópia (.json)**. Se limpar os dados do Chrome, o sistema é apagado.
 - Os dados iniciais foram migrados de `ELITE SOUND.xlsx`, `GESTÃO BXB INVESTIMENTOS.xlsx` e `GESTÃO DE ENTIDADES (Respostas).xlsx`.
+
+
+## Servidor local partilhado (vários computadores e telemóveis)
+O `ABRIR SISTEMA.bat` arranca o servidor (`servidor.js`, em http://localhost:8080). Os dados dos sistemas ficam neste PC, na pasta `BXB INVESTIMENTOS\DADOS-SERVIDOR`, e não no navegador nem no repositório (que é público).
+- **Cópias de segurança:** são feitas todos os dias em `DADOS-SERVIDOR\copias\AAAA-MM-DD`, e guardam-se os últimos 60 dias.
+- **Contas:** cada pessoa entra no servidor com a sua conta (utilizador e palavra-passe) e só recebe os dados dos sistemas que lhe forem atribuídos em **Acessos** (canto inferior direito → Acessos). Dentro de cada sistema continua a entrar com o seu utilizador e PIN.
+- **Primeira vez:**
+  1. Abra o `ABRIR SISTEMA.bat`, crie a conta de administrador e carregue em "Enviar os dados deste navegador para o servidor".
+  2. Em Acessos, crie as contas das outras pessoas e escolha os sistemas de cada uma (por exemplo, o Guilherme: o plano pessoal dele e a Casa).
+- **Alterações em simultâneo:** se duas pessoas gravarem o mesmo sistema ao mesmo tempo, a segunda é avisada e a página recarrega com os dados mais recentes, para repetir a alteração. Quando há dados novos de outra pessoa aparece o aviso "Atualizar".
+- **Aceder de outros aparelhos (Tailscale, rede privada e gratuita):**
+  1. Instale o Tailscale neste PC (tailscale.com) e entre com a sua conta.
+  2. Numa janela de comandos, neste PC: `tailscale serve --bg 8080`. O endereço `https://<nome-do-pc>.<rede>.ts.net` fica disponível só para os aparelhos da sua rede Tailscale, com HTTPS (necessário para as assinaturas eletrónicas).
+  3. No computador ou telemóvel do Guilherme: instale o Tailscale e aceite o convite para a sua rede (no painel do Tailscale: "Share" ou "Invite users"). Depois abra o endereço acima.
+  4. Este PC tem de estar ligado, com o `ABRIR SISTEMA.bat` aberto.

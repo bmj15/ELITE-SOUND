@@ -17,3 +17,6 @@ backend/uploads/
 
 # Configuração local do Claude
 .claude/
+
+# Dados do servidor local (nunca no repositório público)
+DADOS-SERVIDOR/
