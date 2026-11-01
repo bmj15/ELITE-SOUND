@@ -49,6 +49,10 @@ O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). 
     - para cada despesa: quem a paga e a parte de cada membro (em %);
     - o acerto mensal: quem transfere quanto a quem;
     - "Quem deve a quem": só consulta do saldo e do extrato entre membros.
+    - **Despesas de valor variável** (MEO, gasolina…): em Despesas comuns → "Valores reais" regista-se o valor cobrado em cada mês.
+      - Os acertos usam o valor real; sem ele usam a média dos últimos 6 valores reais e ficam marcados como **estimados**.
+      - Se o valor real for registado depois, a diferença entra sozinha no saldo.
+      - O Painel avisa os meses em falta.
     - Cada membro tem o seu próprio sistema de Planeamento financeiro, privado, ligado à casa em Parâmetros do plano.
   - **Base** — só contas, pagamentos, autorizações e relatórios.
 - Criar ou alterar uma subsidiária segue a regra das duas pessoas. A subsidiária recebe um **sistema próprio** (livro de contas, utilizadores, PIN, autorizações e auditoria independentes), uma conta na holding e aparece no portal.

@@ -29,9 +29,27 @@ const audit = (a, t) => app.log(a, t);
 const kpi = (rot, val, foot = '', cls = '', hero = false) => `<div class="card kpi ${hero ? 'hero' : ''}"><div class="lbl">${rot}</div><div class="val num ${cls}">${val}</div>${foot ? `<div class="foot">${foot}</div>` : ''}</div>`;
 
 /* ---------- Contas: parte de cada um, quem adianta e o acerto mensal ---------- */
+const valorMes = (e, ym = ymHoje()) => SPAP.contaCasa ? SPAP.contaCasa.valorMes(e, ym) : { valor: r2(mensal(e)), real: true };
+// meses (até ao mês atual) de despesas variáveis sem o valor real registado
+function valoresEmFalta() {
+  const out = []; M().despesas.filter(e => e.ativo !== false && e.variavel && e.inicio).forEach(e => {
+    for (let ym = e.inicio; ym <= ymHoje() && (!e.fim || ym <= e.fim); ym = SPAP.contaCasa.mesSeguinte(ym)) if (!valorMes(e, ym).real) out.push({ e, ym }); });
+  return out;
+}
+function editarValores(e) {
+  const meses = []; for (let ym = e.inicio || ymHoje(); ym <= ymHoje() && (!e.fim || ym <= e.fim); ym = SPAP.contaCasa.mesSeguinte(ym)) meses.push(ym);
+  const med = SPAP.contaCasa.media(e);
+  ui.modal({ title: 'Valores reais · ' + esc(e.nome), sub: `Valor cobrado em cada mês. Os meses sem valor usam a média (${eur(med)}) e o acerto fica marcado como estimado.`,
+    body: `<form class="form">${meses.reverse().map(ym => `<div class="fld"><label>${fmtMes(ym)}</label><input class="inp num" type="number" step="any" data-ym="${ym}" value="${esc((e.valores || {})[ym] ?? '')}" placeholder="média ${eur(med)}"></div>`).join('')}</form>`,
+    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: 'Guardar', kind: 'primary', onClick: el => {
+      const antes = JSON.stringify(e.valores || {}); e.valores = {};
+      el.querySelectorAll('[data-ym]').forEach(i => { if (i.value.trim() !== '' && isFinite(+i.value)) e.valores[i.dataset.ym] = r2(+i.value); });
+      if (JSON.stringify(e.valores) !== antes) audit('CASA_VALORES_REAIS', `${e.nome}: ${Object.entries(e.valores).map(([k, v]) => `${k} ${eur(v)}`).join('; ')}`.slice(0, 400));
+      app.save(); app.refresh(); } }] });
+}
 function resumoMes(ym = ymHoje()) {
   const ms = M().membros, out = Object.fromEntries(ms.map(x => [x.id, { parte: 0, paga: 0 }]));
-  ativas(ym).forEach(e => { const v = mensal(e);
+  ativas(ym).forEach(e => { const v = valorMes(e, ym).valor;
     Object.entries(e.partes || {}).forEach(([id, q]) => { if (out[id]) out[id].parte += v * (+q || 0); });
     if (out[e.pagaPor]) out[e.pagaPor].paga += v; });
   ms.forEach(x => { const o = out[x.id]; o.parte = r2(o.parte); o.paga = r2(o.paga); o.saldo = r2(o.paga - o.parte); });
@@ -51,6 +69,8 @@ function visao(v) {
   const mensais = transferencias(Object.fromEntries(Object.entries(R).map(([id, o]) => [id, o.saldo])));
   const ex = SPAP.contaCasa && SPAP.contaCasa.extrato(sub.key);
   v.innerHTML = `${podeEditar() ? `<div class="row" style="justify-content:flex-end;margin-bottom:10px"><button class="btn sm" id="imp">${icon('download')} Importar do Planeador</button></div>` : ''}
+    ${(() => { const f = valoresEmFalta(); if (!f.length) return ''; const por = {}; f.forEach(x => (por[x.e.nome] = por[x.e.nome] || []).push(fmtMes(x.ym)));
+      return `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div>Faltam valores reais de despesas variáveis: ${Object.entries(por).map(([n, ms]) => `<b>${esc(n)}</b> (${ms.join(', ')})`).join('; ')}. Até lá os acertos usam a média e ficam marcados como estimados. <a href="#/despesas">Registar em Despesas comuns</a></div></div>`; })()}
     ${!m.membros.length ? `<div class="alert info" style="margin-bottom:16px">${icon('users')}<div>Comece por indicar quem vive na casa em <a href="#/membros">Membros</a>, ou importe os dados do Planeador.</div></div>` : ''}
     <div class="grid g4">${kpi(`${icon('list')} Despesas comuns / mês`, eur(tot), `${ativas().length} despesas em vigor`, '', true)}
       ${m.membros.slice(0, 3).map(x => kpi(`${icon('users')} Parte de ${esc(curto(x.id))}`, eur(R[x.id].parte), `adianta ${eur(R[x.id].paga)} por mês`)).join('')}</div>
@@ -101,11 +121,12 @@ function despesas(v) {
   const m = M(), ed = podeEditar(), ms = m.membros;
   v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Despesas da casa divididas entre os membros. A parte de cada um entra no plano pessoal dessa pessoa.</span>${ed ? `<button class="btn primary" id="nd">${icon('plus')} Nova despesa comum</button>` : ''}</div>
     <div class="card flush"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th>Periodicidade</th><th class="r">Valor</th><th class="r">Mensal</th><th>Quem paga</th>${ms.map(x => `<th class="r">${esc(x.nome.split(' ')[0])}</th>`).join('')}<th>Período</th></tr></thead><tbody>
-    ${m.despesas.map(e => { const on = e.ativo !== false && vigente(e); return `<tr class="${ed ? 'click' : ''}" data-d="${e.id}" style="${on ? '' : 'opacity:.5'}"><td><b>${esc(e.nome)}</b><div class="faint" style="font-size:12px">${esc(e.categoria || '')}${e.variavel ? ' · variável' : ''}</div></td>
-      <td>${esc((PERIODOS.find(p => p[0] === e.periodicidade) || [0, e.periodicidade])[1])}</td><td class="r num">${eur(e.valor)}</td><td class="r num">${eur(mensal(e))}</td><td>${esc(curto(e.pagaPor))}</td>
-      ${ms.map(x => `<td class="r num">${+((e.partes || {})[x.id]) ? `${eur(mensal(e) * e.partes[x.id])} <span class="faint" style="font-size:11px">${pct(e.partes[x.id])}</span>` : '<span class="faint">—</span>'}</td>`).join('')}
+    ${m.despesas.map(e => { const on = e.ativo !== false && vigente(e); return `<tr class="${ed ? 'click' : ''}" data-d="${e.id}" style="${on ? '' : 'opacity:.5'}"><td><b>${esc(e.nome)}</b><div class="faint" style="font-size:12px">${esc(e.categoria || '')}${e.variavel ? ' · variável' : ''}</div>${e.variavel && ed ? `<button class="btn sm ghost" data-vr="${e.id}" style="margin-top:4px">${icon('edit')} Valores reais</button>` : ''}</td>
+      <td>${esc((PERIODOS.find(p => p[0] === e.periodicidade) || [0, e.periodicidade])[1])}</td><td class="r num">${e.variavel ? `${eur(SPAP.contaCasa.media(e))}<div class="faint" style="font-size:11px">média</div>` : eur(e.valor)}</td><td class="r num">${(() => { const x = valorMes(e); return `${eur(x.valor)}${e.variavel ? `<div style="font-size:11px">${x.real ? '<span class="badge ok">valor real</span>' : '<span class="badge warn">estimado</span>'}</div>` : ''}`; })()}</td><td>${esc(curto(e.pagaPor))}</td>
+      ${ms.map(x => `<td class="r num">${+((e.partes || {})[x.id]) ? `${eur(valorMes(e).valor * e.partes[x.id])} <span class="faint" style="font-size:11px">${pct(e.partes[x.id])}</span>` : '<span class="faint">—</span>'}</td>`).join('')}
       <td style="font-size:12px">${e.ativo === false ? 'inativa' : `${e.inicio ? 'desde ' + fmtMes(e.inicio) : ''} ${e.fim ? 'até ' + fmtMes(e.fim) : ''}`.trim() || 'sem fim'}${on || e.ativo === false ? '' : ` <span class="badge">${e.fim && e.fim < ymHoje() ? 'terminou' : 'futura'}</span>`}</td></tr>`; }).join('') || `<tr><td colspan="${6 + ms.length}" class="empty">Sem despesas comuns.</td></tr>`}</tbody></table></div></div>`;
-  v.querySelectorAll('[data-d]').forEach(tr => tr.onclick = () => { if (ed) editarDespesa(m.despesas.find(x => x.id === tr.dataset.d)); });
+  v.querySelectorAll('[data-d]').forEach(tr => tr.onclick = ev => { if (ev.target.closest('[data-vr]')) return; if (ed) editarDespesa(m.despesas.find(x => x.id === tr.dataset.d)); });
+  v.querySelectorAll('[data-vr]').forEach(b => b.onclick = () => editarValores(m.despesas.find(x => x.id === b.dataset.vr)));
   const nd = v.querySelector('#nd'); if (nd) nd.onclick = () => editarDespesa();
 }
 

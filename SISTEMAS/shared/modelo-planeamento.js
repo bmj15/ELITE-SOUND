@@ -69,7 +69,8 @@ function casaParte(ym = ymHoje()) {
   if (!d || !d.mod || !Array.isArray(d.mod.despesas)) return { nome, valor: 0, n: 0, semDados: true };
   const ds = d.mod.despesas.filter(e => e.ativo !== false && vigente(e, ym) && +((e.partes || {})[pl.membroCasa]) > 0);
   const membro = (d.mod.membros || []).find(x => x.id === pl.membroCasa);
-  return { nome, membro: membro ? membro.nome : '', valor: r2(ds.reduce((t, e) => t + mensalDesp(e) * +e.partes[pl.membroCasa], 0)), n: ds.length };
+  const val = e => SPAP.contaCasa ? SPAP.contaCasa.valorMes(e, ym).valor : mensalDesp(e);
+  return { nome, membro: membro ? membro.nome : '', valor: r2(ds.reduce((t, e) => t + val(e) * +e.partes[pl.membroCasa], 0)), n: ds.length };
 }
 const despesasMensais = () => r2(despAtivas().reduce((s, e) => s + mensalDesp(e), 0) + ((casaParte() || {}).valor || 0));
 const prestacoesMensais = () => r2(divAtivas().reduce((s, d) => s + (+d.prestacao || 0), 0));
@@ -739,7 +740,7 @@ function casaPessoal(v) {
     ${meus.slice().reverse().map(l => { const sentido = l.de === eu ? `eu → ${esc(nm(l.para))}` : `${esc(nm(l.de))} → eu`;
       if (l.tipo === 'pagamento') return `<tr><td>${date(l.data)}</td><td>${esc(l.descricao || 'Pagamento')}<div class="faint" style="font-size:12px">${sentido}${l.registo ? ' · registado por ' + esc(l.registo.nome.split(' ')[0]) : ''}${l.confirmacao && (!l.registo || l.confirmacao.nome !== l.registo.nome) ? ' · confirmado por ' + esc(l.confirmacao.nome.split(' ')[0]) : ''}</div></td><td><span class="badge plain">pagamento</span></td><td></td><td class="r num">${eur(l.valor)}</td><td>${estadoPag(l)}</td>
         <td class="r">${l.estado === 'registado' && l.para === eu ? `<button class="btn sm primary" data-cf="${l.id}">${icon('key')} Confirmar</button>` : ''}</td></tr>`;
-      return `<tr><td>${date(l.data)}</td><td>${esc(l.tipo === 'acerto' ? 'Acerto das despesas comuns · ' + fmtMes(l.mes) : l.descricao)}<div class="faint" style="font-size:12px">${sentido}</div></td><td><span class="badge plain">${l.tipo === 'acerto' ? 'acerto mensal' : 'dívida'}</span></td><td class="r num">${eur(l.valor)}</td><td></td><td></td><td></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Sem movimentos.</td></tr>'}</tbody></table></div></div>`;
+      return `<tr><td>${date(l.data)}</td><td>${esc(l.tipo === 'acerto' ? 'Acerto das despesas comuns · ' + fmtMes(l.mes) : l.descricao)}<div class="faint" style="font-size:12px">${sentido}</div>${l.estimado && l.estimado.length ? `<div style="font-size:11px"><span class="badge warn" data-tip="${esc('Ainda sem valor real de: ' + l.estimado.join(', ') + '. Usa-se a média; quando o valor real for registado na Casa, o acerto é corrigido.')}">estimado</span></div>` : ''}</td><td><span class="badge plain">${l.tipo === 'acerto' ? 'acerto mensal' : 'dívida'}</span></td><td class="r num">${eur(l.valor)}</td><td></td><td></td><td></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Sem movimentos.</td></tr>'}</tbody></table></div></div>`;
   v.querySelectorAll('[data-cf]').forEach(b => b.onclick = async () => { if (await confirmarPagamento(b.dataset.cf)) app.refresh(); });
   const formPag = (concluir, lista) => {
     const opts = lista.map(x => { const o = concluir ? x.de : x.para; return `<option value="${o}" data-v="${x.valor}">${esc(ex.nomeM(o))} (${concluir ? 'deve-lhe' : 'deve'} ${eur(x.valor)})</option>`; }).join('');
