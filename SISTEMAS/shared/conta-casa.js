@@ -15,7 +15,25 @@ const vigente = (e, ym) => (!e.inicio || ym >= e.inicio) && (!e.fim || ym <= e.f
 // despesas de valor variável: valor real registado em cada mês (e.valores[AAAA-MM]); sem registo usa-se a média dos últimos 6 valores reais
 const reais = e => Object.entries(e.valores || {}).filter(([, v]) => v !== '' && v != null && isFinite(+v)).sort((a, b) => a[0].localeCompare(b[0]));
 const media = e => { const r = reais(e).slice(-6); return r.length ? r2(r.reduce((t, [, v]) => t + +v, 0) / r.length) : r2(mensal(e)); };
-const valorMes = (e, ym) => { const v = (e.valores || {})[ym]; if (v !== '' && v != null && isFinite(+v)) return { valor: r2(+v), real: true };
+// despesa paga a prestações pelo cartão de crédito: em cada mês, prestação = opção de pagamento (% do saldo, com mínimo)
+// sobre o saldo + juros (TAN/12) + imposto do selo (4% dos juros e 0,141%/mês do saldo); o 1.º mês não tem juros (período sem juros)
+const cachePlano = new Map();
+function planoCartao(e) {
+  const k = JSON.stringify([e.capital, e.inicio, e.tan, e.pct, e.minimo, e.isJuros, e.isUtil, e.semJuros1, e.liquidadoEm]); if (cachePlano.has(k)) return cachePlano.get(k);
+  const out = []; let saldo = +e.capital || 0, ym = e.inicio, i = 0; const tan = +e.tan || 0, pct = +e.pct || 0.05, min = e.minimo == null ? 25 : +e.minimo;
+  const isJ = e.isJuros == null ? 0.04 : +e.isJuros, isU = e.isUtil == null ? 0.00141 : +e.isUtil;
+  while (saldo > 0.005 && i < 480 && ym) {
+    const semJuros = i === 0 && e.semJuros1 !== false, juros = semJuros ? 0 : r2(saldo * tan / 12), imp = semJuros ? 0 : r2(juros * isJ + saldo * isU);
+    const total = r2(saldo + juros + imp); let prest = r2(Math.max(total * pct, Math.min(min, total))); if (e.liquidadoEm && ym >= e.liquidadoEm) prest = total;
+    prest = Math.min(prest, total); const capital = r2(prest - juros - imp); saldo = r2(total - prest);
+    out.push({ ym, juros, impostos: imp, capital, prestacao: prest, saldo }); ym = mesSeguinte(ym); i++;
+  }
+  cachePlano.set(k, out); return out;
+}
+const linhaPlano = (e, ym) => planoCartao(e).find(l => l.ym === ym) || null;
+const ativaNoMes = (e, ym) => e.periodicidade === 'cartao' ? !!linhaPlano(e, ym) : vigente(e, ym);
+const valorMes = (e, ym) => { if (e.periodicidade === 'cartao') { const l = linhaPlano(e, ym); return { valor: l ? l.prestacao : 0, real: true, plano: l }; }
+  const v = (e.valores || {})[ym]; if (v !== '' && v != null && isFinite(+v)) return { valor: r2(+v), real: true };
   return e.variavel ? { valor: media(e), real: false } : { valor: r2(mensal(e)), real: true }; };
 const ymHoje = () => new Date().toISOString().slice(0, 7);
 const mesSeguinte = ym => { let [a, m] = ym.split('-').map(Number); m++; if (m > 12) { m = 1; a++; } return `${a}-${String(m).padStart(2, '0')}`; };
@@ -25,7 +43,7 @@ const ler = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e)
 // parte de cada membro e quanto adianta num mês; e as transferências que acertam a diferença
 function resumoMes(d, ym) {
   const ms = d.mod.membros || [], out = Object.fromEntries(ms.map(x => [x.id, { parte: 0, paga: 0 }]));
-  (d.mod.despesas || []).filter(e => e.ativo !== false && vigente(e, ym)).forEach(e => { const v = valorMes(e, ym).valor;
+  (d.mod.despesas || []).filter(e => e.ativo !== false && ativaNoMes(e, ym)).forEach(e => { const v = valorMes(e, ym).valor;
     Object.entries(e.partes || {}).forEach(([id, q]) => { if (out[id]) out[id].parte += v * (+q || 0); });
     if (out[e.pagaPor]) out[e.pagaPor].paga += v; });
   ms.forEach(x => { const o = out[x.id]; o.parte = r2(o.parte); o.paga = r2(o.paga); o.saldo = r2(o.paga - o.parte); });
@@ -42,7 +60,7 @@ function transferencias(saldos) {
 // despesas variáveis de um mês ainda sem valor real registado
 const estimadas = (d, ym) => (d.mod.despesas || []).filter(e => e.ativo !== false && e.variavel && vigente(e, ym) && !valorMes(e, ym).real);
 const Conta = SPAP.contaCasa = {
-  resumoMes, transferencias, fimMes, ymHoje, valorMes, media, estimadas, mesSeguinte,
+  resumoMes, transferencias, fimMes, ymHoje, valorMes, media, estimadas, mesSeguinte, planoCartao, ativaNoMes,
   livro: casa => ler('spap:' + casa),
   registo: casa => Object.assign({ pagamentos: [], dividas: [], despesas: [] }, ler('spap:' + casa + ':conta') || {}),
   // lê, altera e grava logo a seguir (registo pequeno e só de acrescentar: não apaga o que outro sistema escreveu)
