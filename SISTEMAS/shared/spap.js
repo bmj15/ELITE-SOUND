@@ -748,17 +748,23 @@ SPAP.createApp = function (cfg) {
       return;
     }
     const users = db.users.filter(u => u.ativo !== false);
-    let sel = users.find(u => u.pinHash);
+    // com o servidor partilhado, o utilizador da conta do servidor vem já selecionado
+    const contaSrv = window.BXBServidor && window.BXBServidor.sessao, mesmo = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+    const euSrv = contaSrv ? users.find(u => mesmo(u.nome, contaSrv.nome) || mesmo(u.username, contaSrv.utilizador)) : null;
+    let sel = euSrv && euSrv.pinHash ? euSrv : users.find(u => u.pinHash);
+    const admins = users.filter(u => u.role === 'ADMIN' && u.pinHash).map(u => u.nome.split(' ')[0]).join(', ') || 'o administrador';
+    const semPinTxt = u => `<b>${esc(u.nome)}</b> ainda não tem PIN neste sistema. Peça a ${esc(admins)} um PIN temporário (Utilizadores e alçadas → PIN); no primeiro acesso escolhe o seu PIN.`;
     lb.innerHTML = `<h2>Iniciar sessão</h2><p class="muted">Selecione o utilizador e introduza o PIN.</p>
       ${msg ? `<div class="alert warn" style="margin-top:14px">${msg}</div>` : ''}
-      <div class="users">${users.map(u => `<button type="button" data-u="${u.id}" ${u.pinHash ? '' : 'disabled title="PIN ainda não definido pelo administrador"'}><span class="avatar">${initials(u.nome)}</span>
+      ${euSrv && !euSrv.pinHash ? `<div class="alert warn" style="margin-top:14px">${icon('lock')}<div>${semPinTxt(euSrv)}</div></div>` : ''}
+      <div class="users">${users.map(u => `<button type="button" data-u="${u.id}" ${u.pinHash ? '' : 'aria-disabled="true" style="opacity:.55" title="PIN ainda não definido pelo administrador"'}><span class="avatar">${initials(u.nome)}</span>
         <span style="flex:1;min-width:0"><b style="display:block">${esc(u.nome)}</b><span class="muted" style="font-size:12px">${ROLES[u.role]?.label || u.role}${u.pinHash ? '' : ' · sem PIN'}</span></span></button>`).join('')}</div>
       <form id="lf" class="stack"><input class="inp mono" name="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="• • • •" style="font-size:22px;letter-spacing:.5em;text-align:center;padding:14px">
       <button class="btn primary" style="justify-content:center;padding:12px">${icon('arrow')} Entrar</button></form>
       <div class="lockline">${icon('lock')} 5 tentativas falhadas bloqueiam o utilizador durante 5 minutos.</div>`;
     const mark = () => lb.querySelectorAll('[data-u]').forEach(b => b.classList.toggle('on', sel && b.dataset.u === sel.id));
     mark();
-    lb.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { sel = userById(b.dataset.u); mark(); lb.querySelector('[name=pin]').focus(); });
+    lb.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { const u = userById(b.dataset.u); if (!u.pinHash) return ui.toast(semPinTxt(u), 'warn'); sel = u; mark(); lb.querySelector('[name=pin]').focus(); });
     lb.querySelector('[name=pin]').focus();
     lb.querySelector('#lf').onsubmit = e => {
       e.preventDefault(); if (!sel) return;
