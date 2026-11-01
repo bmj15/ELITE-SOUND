@@ -526,6 +526,8 @@ SPAP.createApp = function (cfg) {
   app.pedido = id => db.pedidos.find(p => p.id === id);
   app.pedidosPorOrigem = key => db.pedidos.filter(p => p.origem && p.origem.key === key && !['REJEITADO', 'CANCELADO'].includes(p.estado));
   app.caixaEntrada = () => db.pedidos.filter(p => app.podeAprovar(p)[0] || app.podeExecutar(p)[0]);
+  // confirmações pedidas pelos módulos de cada modelo (ex.: Casa partilhada: confirmar um recebimento)
+  app.caixaModulos = () => { try { return (cfg.caixa ? cfg.caixa(app) : []) || []; } catch (e) { return []; } };
 
   /* =========================================================
      ASSINATURA ELETRÓNICA
@@ -817,7 +819,7 @@ SPAP.createApp = function (cfg) {
   function allRoutes() { const m = {}; cfg.modules.forEach(x => m[x.id] = x); return Object.assign(m, coreRoutes); }
 
   function navHtml(cur) {
-    const nIn = app.caixaEntrada().length, nAlt = app.alteracoesParaMim().length, nRec = can('criar') ? app.recorrentesDevidos().length : 0;
+    const nIn = app.caixaEntrada().length + app.caixaModulos().length, nAlt = app.alteracoesParaMim().length, nRec = can('criar') ? app.recorrentesDevidos().length : 0;
     const item = (it) => `<a href="#/${it.id}" class="${cur === it.id ? 'active' : ''}">${icon(it.icon)}<span>${it.label}</span>${it.id === 'aprovacoes' && nIn ? `<span class="count">${nIn}</span>` : ''}${it.id === 'alteracoes' && nAlt ? `<span class="count">${nAlt}</span>` : ''}${it.id === 'recorrentes' && nRec ? `<span class="count">${nRec}</span>` : ''}</a>`;
     const groups = [
       { label: cfg.grupoModulos || cfg.nome, items: cfg.modules.filter(m => !m.hidden && (!m.perm || can(m.perm))) },
@@ -1019,12 +1021,16 @@ SPAP.createApp = function (cfg) {
     const ap = db.pedidos.filter(p => app.podeAprovar(p)[0]);
     const ex = db.pedidos.filter(p => app.podeExecutar(p)[0]);
     const bloq = db.pedidos.filter(p => p.estado === 'APROVADO' && can('executar') && !app.podeExecutar(p)[0]);
+    const cx = app.caixaModulos();
     v.innerHTML = `<div class="stack">
+      ${cx.length ? `<div class="card flush"><div class="card-h"><h3>Para confirmar <span class="badge warn plain">${cx.length}</span></h3><span class="sub">pedidos dirigidos a si</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Pedido</th><th>Detalhe</th><th class="r">Valor</th><th></th></tr></thead><tbody>
+        ${cx.map((it, i) => `<tr><td><b>${esc(it.titulo)}</b>${it.data ? `<div class="faint" style="font-size:12px">${date(it.data)}</div>` : ''}</td><td>${it.descricao || ''}</td><td class="r num">${it.valor != null ? eur(it.valor) : ''}</td><td class="r" style="white-space:nowrap">${it.ver ? `<a class="btn sm ghost" href="${it.ver}">Ver</a> ` : ''}<button class="btn sm primary" data-cx="${i}">${icon('key')} ${esc(it.botao || 'Confirmar')}</button></td></tr>`).join('')}</tbody></table></div></div>` : ''}
       <div class="card flush"><div class="card-h"><h3>Para aprovar <span class="badge warn plain">${ap.length}</span></h3>${ap.length > 1 ? `<button class="btn sm" id="ap-all">${icon('check')} Aprovar todos (${eur(ap.reduce((s, p) => s + p.valor, 0))})</button>` : ''}</div>${app.tabelaPedidos(ap, { empty: 'Sem pedidos a aguardar a sua aprovação.' })}</div>
       <div class="card flush"><div class="card-h"><h3>Para executar <span class="badge acc plain">${ex.length}</span></h3></div>${app.tabelaPedidos(ex, { empty: 'Sem pedidos aprovados prontos a executar.' })}</div>
       ${bloq.length ? `<div class="card flush"><div class="card-h"><h3>Bloqueados por saldo <span class="badge bad plain">${bloq.length}</span></h3><span class="sub">Registe uma entrada de fundos na conta ordenante</span></div>${app.tabelaPedidos(bloq)}</div>` : ''}
       ${!can('aprovar') && !can('executar') ? `<div class="alert info">${icon('shield')}<div>O seu perfil (${ROLES[app.user.role].label}) não aprova nem executa pedidos.</div></div>` : ''}</div>`;
     app.bindPedidos(v);
+    v.querySelectorAll('[data-cx]').forEach(b => b.onclick = async () => { const it = cx[+b.dataset.cx]; if (it && it.acao && await it.acao() !== false) render(); });
     const all = v.querySelector('#ap-all');
     if (all) all.onclick = async () => {
       const s = await app.assinar(`Aprovar ${ap.length} pedidos`, `Total: <b>${eur(ap.reduce((s, p) => s + p.valor, 0))}</b>`); if (!s) return;

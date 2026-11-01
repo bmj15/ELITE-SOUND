@@ -43,7 +43,12 @@ O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). 
   - **Casa partilhada** — as despesas comuns de uma casa (`shared/modelo-casa.js`):
     - para cada despesa: quem a paga e a parte de cada membro (em %);
     - o acerto mensal: quem transfere quanto a quem;
-    - as dívidas entre membros (quem deve a quem), que se marcam como pagas.
+    - o registo do acerto mensal ("Registar acerto do mês", e os meses anteriores em falta), que fica como dívida entre membros;
+    - as dívidas entre membros (quem deve a quem), cada uma com um estado:
+      - **pendente**;
+      - **pagamento registado**: quem deve regista, com assinatura, e quem recebe recebe na Caixa de entrada o pedido para confirmar;
+      - **concluído**: quem recebe confirma, com assinatura.
+      Quem recebe também pode marcar diretamente como recebido (inclusive em lote, "Marcar como pago até…"). Cada membro liga-se ao seu utilizador do sistema em Membros (ou pelo nome).
     - Cada membro tem o seu próprio sistema de Planeamento financeiro, privado, ligado à casa em Parâmetros do plano.
   - **Base** — só contas, pagamentos, autorizações e relatórios.
 - Criar ou alterar uma subsidiária segue a regra das duas pessoas. A subsidiária recebe um **sistema próprio** (livro de contas, utilizadores, PIN, autorizações e auditoria independentes), uma conta na holding e aparece no portal.

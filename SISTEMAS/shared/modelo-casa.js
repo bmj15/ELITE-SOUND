@@ -14,7 +14,7 @@ SPAP.modelos.casa = function (sub) {
 const { eur, pct, date, esc, uid, today, r2, MES3, MESES, icon, ui, chart } = SPAP;
 const CAIXA = sub.contaCaixa || 'CAIXA', OPER = sub.contaOperacional || 'OPERACIONAL', HOLD = sub.contaHolding || 'HOLDING';
 let app;
-const M = () => { const m = app.db.mod; ['membros', 'despesas', 'acertos'].forEach(k => { if (!Array.isArray(m[k])) m[k] = []; }); return m; };
+const M = () => { const m = app.db.mod; ['membros', 'despesas', 'acertos', 'mesesRegistados'].forEach(k => { if (!Array.isArray(m[k])) m[k] = []; }); return m; };
 const PERIODOS = [['mensal', 'Mensal', 1], ['trimestral', 'Trimestral', 3], ['semestral', 'Semestral', 6], ['anual', 'Anual', 12]];
 const CATS = ['Habitação', 'Alimentação', 'Serviços (água/luz/gás)', 'Comunicações', 'Seguros', 'Transportes', 'Saúde', 'Educação', 'Lazer', 'Outros'];
 const mensal = e => (+e.valor || 0) / ((PERIODOS.find(p => p[0] === e.periodicidade) || [0, 0, 1])[2]);
@@ -45,7 +45,57 @@ function transferencias(saldos) {
   for (const d of dev) for (const c of cre) { if (d.v < 0.005) break; const x = r2(Math.min(d.v, c.v)); if (x < 0.005) continue; t.push({ de: d.id, para: c.id, valor: x }); d.v -= x; c.v -= x; }
   return t;
 }
-const pendentes = () => M().acertos.filter(a => a.estado !== 'pago');
+/* ---------- Estado de cada dívida entre membros ----------
+   pendente → pagamento registado (por quem deve, assinado; aguarda confirmação) → concluído (quem recebe confirma, assinado) */
+const concluido = a => a.estado === 'concluido' || a.estado === 'pago';
+const pendentes = () => M().acertos.filter(a => !concluido(a));
+const ESTADO = a => concluido(a) ? `<span class="badge ok">concluído${a.concluidoEm || a.pagoEm ? ' ' + date(a.concluidoEm || a.pagoEm) : ''}</span>`
+  : a.estado === 'registado' ? `<span class="badge info" data-tip="${esc(`${(a.pagamento || {}).nome || curto(a.de)} registou o pagamento em ${date((a.pagamento || {}).data || today())}. Falta ${curto(a.para)} confirmar que recebeu.`)}">pagamento registado · aguarda ${esc(curto(a.para))}</span>` : '<span class="badge warn">pendente</span>';
+// membro da casa que corresponde ao utilizador com sessão iniciada (ligação em Membros, ou pelo nome)
+const membroDe = (u = app.user) => u ? (M().membros.find(x => x.utilizador === u.id) || M().membros.find(x => !x.utilizador && String(x.nome).trim().toLowerCase() === String(u.nome).trim().toLowerCase())) : null;
+const textoAcerto = (a, acao) => ['CASA', sub.key, a.id, a.de, a.para, (+a.valor || 0).toFixed(2), a.data || '', a.descricao || '', acao].join('|');
+// quem deve regista o pagamento (assinado); fica a aguardar a confirmação de quem recebe
+async function registarPagamento(lista) {
+  const tot = lista.reduce((t, a) => t + (+a.valor || 0), 0);
+  const s = await app.assinar(lista.length === 1 ? 'Registar pagamento' : `Registar ${lista.length} pagamentos`, `${lista.map(a => `${esc(curto(a.de))} pagou ${eur(a.valor)} a ${esc(curto(a.para))} · ${esc(a.descricao)}`).join('<br>')}${lista.length > 1 ? `<br><b>Total ${eur(tot)}</b>` : ''}<br><span style="font-size:12px">Fica a aguardar a confirmação de quem recebe, na Caixa de entrada.</span>`);
+  if (!s) return false;
+  for (const a of lista) { a.estado = 'registado'; a.pagamento = { data: today(), user: app.user.id, nome: app.user.nome, assinatura: await s.signer.texto('REGISTAR_PAGAMENTO', textoAcerto(a, 'REGISTAR_PAGAMENTO')) }; }
+  audit('CASA_PAGAMENTO_REGISTADO', `${lista.length} · ${eur(tot)} · ${lista.map(a => a.descricao).join('; ')}`.slice(0, 400)); app.save(); ui.toast(lista.length === 1 ? 'Pagamento registado: aguarda confirmação' : `${lista.length} pagamentos registados: aguardam confirmação`, 'ok'); return true;
+}
+// quem recebe confirma (assinado): a dívida fica concluída
+async function confirmarRecebimento(lista) {
+  const tot = lista.reduce((t, a) => t + (+a.valor || 0), 0);
+  const s = await app.assinar(lista.length === 1 ? 'Confirmar recebimento' : `Confirmar ${lista.length} recebimentos`, `${lista.map(a => `Recebi ${eur(a.valor)} de ${esc(curto(a.de))} · ${esc(a.descricao)}`).join('<br>')}${lista.length > 1 ? `<br><b>Total ${eur(tot)}</b>` : ''}<br><span style="font-size:12px">A dívida fica concluída.</span>`);
+  if (!s) return false;
+  for (const a of lista) { a.estado = 'concluido'; a.concluidoEm = today(); a.confirmacao = { user: app.user.id, nome: app.user.nome, assinatura: await s.signer.texto('CONFIRMAR_RECEBIMENTO', textoAcerto(a, 'CONFIRMAR_RECEBIMENTO')) }; }
+  audit('CASA_RECEBIMENTO_CONFIRMADO', `${lista.length} · ${eur(tot)} · ${lista.map(a => a.descricao).join('; ')}`.slice(0, 400)); app.save(); ui.toast(lista.length === 1 ? 'Recebimento confirmado: concluído' : `${lista.length} recebimentos confirmados: concluídos`, 'ok'); return true;
+}
+// marcar como pago: se for quem recebe, conclui logo; senão regista o pagamento para confirmação
+async function marcarPagos(lista) {
+  const eu = membroDe(); const minhas = lista.filter(a => eu && a.para === eu.id), outras = lista.filter(a => !(eu && a.para === eu.id) && a.estado !== 'registado');
+  if (minhas.length && !await confirmarRecebimento(minhas)) return false;
+  if (outras.length && !await registarPagamento(outras)) return false;
+  return true;
+}
+
+/* ---------- Registo do acerto mensal ---------- */
+const transferenciasMes = ym => { const R = resumoMes(ym); return transferencias(Object.fromEntries(Object.entries(R).map(([id, o]) => [id, o.saldo]))); };
+const fimMes = ym => { const [a, m] = ym.split('-').map(Number); return new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10); };
+const mesSeguinte = ym => { let [a, m] = ym.split('-').map(Number); m++; if (m > 12) { m = 1; a++; } return `${a}-${String(m).padStart(2, '0')}`; };
+const registado = ym => M().mesesRegistados.includes(ym) || M().acertos.some(a => a.mes === ym);
+// meses desde a primeira despesa comum até ao mês anterior ao atual que ainda não têm o acerto registado
+function mesesEmFalta() {
+  const ini = M().despesas.map(e => e.inicio).filter(Boolean).sort()[0]; if (!ini) return [];
+  const out = []; for (let ym = ini; ym < ymHoje() && out.length < 120; ym = mesSeguinte(ym)) if (!registado(ym)) out.push(ym);
+  return out;
+}
+// regista o acerto de um mês como dívida entre membros (uma por transferência); não repete meses já registados
+function registarMes(ym) {
+  if (registado(ym)) return 0; const m = M(), ts = transferenciasMes(ym);
+  ts.forEach(t => m.acertos.push({ id: 'A' + uid(), origem: `mensal:${ym}:${t.de}>${t.para}`, mes: ym, descricao: `Acerto das despesas comuns · ${fmtMes(ym)}`, de: t.de, para: t.para, valor: t.valor, data: fimMes(ym), estado: 'pendente' }));
+  m.mesesRegistados.push(ym); audit('CASA_ACERTO_MES', `${fmtMes(ym)}: ${ts.map(t => `${nomeM(t.de)} → ${nomeM(t.para)} ${eur(t.valor)}`).join('; ') || 'sem acerto'}`);
+  return ts.length;
+}
 
 /* ---------- Painel ---------- */
 function visao(v) {
@@ -57,16 +107,26 @@ function visao(v) {
     <div class="grid g4">${kpi(`${icon('list')} Despesas comuns / mês`, eur(tot), `${ativas().length} despesas em vigor`, '', true)}
       ${m.membros.slice(0, 3).map(x => kpi(`${icon('users')} Parte de ${esc(curto(x.id))}`, eur(R[x.id].parte), `adianta ${eur(R[x.id].paga)} por mês`)).join('')}</div>
     <div class="grid g2" style="margin-top:16px">
-      <div class="card"><div class="card-h"><h3>Acerto mensal</h3><span class="sub">${fmtMes(ymHoje())}</span></div>
+      <div class="card"><div class="card-h"><h3>Acerto mensal</h3><span class="sub">${fmtMes(ymHoje())}${registado(ymHoje()) ? ' · <span class="badge ok">registado</span>' : ''}</span></div>
+        ${(() => { const f = mesesEmFalta(); return f.length && podeEditar() ? `<div class="alert warn" style="margin-bottom:10px">${icon('alert')}<div>${f.length === 1 ? 'O acerto de' : `Os acertos de ${f.length} meses anteriores`} (${f.length === 1 ? fmtMes(f[0]) : fmtMes(f[0]) + ' a ' + fmtMes(f[f.length - 1])}) ainda não ${f.length === 1 ? 'foi registado' : 'foram registados'}. <a href="#" id="regf">Registar ${f.length === 1 ? 'esse mês' : 'esses meses'}</a></div></div>` : ''; })()}
         ${mensais.length ? mensais.map(t => `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><span><b>${esc(curto(t.de))}</b> transfere para <b>${esc(curto(t.para))}</b></span><b class="num">${eur(t.valor)}</b></div>`).join('')
           : '<div class="empty">Cada um paga exatamente a sua parte: não há acerto este mês.</div>'}
-        <p class="faint" style="font-size:12px;margin:10px 0 0">Quem paga uma despesa comum adianta a parte dos outros. O acerto compensa a diferença.</p></div>
+        ${podeEditar() && mensais.length && !registado(ymHoje()) ? `<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn sm primary" id="regm">${icon('check')} Registar acerto de ${fmtMes(ymHoje())}</button></div>` : ''}
+        <p class="faint" style="font-size:12px;margin:10px 0 0">Quem paga uma despesa comum adianta a parte dos outros. O acerto compensa a diferença. Ao registar, o acerto fica em <a href="#/acertos">Quem deve a quem</a> até ser marcado como pago.</p></div>
       <div class="card"><div class="card-h"><h3>Dívidas entre membros</h3><a class="btn sm" href="#/acertos">Ver todas</a></div>
         ${Object.keys(porPar).length ? Object.entries(porPar).map(([k, val]) => { const [de, para] = k.split('>'); return `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line)"><span><b>${esc(curto(de))}</b> deve a <b>${esc(curto(para))}</b></span><b class="num">${eur(val)}</b></div>`; }).join('')
           : '<div class="empty">Sem dívidas pendentes entre membros.</div>'}</div></div>
     <div class="card" style="margin-top:16px"><div class="card-h"><h3>Despesas comuns por categoria</h3><span class="sub">equivalente mensal</span></div><div id="dn"></div></div>`;
   chart.donut(v.querySelector('#dn'), { items: CATS.map(c => ({ label: c, value: r2(ativas().filter(e => e.categoria === c).reduce((s, e) => s + mensal(e), 0)) })).filter(x => x.value > 0), center: eur(tot), sub: 'por mês' });
   const imp = v.querySelector('#imp'); if (imp) imp.onclick = importar;
+  const regm = v.querySelector('#regm'); if (regm) regm.onclick = async () => {
+    const ts = transferenciasMes(ymHoje());
+    if (!await ui.confirm(`Registar acerto de ${fmtMes(ymHoje())}`, `${ts.map(t => `${esc(nomeM(t.de))} deve ${eur(t.valor)} a ${esc(nomeM(t.para))}`).join('<br>')}<br><br>Fica pendente em Quem deve a quem até ser marcado como pago. Se as despesas deste mês mudarem depois, corrija a linha registada.`, { okLabel: 'Registar' })) return;
+    registarMes(ymHoje()); app.save(); ui.toast('Acerto registado', 'ok'); app.refresh(); };
+  const regf = v.querySelector('#regf'); if (regf) regf.onclick = async e => { e.preventDefault(); const f = mesesEmFalta();
+    const linhas = f.map(ym => { const ts = transferenciasMes(ym); return `<b>${fmtMes(ym)}</b>: ${ts.length ? ts.map(t => `${esc(curto(t.de))} → ${esc(curto(t.para))} ${eur(t.valor)}`).join(', ') : 'sem acerto'}`; }).join('<br>');
+    if (!await ui.confirm('Registar meses em falta', `${linhas}<br><br>Cada acerto fica pendente em Quem deve a quem até ser marcado como pago.`, { okLabel: 'Registar' })) return;
+    f.forEach(registarMes); app.save(); ui.toast(`${f.length} ${f.length === 1 ? 'mês registado' : 'meses registados'}`, 'ok'); app.refresh(); };
 }
 
 /* ---------- Despesas comuns ---------- */
@@ -113,12 +173,13 @@ function despesas(v) {
 function membros(v) {
   const m = M(), ed = app.can('admin'), pessoais = ((window.Grupo && Grupo.lista()) || []).filter(s => s.modelo === 'planeamento');
   v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Quem vive na casa. Cada membro pode ter o seu plano pessoal (sistema do tipo Planeamento financeiro) ligado a esta casa.</span>${ed ? `<button class="btn primary" id="nm">${icon('plus')} Novo membro</button>` : ''}</div>
-    <div class="card flush"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Membro</th><th>NIF</th><th>Plano pessoal</th><th class="r">Parte mensal</th></tr></thead><tbody>
-    ${m.membros.map(x => { const s = pessoais.find(p => p.key === x.sistema); return `<tr class="${ed ? 'click' : ''}" data-m="${x.id}"><td><b>${esc(x.nome)}</b></td><td class="mono">${esc(x.nif || '—')}</td><td>${s ? `<a href="${Grupo.href(s)}">${esc(s.nome)}</a>` : '<span class="faint">—</span>'}</td><td class="r num">${eur(resumoMes()[x.id].parte)}</td></tr>`; }).join('') || '<tr><td colspan="4" class="empty">Sem membros.</td></tr>'}</tbody></table></div></div>
+    <div class="card flush"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Membro</th><th>NIF</th><th>Utilizador</th><th>Plano pessoal</th><th class="r">Parte mensal</th></tr></thead><tbody>
+    ${m.membros.map(x => { const s = pessoais.find(p => p.key === x.sistema); return `<tr class="${ed ? 'click' : ''}" data-m="${x.id}"><td><b>${esc(x.nome)}</b></td><td class="mono">${esc(x.nif || '—')}</td><td>${esc(((app.db.users.find(u => u.id === x.utilizador) || app.db.users.find(u => u.nome === x.nome)) || { nome: '—' }).nome)}</td><td>${s ? `<a href="${Grupo.href(s)}">${esc(s.nome)}</a>` : '<span class="faint">—</span>'}</td><td class="r num">${eur(resumoMes()[x.id].parte)}</td></tr>`; }).join('') || '<tr><td colspan="5" class="empty">Sem membros.</td></tr>'}</tbody></table></div></div>
     <div class="alert info" style="margin-top:16px">${icon('alert')}<div>No plano pessoal de cada membro, escolha esta casa em <b>Simulador → Parâmetros do plano → Casa partilhada</b> para a sua parte contar como despesa fixa.</div></div>`;
   const ed1 = x0 => { const novo = !x0, x = x0 || {};
     ui.modal({ title: novo ? 'Novo membro' : 'Editar ' + esc(x.nome), body: `<form class="form"><div class="fld full"><label>Nome</label><input class="inp" name="nome" value="${esc(x.nome || '')}"></div>
       <div class="fld"><label>NIF</label><input class="inp mono" name="nif" value="${esc(x.nif || '')}"></div>
+      <div class="fld"><label>Utilizador deste sistema</label><select class="inp" name="utilizador"><option value="">—</option>${app.db.users.filter(u => u.ativo !== false).map(u => `<option value="${u.id}" ${u.id === (x.utilizador || ((app.db.users.find(z => z.nome === x.nome) || {}).id)) ? 'selected' : ''}>${esc(u.nome)}</option>`).join('')}</select><span class="hint">Quem confirma os recebimentos deste membro.</span></div>
       <div class="fld"><label>Plano pessoal</label><select class="inp" name="sistema"><option value="">—</option>${pessoais.map(s => `<option value="${s.key}" ${s.key === x.sistema ? 'selected' : ''}>${esc(s.nome)}</option>`).join('')}</select></div></form>`,
       actions: [...(novo ? [] : [{ label: icon('trash') + 'Remover', kind: 'bad', onClick: async () => {
         if (m.despesas.some(e => e.pagaPor === x.id || +((e.partes || {})[x.id]) > 0) || m.acertos.some(a => a.de === x.id || a.para === x.id)) { ui.toast('Este membro tem despesas ou acertos: retire-o primeiro das despesas.', 'warn'); return false; }
@@ -132,14 +193,27 @@ function membros(v) {
 /* ---------- Dívidas entre membros (acertos) ---------- */
 function acertos(v) {
   const m = M(), ed = podeEditar(), ms = m.membros;
-  v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Valores que um membro deve a outro (por exemplo, a parte de uma compra ou de um cartão). Marque como pago quando o acerto for feito.</span>${ed ? `<button class="btn primary" id="na">${icon('plus')} Nova dívida entre membros</button>` : ''}</div>
+  v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Valores que um membro deve a outro (acertos mensais, parte de uma compra ou de um cartão). Quem paga regista o pagamento; quem recebe confirma na Caixa de entrada e a dívida fica concluída.</span>${ed ? `<div class="row">${pendentes().length ? `<button class="btn" id="ate">${icon('check')} Marcar como pago até…</button>` : ''}<button class="btn primary" id="na">${icon('plus')} Nova dívida entre membros</button></div>` : ''}</div>
     <div class="card flush"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Descrição</th><th>Quem deve</th><th>A quem</th><th class="r">Valor</th><th>Estado</th><th></th></tr></thead><tbody>
     ${m.acertos.slice().sort((a, b) => String(b.data).localeCompare(String(a.data))).map(a => `<tr><td>${date(a.data)}</td><td>${esc(a.descricao || '')}${a.notas ? `<div class="faint" style="font-size:12px">${esc(a.notas)}</div>` : ''}</td><td>${esc(curto(a.de))}</td><td>${esc(curto(a.para))}</td><td class="r num">${eur(a.valor)}</td>
-      <td>${a.estado === 'pago' ? `<span class="badge ok">pago ${a.pagoEm ? date(a.pagoEm) : ''}</span>` : '<span class="badge warn">pendente</span>'}</td>
-      <td class="r">${ed && a.estado !== 'pago' ? `<button class="btn sm" data-p="${a.id}">Marcar pago</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">Sem dívidas entre membros.</td></tr>'}</tbody></table></div></div>`;
-  v.querySelectorAll('[data-p]').forEach(b => b.onclick = async () => { const a = m.acertos.find(x => x.id === b.dataset.p);
-    if (!await ui.confirm('Marcar como pago', `${esc(curto(a.de))} pagou ${eur(a.valor)} a ${esc(curto(a.para))}?`, { okLabel: 'Marcar pago' })) return;
-    a.estado = 'pago'; a.pagoEm = today(); audit('CASA_ACERTO_PAGO', `${a.descricao} · ${eur(a.valor)}`); app.save(); app.refresh(); });
+      <td>${ESTADO(a)}${concluido(a) && a.confirmacao ? `<div class="faint" style="font-size:11px">confirmado por ${esc(a.confirmacao.nome)}</div>` : ''}</td>
+      <td class="r" style="white-space:nowrap">${concluido(a) ? '' : (() => { const eu = membroDe();
+        if (eu && a.para === eu.id) return `<button class="btn sm primary" data-c="${a.id}">${icon('key')} Confirmar recebimento</button>`;
+        if (a.estado === 'registado') return '';
+        return ed ? `<button class="btn sm" data-r="${a.id}">${icon('key')} Registar pagamento</button>` : ''; })()}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">Sem dívidas entre membros.</td></tr>'}</tbody></table></div></div>
+    ${!membroDe() && m.membros.length ? `<div class="alert info" style="margin-top:14px">${icon('users')}<div>O seu utilizador não está ligado a nenhum membro desta casa: os recebimentos só podem ser confirmados por quem recebe. Ligue o utilizador em <a href="#/membros">Membros</a>.</div></div>` : ''}`;
+  v.querySelectorAll('[data-c]').forEach(b => b.onclick = async () => { if (await confirmarRecebimento([m.acertos.find(x => x.id === b.dataset.c)])) app.refresh(); });
+  v.querySelectorAll('[data-r]').forEach(b => b.onclick = async () => { if (await registarPagamento([m.acertos.find(x => x.id === b.dataset.r)])) app.refresh(); });
+  const ate = v.querySelector('#ate'); if (ate) ate.onclick = () => {
+    const ant = (() => { let [a, mm] = ymHoje().split('-').map(Number); mm--; if (!mm) { mm = 12; a--; } return `${a}-${String(mm).padStart(2, '0')}`; })();
+    const md = ui.modal({ title: 'Marcar como pago até…', sub: 'As dívidas que lhe são devidas ficam concluídas com a sua assinatura; as que deve ficam com o pagamento registado, a aguardar a confirmação de quem recebe.', body: `<form class="form"><div class="fld"><label>Até ao mês (inclusive)</label><input class="inp" type="month" name="ate" value="${ant}"></div><div class="fld full" id="prev"></div></form>`,
+      onOpen: el => { const upd = () => { const f = ui.formData(el), sel = f.ate ? pendentes().filter(a => String(a.data || '') <= fimMes(f.ate)) : [];
+        el.querySelector('#prev').innerHTML = sel.length ? `<div class="alert info">${icon('check')}<div><b>${sel.length}</b> ${sel.length === 1 ? 'dívida' : 'dívidas'} · ${eur(sel.reduce((t, a) => t + (+a.valor || 0), 0))}<br><span style="font-size:12px">${sel.map(a => `${esc(a.descricao)} (${eur(a.valor)})`).join('<br>')}</span></div></div>` : '<div class="empty">Nenhuma dívida pendente até esse mês.</div>'; };
+        el.querySelectorAll('input').forEach(i => i.addEventListener('input', upd)); upd(); },
+      actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('key') + 'Assinar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!f.ate) { ui.toast('Escolha o mês', 'warn'); return false; }
+        const sel = pendentes().filter(a => String(a.data || '') <= fimMes(f.ate)); if (!sel.length) { ui.toast('Nenhuma dívida pendente até esse mês', 'warn'); return false; }
+        setTimeout(async () => { if (await marcarPagos(sel)) app.refresh(); }, 0); } }] });
+  };
   const na = v.querySelector('#na'); if (na) na.onclick = () => {
     if (ms.length < 2) { ui.toast('São precisos pelo menos dois membros', 'warn'); return; }
     const opt = sel => ms.map(x => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(x.nome)}</option>`).join('');
@@ -198,6 +272,11 @@ return {
     { id: 'acertos', label: 'Quem deve a quem', title: 'Dívidas entre membros', icon: 'swap', render: acertos },
     { id: 'membros', label: 'Membros', title: 'Membros da casa', icon: 'users', render: membros },
   ],
+  // pagamentos registados pelo outro membro, à espera da minha confirmação
+  caixa: () => { const eu = membroDe(); if (!eu) return [];
+    return M().acertos.filter(a => a.estado === 'registado' && a.para === eu.id).map(a => ({ titulo: 'Confirmar recebimento', data: (a.pagamento || {}).data,
+      descricao: `<b>${esc(nomeM(a.de))}</b> registou que pagou: ${esc(a.descricao)}`, valor: a.valor, botao: 'Confirmar recebimento', ver: '#/acertos',
+      acao: () => confirmarRecebimento([a]) })); },
   registar(a) { app = a; },
 };
 };
