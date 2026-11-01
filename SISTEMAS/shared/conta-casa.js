@@ -9,7 +9,7 @@
 (function () {
 'use strict';
 const r2 = v => Math.round((+v || 0) * 100) / 100;
-const PASSOS = { mensal: 1, trimestral: 3, semestral: 6, anual: 12 };
+const PASSOS = { mensal: 1, pontual: 1, trimestral: 3, semestral: 6, anual: 12 };
 const mensal = e => (+e.valor || 0) / (PASSOS[e.periodicidade] || 1);
 const vigente = (e, ym) => (!e.inicio || ym >= e.inicio) && (!e.fim || ym <= e.fim);
 // despesas de valor variável: valor real registado em cada mês (e.valores[AAAA-MM]); sem registo usa-se a média dos últimos 6 valores reais
@@ -44,13 +44,17 @@ const estimadas = (d, ym) => (d.mod.despesas || []).filter(e => e.ativo !== fals
 const Conta = SPAP.contaCasa = {
   resumoMes, transferencias, fimMes, ymHoje, valorMes, media, estimadas, mesSeguinte,
   livro: casa => ler('spap:' + casa),
-  registo: casa => Object.assign({ pagamentos: [], dividas: [] }, ler('spap:' + casa + ':conta') || {}),
+  registo: casa => Object.assign({ pagamentos: [], dividas: [], despesas: [] }, ler('spap:' + casa + ':conta') || {}),
   // lê, altera e grava logo a seguir (registo pequeno e só de acrescentar: não apaga o que outro sistema escreveu)
   alterar(casa, fn) { const r = Conta.registo(casa); const out = fn(r); localStorage.setItem('spap:' + casa + ':conta', JSON.stringify(r)); return out; },
   membros: casa => ((Conta.livro(casa) || {}).mod || {}).membros || [],
+  // despesas da casa: as do livro da casa e as acrescentadas pelos planos pessoais (ex.: uma compra no cartão que é toda da casa)
+  despesasRegisto: casa => (Conta.registo(casa).despesas || []).filter(e => !e.anulada),
+  todasDespesas: (casa, d = Conta.livro(casa)) => [...(((d || {}).mod || {}).despesas || []), ...Conta.despesasRegisto(casa)],
   // extrato da conta corrente: obrigações (acertos mensais e dívidas pontuais) e pagamentos
   extrato(casa, ate = ymHoje()) {
-    const d = Conta.livro(casa); if (!d || !d.mod) return null;
+    const d0 = Conta.livro(casa); if (!d0 || !d0.mod) return null;
+    const d = { mod: Object.assign({}, d0.mod, { despesas: Conta.todasDespesas(casa, d0) }) };
     const ms = d.mod.membros || [], nome = id => (ms.find(x => x.id === id) || { nome: id }).nome, R = Conta.registo(casa), linhas = [];
     const ini = (d.mod.despesas || []).map(e => e.inicio).filter(Boolean).sort()[0];
     if (ini) for (let ym = ini; ym <= ate; ym = mesSeguinte(ym)) {
@@ -61,7 +65,7 @@ const Conta = SPAP.contaCasa = {
     }
     // dívidas pontuais: as do livro da casa (importadas) e as criadas nos planos pessoais
     // uma dívida do registo comum pode substituir uma dívida antiga do livro da casa (ex.: ligada depois à compra no cartão)
-    const subst = new Set(R.dividas.filter(x => !x.anulada).flatMap(x => x.substitui || []));
+    const subst = new Set([...R.dividas, ...(R.despesas || [])].filter(x => !x.anulada).flatMap(x => x.substitui || []));
     (d.mod.acertos || []).filter(a => !String(a.origem || '').startsWith('mensal:') && !(a.mes) && !['concluido', 'pago'].includes(a.estado) && !subst.has(a.id) && !subst.has(a.origem)).forEach(a =>
       linhas.push({ tipo: 'divida', id: a.id, data: a.data, de: a.de, para: a.para, valor: r2(a.valor), descricao: a.descricao, notas: a.notas }));
     R.dividas.filter(a => !a.anulada).forEach(a => linhas.push(Object.assign({ tipo: 'divida' }, a)));
