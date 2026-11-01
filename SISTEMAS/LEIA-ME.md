@@ -36,6 +36,11 @@ O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). 
       - Cada cartão é atualizado pelo extrato mais recente: o saldo fica sem os planos PagaSimples, a prestação é o montante a pagar sem as prestações dos planos, e a taxa é a TAN.
       - Cada plano PagaSimples fica como dívida própria, ligada ao cartão. Um plano que desaparece do extrato fica liquidado.
       - Os extratos ficam no histórico, com os movimentos.
+    - **Casa** (conta corrente com os outros membros da casa ligada, `shared/conta-casa.js`):
+      - o saldo e o extrato, com os acertos mensais calculados a partir das despesas comuns, as dívidas pontuais e os pagamentos;
+      - quem deve faz "Registar pagamento" (assinado); quem recebe é avisado na **Caixa de entrada** do seu plano e confirma com assinatura, e o pagamento fica **concluído**;
+      - quem recebe também pode "Registar recebimento" ou "Liquidar até…", que ficam concluídos logo;
+      - os registos ficam num livro comum da casa (`spap:<casa>:conta`) onde só se acrescentam entradas.
     - **Importar do Planeador** (Painel): importa um ficheiro gerado a partir do sistema antigo (recibos, despesas, créditos e extratos). O que já foi importado não se repete.
     - **Simulador:** compara as estratégias avalanche, snowball e equilibrada, com fundo de emergência e poupança.
     - **Objetivos e saúde financeira.**
@@ -43,12 +48,7 @@ O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). 
   - **Casa partilhada** — as despesas comuns de uma casa (`shared/modelo-casa.js`):
     - para cada despesa: quem a paga e a parte de cada membro (em %);
     - o acerto mensal: quem transfere quanto a quem;
-    - o registo do acerto mensal ("Registar acerto do mês", e os meses anteriores em falta), que fica como dívida entre membros;
-    - as dívidas entre membros (quem deve a quem), cada uma com um estado:
-      - **pendente**;
-      - **pagamento registado**: quem deve regista, com assinatura, e quem recebe recebe na Caixa de entrada o pedido para confirmar;
-      - **concluído**: quem recebe confirma, com assinatura.
-      Quem recebe também pode marcar diretamente como recebido (inclusive em lote, "Marcar como pago até…"). Cada membro liga-se ao seu utilizador do sistema em Membros (ou pelo nome).
+    - "Quem deve a quem": só consulta do saldo e do extrato entre membros.
     - Cada membro tem o seu próprio sistema de Planeamento financeiro, privado, ligado à casa em Parâmetros do plano.
   - **Base** — só contas, pagamentos, autorizações e relatórios.
 - Criar ou alterar uma subsidiária segue a regra das duas pessoas. A subsidiária recebe um **sistema próprio** (livro de contas, utilizadores, PIN, autorizações e auditoria independentes), uma conta na holding e aparece no portal.

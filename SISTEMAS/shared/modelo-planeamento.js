@@ -230,6 +230,11 @@ function indicadores() {
   if (emerg != null && emerg < BENCH.emergMin) alertas.push(['bad', `O fundo de emergência cobre menos de 1 mês de despesas (${eur(fundo)}).`]);
   if (poup != null && poup < BENCH.poupMin) alertas.push(['warn', exc < 0 ? `As saídas mensais superam o rendimento em ${eur(-exc)}.` : `A taxa de poupança é só ${pct(poup)} (recomendado ≥ 10%).`]);
   ds.filter(d => d.tipo === 'cartao' ? (+d.taxa || 0) >= BENCH.tanCartao : (+d.taxa || 0) > BENCH.tanAlta).forEach(d => alertas.push(['warn', `<b>${esc(d.nome)}</b> tem uma taxa de ${pct(d.taxa)}: é a dívida mais cara a amortizar primeiro.`]));
+  { const L = ligacaoCasa(), ex = L && CC().extrato(L.casa);
+    if (ex) { const nm = id => esc(ex.nomeM(id).split(' ')[0]);
+      ex.deve.filter(x => x.de === L.eu).forEach(x => alertas.push(['warn', `Deve <b>${eur(x.valor)}</b> a ${nm(x.para)} na conta da casa. <a href="#/casa">Ver conta corrente</a>`]));
+      ex.deve.filter(x => x.para === L.eu).forEach(x => alertas.push(['info', `${nm(x.de)} deve-lhe <b>${eur(x.valor)}</b> na conta da casa. <a href="#/casa">Ver conta corrente</a>`]));
+      const n = ex.linhas.filter(l => l.tipo === 'pagamento' && l.estado === 'registado' && l.para === L.eu).length; if (n) alertas.unshift(['warn', `${n === 1 ? 'Há 1 pagamento' : `Há ${n} pagamentos`} da casa a aguardar a sua confirmação. <a href="#/aprovacoes">Caixa de entrada</a>`]); } }
   ds.filter(d => d.incumprimento).forEach(d => { const u = d.ultimoExtrato || {}; alertas.unshift(['bad', `<b>${esc(d.nome)}</b> está em incumprimento${d.incumprimento.montante ? `: <b>${eur(d.incumprimento.montante)}</b> em atraso` : ''}${d.incumprimento.bloqueado ? ' e a utilização está bloqueada pelo banco' : ''}.${u.pagar ? ` O extrato n.º ${u.numero} pede ${eur(u.pagar)}${u.dataLimite ? ' até ' + date(u.dataLimite) : ''}.` : ''} Veja em <a href="#/dividas">Dívidas e créditos</a>.`]); });
   ds.filter(d => mesesParaLiquidar(d) === Infinity).forEach(d => alertas.push(['bad', `A prestação de <b>${esc(d.nome)}</b> não cobre os juros: a dívida cresce todos os meses.`]));
   return { rend, desp, prest, exc, divida, fundo, dti, poup, emerg, tanMedia, comp, score, nota, alertas };
@@ -683,6 +688,92 @@ function importarPlaneador() {
   inp.click();
 }
 
+
+/* ---------- Casa partilhada: conta corrente com os outros membros ----------
+   Os acertos e o saldo vivem aqui, no plano pessoal. Quem deve regista o pagamento (assinado);
+   quem recebe confirma na sua Caixa de entrada (assinado) e o pagamento fica concluído. */
+const CC = () => SPAP.contaCasa;
+const ligacaoCasa = () => { const pl = M().plano; return pl.casa && pl.membroCasa && CC() ? { casa: pl.casa, eu: pl.membroCasa } : null; };
+const textoPag = p => ['CASA-PAG', p.casa || '', p.id, p.de, p.para, (+p.valor || 0).toFixed(2), p.data || '', p.descricao || ''].join('|');
+const estadoPag = p => p.estado === 'concluido' ? `<span class="badge ok">concluído${p.concluidoEm ? ' ' + date(p.concluidoEm) : ''}</span>`
+  : p.estado === 'registado' ? '<span class="badge info">pagamento registado · aguarda confirmação</span>' : '<span class="badge warn">pendente</span>';
+async function assinarPagamento({ de, para, valor, data, descricao, concluir }, ex) {
+  const L = ligacaoCasa(); const s = await app.assinar(concluir ? 'Registar recebimento' : 'Registar pagamento',
+    `${concluir ? `Recebi <b>${eur(valor)}</b> de ${esc(ex.nomeM(de))}` : `Paguei <b>${eur(valor)}</b> a ${esc(ex.nomeM(para))}`} · ${esc(descricao)}<br><span style="font-size:12px">${concluir ? 'Fica concluído.' : `Fica a aguardar a confirmação de ${esc(ex.nomeM(para).split(' ')[0])}, na Caixa de entrada do plano dele.`}</span>`);
+  if (!s) return false;
+  const pag = { id: 'P' + uid(), casa: L.casa, de, para, valor: r2(valor), data: data || today(), descricao, criadoEm: new Date().toISOString(), sistema: sub.key };
+  const reg = { user: app.user.id, nome: app.user.nome, membro: L.eu, assinatura: await s.signer.texto(concluir ? 'REGISTAR_RECEBIMENTO' : 'REGISTAR_PAGAMENTO', textoPag(pag)) };
+  if (concluir) Object.assign(pag, { estado: 'concluido', concluidoEm: today(), confirmacao: reg, registo: reg }); else Object.assign(pag, { estado: 'registado', registo: reg });
+  CC().alterar(L.casa, r => r.pagamentos.push(pag));
+  audit(concluir ? 'CASA_RECEBIMENTO' : 'CASA_PAGAMENTO', `${ex.nome}: ${ex.nomeM(de)} → ${ex.nomeM(para)} ${eur(valor)} · ${descricao}`); app.save();
+  ui.toast(concluir ? 'Recebimento registado: concluído' : 'Pagamento registado: aguarda confirmação', 'ok'); return true;
+}
+async function confirmarPagamento(id) {
+  const L = ligacaoCasa(); const ex = CC().extrato(L.casa); const p = CC().registo(L.casa).pagamentos.find(x => x.id === id);
+  if (!p || p.estado !== 'registado' || p.para !== L.eu) return false;
+  const s = await app.assinar('Confirmar recebimento', `Recebi <b>${eur(p.valor)}</b> de ${esc(ex.nomeM(p.de))} · ${esc(p.descricao)}<br><span style="font-size:12px">O pagamento fica concluído.</span>`);
+  if (!s) return false;
+  const conf = { user: app.user.id, nome: app.user.nome, membro: L.eu, assinatura: await s.signer.texto('CONFIRMAR_RECEBIMENTO', textoPag(p)) };
+  CC().alterar(L.casa, r => { const x = r.pagamentos.find(y => y.id === id); if (x && x.estado === 'registado') Object.assign(x, { estado: 'concluido', concluidoEm: today(), confirmacao: conf }); });
+  audit('CASA_RECEBIMENTO_CONFIRMADO', `${ex.nome}: ${ex.nomeM(p.de)} → ${ex.nomeM(p.para)} ${eur(p.valor)} · ${p.descricao}`); app.save();
+  ui.toast('Recebimento confirmado: concluído', 'ok'); return true;
+}
+function casaPessoal(v) {
+  const L = ligacaoCasa();
+  if (!L) { v.innerHTML = `<div class="empty">Este plano não está ligado a uma casa partilhada. Escolha a casa e o membro em <a href="#/simulador" data-aba="pf-sim=par">Parâmetros do plano</a>.</div>`; return; }
+  const ex = CC().extrato(L.casa);
+  if (!ex) { v.innerHTML = `<div class="empty">A casa partilhada ainda não foi aberta neste computador.</div>`; return; }
+  const eu = L.eu, nm = id => ex.nomeM(id).split(' ')[0], ed = podeEditar();
+  const aReceber = ex.deve.filter(x => x.para === eu), aPagar = ex.deve.filter(x => x.de === eu);
+  const meus = ex.linhas.filter(l => l.de === eu || l.para === eu), porConfirmar = meus.filter(l => l.tipo === 'pagamento' && l.estado === 'registado' && l.para === eu);
+  const outros = ex.membros.filter(x => x.id !== eu);
+  v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Conta corrente com os outros membros de <b>${esc(ex.nome)}</b>. Os acertos mensais são calculados a partir das despesas comuns da casa.</span>
+      ${ed ? `<div class="row">${aPagar.length ? `<button class="btn primary" id="pg">${icon('key')} Registar pagamento</button>` : ''}${aReceber.length ? `<button class="btn" id="rc">${icon('key')} Registar recebimento</button><button class="btn" id="lq">${icon('check')} Liquidar até…</button>` : ''}<button class="btn ghost" id="nd">${icon('plus')} Nova dívida</button></div>` : ''}</div>
+    ${porConfirmar.length ? `<div class="alert warn" style="margin-bottom:16px">${icon('inbox')}<div>${porConfirmar.length === 1 ? 'Há 1 pagamento' : `Há ${porConfirmar.length} pagamentos`} registados a aguardar a sua confirmação. <a href="#/aprovacoes">Abrir a Caixa de entrada</a></div></div>` : ''}
+    <div class="grid g3">
+      ${outros.map(o => { const r = aReceber.find(x => x.de === o.id), pg = aPagar.find(x => x.para === o.id);
+        return kpi(`${icon('users')} Conta com ${esc(nm(o.id))}`, r ? eur(r.valor) : pg ? eur(pg.valor) : eur(0), r ? `${esc(nm(o.id))} deve-lhe` : pg ? `deve a ${esc(nm(o.id))}` : 'contas acertadas', r ? 'pos' : pg ? 'neg' : '', true); }).join('')}
+      ${kpi('Pagamentos por confirmar', String(meus.filter(l => l.tipo === 'pagamento' && l.estado === 'registado').length), 'registados e à espera de quem recebe')}
+      ${kpi('Acerto deste mês', (() => { const t = meus.find(l => l.tipo === 'acerto' && l.mes === today().slice(0, 7)); return t ? eur(t.valor) : eur(0); })(), (() => { const t = meus.find(l => l.tipo === 'acerto' && l.mes === today().slice(0, 7)); return t ? (t.de === eu ? `a pagar a ${esc(nm(t.para))}` : `a receber de ${esc(nm(t.de))}`) : 'sem acerto'; })())}</div>
+    <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Extrato</h3><span class="sub">acertos, dívidas e pagamentos</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Movimento</th><th>Tipo</th><th class="r">Deve</th><th class="r">Pago</th><th>Estado</th><th></th></tr></thead><tbody>
+    ${meus.slice().reverse().map(l => { const sentido = l.de === eu ? `eu → ${esc(nm(l.para))}` : `${esc(nm(l.de))} → eu`;
+      if (l.tipo === 'pagamento') return `<tr><td>${date(l.data)}</td><td>${esc(l.descricao || 'Pagamento')}<div class="faint" style="font-size:12px">${sentido}${l.registo ? ' · registado por ' + esc(l.registo.nome.split(' ')[0]) : ''}${l.confirmacao && (!l.registo || l.confirmacao.nome !== l.registo.nome) ? ' · confirmado por ' + esc(l.confirmacao.nome.split(' ')[0]) : ''}</div></td><td><span class="badge plain">pagamento</span></td><td></td><td class="r num">${eur(l.valor)}</td><td>${estadoPag(l)}</td>
+        <td class="r">${l.estado === 'registado' && l.para === eu ? `<button class="btn sm primary" data-cf="${l.id}">${icon('key')} Confirmar</button>` : ''}</td></tr>`;
+      return `<tr><td>${date(l.data)}</td><td>${esc(l.tipo === 'acerto' ? 'Acerto das despesas comuns · ' + fmtMes(l.mes) : l.descricao)}<div class="faint" style="font-size:12px">${sentido}</div></td><td><span class="badge plain">${l.tipo === 'acerto' ? 'acerto mensal' : 'dívida'}</span></td><td class="r num">${eur(l.valor)}</td><td></td><td></td><td></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Sem movimentos.</td></tr>'}</tbody></table></div></div>`;
+  v.querySelectorAll('[data-cf]').forEach(b => b.onclick = async () => { if (await confirmarPagamento(b.dataset.cf)) app.refresh(); });
+  const formPag = (concluir, lista) => {
+    const opts = lista.map(x => { const o = concluir ? x.de : x.para; return `<option value="${o}" data-v="${x.valor}">${esc(ex.nomeM(o))} (${concluir ? 'deve-lhe' : 'deve'} ${eur(x.valor)})</option>`; }).join('');
+    ui.modal({ title: concluir ? 'Registar recebimento' : 'Registar pagamento', sub: concluir ? 'Fica concluído com a sua assinatura.' : 'Fica a aguardar a confirmação de quem recebe, na Caixa de entrada do plano dele.',
+      body: `<form class="form"><div class="fld"><label>${concluir ? 'Recebido de' : 'Pago a'}</label><select class="inp" name="outro">${opts}</select></div><div class="fld"><label>Valor (€)</label><input class="inp num" type="number" step="any" name="valor" value="${lista[0].valor}"></div>
+        <div class="fld"><label>Data</label><input class="inp" type="date" name="data" value="${today()}"></div><div class="fld"><label>Descrição</label><input class="inp" name="descricao" value="Acerto da casa"></div></form>`,
+      onOpen: el => { const sel = el.querySelector('[name=outro]'); sel.onchange = () => { el.querySelector('[name=valor]').value = sel.selectedOptions[0].dataset.v; }; },
+      actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('key') + 'Assinar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!(+f.valor > 0)) { ui.toast('Indique o valor', 'warn'); return false; }
+        setTimeout(async () => { if (await assinarPagamento({ de: concluir ? f.outro : eu, para: concluir ? eu : f.outro, valor: +f.valor, data: f.data, descricao: f.descricao || 'Acerto da casa', concluir }, ex)) app.refresh(); }, 0); } }] });
+  };
+  const pg = v.querySelector('#pg'); if (pg) pg.onclick = () => formPag(false, aPagar);
+  const rc = v.querySelector('#rc'); if (rc) rc.onclick = () => formPag(true, aReceber);
+  const lq = v.querySelector('#lq'); if (lq) lq.onclick = () => {
+    const ant = (() => { let [a, mm] = today().slice(0, 7).split('-').map(Number); mm--; if (!mm) { mm = 12; a--; } return `${a}-${String(mm).padStart(2, '0')}`; })();
+    ui.modal({ title: 'Liquidar até…', sub: 'Regista como recebido tudo o que lhe deviam até ao fim do mês escolhido. Fica concluído com a sua assinatura.',
+      body: `<form class="form"><div class="fld"><label>Até ao mês (inclusive)</label><input class="inp" type="month" name="ate" value="${ant}"></div><div class="fld"><label>Data</label><input class="inp" type="date" name="data" value="${today()}"></div><div class="fld full" id="prev"></div></form>`,
+      onOpen: el => { const upd = () => { const f = ui.formData(el); el.querySelector('#prev').innerHTML = !f.ate ? '' : outros.map(o => { const val = CC().saldoAte(L.casa, o.id, eu, f.ate);
+        return `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(ex.nomeM(o.id))} deve-lhe até ${fmtMes(f.ate)}</span><b class="num">${eur(Math.max(0, val))}</b></div>`; }).join(''); };
+        el.querySelectorAll('input').forEach(i => i.addEventListener('input', upd)); upd(); },
+      actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('key') + 'Assinar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!f.ate) { ui.toast('Escolha o mês', 'warn'); return false; }
+        const lista = outros.map(o => ({ o, val: CC().saldoAte(L.casa, o.id, eu, f.ate) })).filter(x => x.val > 0.004); if (!lista.length) { ui.toast('Nada a liquidar até esse mês', 'warn'); return false; }
+        setTimeout(async () => { let ok = true; for (const x of lista) ok = ok && await assinarPagamento({ de: x.o.id, para: eu, valor: x.val, data: f.data, descricao: `Liquidação de tudo até ${fmtMes(f.ate)}`, concluir: true }, ex); if (ok) app.refresh(); }, 0); } }] });
+  };
+  const nd = v.querySelector('#nd'); if (nd) nd.onclick = () => ui.modal({ title: 'Nova dívida entre membros', sub: 'Por exemplo, a parte de uma compra feita por um de vocês.',
+    body: `<form class="form"><div class="fld full"><label>Descrição</label><input class="inp" name="descricao"></div>
+      <div class="fld"><label>Quem deve</label><select class="inp" name="de">${ex.membros.map(x => `<option value="${x.id}" ${x.id !== eu ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></div>
+      <div class="fld"><label>A quem</label><select class="inp" name="para">${ex.membros.map(x => `<option value="${x.id}" ${x.id === eu ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></div>
+      <div class="fld"><label>Valor (€)</label><input class="inp num" type="number" step="any" name="valor"></div><div class="fld"><label>Data</label><input class="inp" type="date" name="data" value="${today()}"></div></form>`,
+    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: 'Guardar', kind: 'primary', onClick: el => { const f = ui.formData(el);
+      if (!f.descricao || !(+f.valor > 0)) { ui.toast('Indique a descrição e o valor', 'warn'); return false; } if (f.de === f.para) { ui.toast('Escolha duas pessoas diferentes', 'warn'); return false; }
+      CC().alterar(L.casa, r => r.dividas.push({ id: 'Dv' + uid(), de: f.de, para: f.para, valor: r2(+f.valor), data: f.data || today(), descricao: f.descricao, criadoPor: app.user.nome, sistema: sub.key }));
+      audit('CASA_DIVIDA', `${ex.nome}: ${ex.nomeM(f.de)} → ${ex.nomeM(f.para)} ${eur(f.valor)} · ${f.descricao}`); app.save(); app.refresh(); } }] });
+}
+
 /* ---------- Simulador de estratégias e parâmetros do plano ---------- */
 const COLS_PLANO = () => [
   { k: 'salarioBase', label: 'Salário líquido recorrente', type: 'money', hint: `Deixe 0 para estimar pelos recibos (${eur(estimarLiquido(M().recibos).base)}).` },
@@ -835,7 +926,13 @@ return {
     { id: 'dividas', label: 'Dívidas e créditos', title: 'Dívidas e créditos', icon: 'credit', render: dividas },
     { id: 'simulador', label: 'Simulador de estratégias', title: 'Simulador de estratégias', icon: 'target', render: simulador },
     { id: 'objetivos', label: 'Objetivos', title: 'Objetivos e compras', icon: 'pie', render: objetivos },
+    { id: 'casa', label: 'Casa', title: 'Casa partilhada · conta corrente', icon: 'home', render: casaPessoal },
   ],
+  // pagamentos registados pelos outros membros da casa, à espera da minha confirmação
+  caixa: () => { const L = ligacaoCasa(); if (!L) return []; const ex = CC().extrato(L.casa); if (!ex) return [];
+    return ex.linhas.filter(l => l.tipo === 'pagamento' && l.estado === 'registado' && l.para === L.eu).map(l => ({ titulo: 'Confirmar recebimento', data: l.data,
+      descricao: `<b>${esc(ex.nomeM(l.de))}</b> registou que lhe pagou: ${esc(l.descricao)} (${esc(ex.nome)})`, valor: l.valor, botao: 'Confirmar recebimento', ver: '#/casa',
+      acao: () => confirmarPagamento(l.id) })); },
   registar(a) { app = a; if (a.GLOSS) Object.assign(a.GLOSS, GLOSS); },
   // exposto para testes
   _motor: { taxaMensal, comissaoLegal, mesesParaLiquidar, estimarLiquido, simular, escolherAlvo },
