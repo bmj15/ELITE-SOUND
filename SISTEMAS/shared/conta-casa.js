@@ -60,7 +60,9 @@ const Conta = SPAP.contaCasa = {
           estimado: estimadas(d, ym).map(e => e.nome) }));
     }
     // dívidas pontuais: as do livro da casa (importadas) e as criadas nos planos pessoais
-    (d.mod.acertos || []).filter(a => !String(a.origem || '').startsWith('mensal:') && !(a.mes) && !['concluido', 'pago'].includes(a.estado)).forEach(a =>
+    // uma dívida do registo comum pode substituir uma dívida antiga do livro da casa (ex.: ligada depois à compra no cartão)
+    const subst = new Set(R.dividas.filter(x => !x.anulada).flatMap(x => x.substitui || []));
+    (d.mod.acertos || []).filter(a => !String(a.origem || '').startsWith('mensal:') && !(a.mes) && !['concluido', 'pago'].includes(a.estado) && !subst.has(a.id) && !subst.has(a.origem)).forEach(a =>
       linhas.push({ tipo: 'divida', id: a.id, data: a.data, de: a.de, para: a.para, valor: r2(a.valor), descricao: a.descricao, notas: a.notas }));
     R.dividas.filter(a => !a.anulada).forEach(a => linhas.push(Object.assign({ tipo: 'divida' }, a)));
     R.pagamentos.forEach(p => linhas.push(Object.assign({ tipo: 'pagamento' }, p)));
