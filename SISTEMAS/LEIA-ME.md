@@ -164,6 +164,10 @@ O `ABRIR SISTEMA.bat` arranca o servidor (`servidor.js`, em http://localhost:808
 - **Primeira vez:**
   1. Abra o `ABRIR SISTEMA.bat`, crie a conta de administrador e carregue em "Enviar os dados deste navegador para o servidor".
   2. Em Acessos, crie as contas das outras pessoas e escolha os sistemas de cada uma (por exemplo, o Guilherme: o plano pessoal dele e a Casa).
+- **PIN esquecido num sistema:** em Acessos → "PIN esquecido num sistema", o administrador do servidor (com a sua palavra-passe) define um PIN temporário para um utilizador de um sistema.
+  - No próximo acesso, o sistema obriga a escolher um PIN novo e emite um novo certificado de assinatura.
+  - As assinaturas antigas continuam verificáveis.
+  - Fica registado na auditoria do sistema, encadeado.
 - **Alterações em simultâneo:** se duas pessoas gravarem o mesmo sistema ao mesmo tempo, a segunda é avisada e a página recarrega com os dados mais recentes, para repetir a alteração. Quando há dados novos de outra pessoa aparece o aviso "Atualizar".
 - **Aceder de outros aparelhos (Tailscale, rede privada e gratuita):**
   1. Instale o Tailscale neste PC (tailscale.com) e entre com a sua conta.

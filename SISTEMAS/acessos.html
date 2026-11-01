@@ -60,7 +60,26 @@
       document.getElementById('nova').onclick = function () { form(null); };
       c.querySelectorAll('[data-ed]').forEach(function (b) { b.onclick = function () { form(r.j.find(function (x) { return x.id === b.dataset.ed; })); }; });
       c.querySelectorAll('[data-rm]').forEach(function (b) { b.onclick = function () { if (confirm('Remover esta conta? Deixa de conseguir entrar no servidor.')) api('DELETE', '/api/contas/' + b.dataset.rm).then(carregar); }; });
-      senha();
+      senha(); pinSistema();
+    });
+  }
+  // PIN esquecido dentro de um sistema: o administrador do servidor define um PIN temporário
+  function pinSistema() {
+    api('GET', '/api/dados').then(function (r) {
+      var lista = [];
+      Object.keys(r.j || {}).forEach(function (k) { var m = /^spap:([^:]+)$/.exec(k); if (!m || k === 'spap:grupo') return; try { var d = JSON.parse(r.j[k].valor); if (d && Array.isArray(d.users)) lista.push({ key: m[1], nome: (sistemas.find(function (s) { return s.key === m[1]; }) || {}).nome || m[1], users: d.users.filter(function (u) { return u.ativo !== false; }), locks: (d.meta || {}).locks || {} }); } catch (e) { } });
+      if (!lista.length) return;
+      c.insertAdjacentHTML('beforeend', '<div class="card" style="margin-top:16px"><div class="card-h"><h3>PIN esquecido num sistema</h3></div><p class="muted" style="margin:0 0 12px">Define um PIN temporário para um utilizador de um sistema (por exemplo, quando é o único com PIN e se esqueceu). No próximo acesso o sistema obriga-o a escolher um PIN novo e emite um novo certificado de assinatura; as assinaturas antigas continuam verificáveis. Fica registado na auditoria do sistema.</p>' +
+        '<form class="form" id="fpin"><div class="fld"><label>Sistema</label><select class="inp" name="sistema">' + lista.map(function (s) { return '<option value="' + esc(s.key) + '">' + esc(s.nome) + '</option>'; }).join('') + '</select></div><div class="fld"><label>Utilizador</label><select class="inp" name="userId"></select></div>' +
+        '<div class="fld"><label>PIN temporário (4 a 8 dígitos)</label><input class="inp mono" name="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></div><div class="fld"><label>Confirmar PIN temporário</label><input class="inp mono" name="pin2" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></div>' +
+        '<div class="fld full"><label>A sua palavra-passe do servidor</label><input class="inp" name="palavra" type="password" autocomplete="current-password"></div><div class="fld full"><button class="btn primary" type="submit">Definir PIN temporário</button> <span id="rpin"></span></div></form></div>');
+      var f = document.getElementById('fpin');
+      var users = function () { var s = lista.find(function (x) { return x.key === f.sistema.value; }); f.userId.innerHTML = s.users.map(function (u) { var l = s.locks[u.id], bloq = l && l.until > Date.now(); return '<option value="' + esc(u.id) + '">' + esc(u.nome) + (u.pinHash ? '' : ' (sem PIN)') + (bloq ? ' · bloqueado' : '') + '</option>'; }).join(''); };
+      f.sistema.onchange = users; users();
+      f.onsubmit = function (e) { e.preventDefault(); var d = Object.fromEntries(new FormData(f)), out = document.getElementById('rpin');
+        if (!/^\d{4,8}$/.test(d.pin)) { out.textContent = 'O PIN deve ter 4 a 8 dígitos'; return; } if (d.pin !== d.pin2) { out.textContent = 'Os PIN não coincidem'; return; }
+        api('POST', '/api/redefinir-pin', { sistema: d.sistema, userId: d.userId, pin: d.pin, palavra: d.palavra }).then(function (r) {
+          if (!r.ok) { out.textContent = r.j.erro; return; } f.reset(); users(); out.textContent = 'PIN temporário definido para ' + r.j.utilizador + '. Feche e volte a abrir esse sistema e entre com ele: vai ser pedido um PIN novo.'; }); };
     });
   }
   function form(x) {

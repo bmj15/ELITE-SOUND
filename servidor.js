@@ -142,6 +142,31 @@ async function api(req, res, caminho) {
     if (req.method === 'DELETE') { try { fs.unlinkSync(ficheiroChave(k)); } catch (e) { } return json(200, { versao: 0 }); }
     return json(405, { erro: 'Método não permitido' });
   }
+  // redefinir o PIN de um utilizador dentro de um sistema (ex.: o administrador esqueceu-se do PIN e é o único com PIN)
+  // usa o mesmo mecanismo do sistema: PIN temporário, troca obrigatória no próximo acesso e novo certificado de assinatura
+  if (caminho === '/api/redefinir-pin' && req.method === 'POST') {
+    if (!c.admin) return json(403, { erro: 'Só administradores do servidor' });
+    const b = await lerCorpo(req);
+    if (!confere(b.palavra, c.hash)) return json(401, { erro: 'Palavra-passe do servidor incorreta' });
+    if (!/^\d{4,8}$/.test(String(b.pin || ''))) return json(400, { erro: 'O PIN temporário deve ter 4 a 8 dígitos' });
+    const k = 'spap:' + String(b.sistema || ''), atual = lerJSON(ficheiroChave(k), null);
+    if (!atual) return json(404, { erro: 'Sistema não encontrado no servidor' });
+    let d; try { d = JSON.parse(atual.valor); } catch (e) { return json(400, { erro: 'Dados do sistema ilegíveis' }); }
+    const u = (d.users || []).find(x => x.id === b.userId); if (!u) return json(404, { erro: 'Utilizador não encontrado nesse sistema' });
+    const sha = t => crypto.createHash('sha256').update(String(t), 'utf8').digest('hex');
+    const salt = Date.now().toString(36) + crypto.randomBytes(8).toString('hex');
+    let h = salt + ':' + b.pin; for (let i = 0; i < 1500; i++) h = sha(h + salt); // igual ao hashPin do sistema
+    const agora = new Date().toISOString();
+    Object.assign(u, { salt, pinHash: h, mustChange: true, avisoPin: { por: `${c.nome} (administrador do servidor)`, em: agora } });
+    d.meta = d.meta || {}; d.meta.locks = d.meta.locks || {}; d.meta.locks[u.id] = { n: 0, until: 0 };
+    // entrada no registo de auditoria, encadeada como as do sistema
+    d.audit = d.audit || []; const prev = d.audit.length ? d.audit[d.audit.length - 1].hash : 'GENESIS';
+    const e = { ts: agora, user: 'servidor:' + c.utilizador, acao: 'PIN_REDEFINIDO_SERVIDOR', detalhe: `${u.username} · PIN temporário definido pelo administrador do servidor ${c.nome}; troca obrigatória no próximo acesso`, ref: null, prev };
+    e.hash = sha([prev, e.ts, e.user, e.acao, e.detalhe, ''].join('|')); d.audit.push(e);
+    copiaDiaria();
+    gravarJSON(ficheiroChave(k), { valor: JSON.stringify(d), versao: atual.versao + 1, por: c.utilizador, em: agora });
+    return json(200, { ok: true, utilizador: u.nome });
+  }
   // gestão de contas (só administradores)
   if (caminho === '/api/contas') {
     if (!c.admin) return json(403, { erro: 'Só administradores' });
