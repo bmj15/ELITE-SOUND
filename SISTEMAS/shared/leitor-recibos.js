@@ -71,6 +71,31 @@ const MODELOS = [
       refeicaoDia: { tipo: 'captura', re: /Ticket\s+Refei[çc][ãa]o\s+Isento\s+\d{1,2},00\s+(\d+,\d{2})/im },
       refeicao: { tipo: 'ultimo', re: /Ticket\s+Refei[çc][ãa]o\s+Isento\s+\d/im },
     } },
+  // PRIMAVERA BSS, folha com "Original" e "Duplicado" lado a lado: cada linha aparece duas vezes,
+  // por isso só se usa o primeiro valor de cada linha (nunca somas de linhas)
+  { id: 'coffee-box', nome: 'Coffee Box - Cafetaria (Primavera)', prioridade: 100, assinaturas: [/Coffee\s+Box/i, /506513483/],
+    campos: {
+      nifEntidade: { tipo: 'constante', valor: '506513483' },
+      entidade: { tipo: 'constante', valor: 'Coffee Box - Cafetaria, SA' },
+      bruto: { tipo: 'captura', re: /^\s*Total\s+([\d.]+,\d{2})/im },
+      totalDescontos: { tipo: 'captura', re: /^\s*Total\s+[\d.]+,\d{2}\s+([\d.]+,\d{2})/im },
+      liquido: { tipo: 'captura', re: /Total\s+Pago\s*\(\s*EUR\s*\)\s*([\d.]+,\d{2})/i },
+      ss: { tipo: 'captura', re: /Seguran[çc]a\s+Social\s*(?:\([\d,.]+\s*%\))?\s*([\d.]+,\d{2})/i },
+      irs: { tipo: 'captura', re: /\bD\d{2}\s+\d{2}-20\d{2}\s+[^\n]*?(?:IRS|Reten[çc][ãa]o)[^\n]*?\s([\d.]+,\d{2})/i },
+      periodo: { tipo: 'periodo', re: /Data\s+Fecho\s+(\d{1,2})\/(\d{1,2})\/(20\d{2})/i, mes: 2, ano: 3 },
+      refeicaoDias: { tipo: 'captura', re: /Subs[ií]dio\s+(?:de\s+)?Alimenta[çc][ãa]o[^\n]*?\((\d{1,2})\s*Un/i },
+      refeicao: { tipo: 'captura', re: /Subs[ií]dio\s+(?:de\s+)?Alimenta[çc][ãa]o[^\n]*?\)\s*([\d.]+,\d{2})/i },
+      subFerias: { tipo: 'presenca', re: /Subs[ií]dio\s+(de\s+)?F[ée]rias/i },
+      subNatal: { tipo: 'presenca', re: /Subs[ií]dio\s+(de\s+)?Natal/i },
+      subFeriasValor: { tipo: 'captura', re: /Subs[ií]dio\s+(?:de\s+)?F[ée]rias[^\n]*?\s([\d.]+,\d{2})/i },
+      subNatalValor: { tipo: 'captura', re: /Subs[ií]dio\s+(?:de\s+)?Natal[^\n]*?\s([\d.]+,\d{2})/i },
+    },
+    // sem linha de IRS nos descontos = sem retenção; líquido em falta = bruto − descontos
+    depois(d) {
+      if (d.irs == null) { d.irs = 0; d.notas.push('Sem retenção de IRS neste recibo'); }
+      if (d.liquido == null && d.bruto != null && d.totalDescontos != null) { d.liquido = Math.round((d.bruto - d.totalDescontos) * 100) / 100; d.notas.push('Líquido = total remunerações − total descontos'); }
+      delete d.totalDescontos;
+    } },
   { id: 'generico', nome: 'Genérico PT', prioridade: 0, assinaturas: [/(recibo|vencimento|sal[áa]rio)/i],
     campos: {
       bruto: { tipo: 'ultimo', re: /(vencimento\s+il[ií]quido|total\s+bruto|remunera[çc][ãa]o\s+il[ií]quida)/im },
@@ -134,6 +159,8 @@ function analisar(texto, { nifProprio } = {}) {
     Object.entries(mod.campos).forEach(([k, r]) => { let v = null; try { v = aplicarRegra(r, texto); } catch (e) { } if (v == null || v === '') return;
       if (k === 'periodo') { d.ano = v[0]; d.mes = v[1]; } else d[k] = v; });
     if (d.refeicao == null && d.refeicaoDia && d.refeicaoDias) d.refeicao = d.refeicaoDia * d.refeicaoDias;
+    if (d.refeicaoDia == null && d.refeicao && d.refeicaoDias) d.refeicaoDia = Math.round(d.refeicao / d.refeicaoDias * 100) / 100;
+    if (mod.depois) mod.depois(d);
     if (mod.irsPorDiferenca && d.irs == null && !/Reten[çc][ãa]o\s+do\s+IRS/i.test(texto)) { d.irs = 0; d.notas.push('Sem retenção de IRS neste recibo'); }
     if (mod.irsPorDiferenca && d.irs == null && d.bruto != null && d.liquido != null) {
       const x = Math.round((d.bruto - d.liquido - (d.ss || 0)) * 100) / 100; if (x > 0 && x < d.bruto) { d.irs = x; d.notas.push('IRS calculado por bruto − líquido − SS'); }
