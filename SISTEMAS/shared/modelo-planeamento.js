@@ -193,7 +193,7 @@ function simular(dividas, cf, o) {
   // cartões de crédito: a prestação é uma % do saldo (com um mínimo), por isso desce quando se amortiza;
   // a % vem do extrato (opção de pagamento) ou, sem ela, da prestação atual ÷ saldo atual
   const ds = dividas.map(d => { const cap = +d.capital || 0, prest = +d.prestacao || 0, cartao = d.tipo === 'cartao' && !d.cartaoDe;
-    const pct = cartao ? (+d.opcaoPct > 0 && +d.opcaoPct <= 1 ? +d.opcaoPct : cap > 0 ? Math.min(1, prest / cap) : 0) : 0;
+    const pc = cartao ? pctCartao(d).pct : null, pct = cartao ? (pc > 0 && pc <= 1 ? pc : cap > 0 ? Math.min(1, prest / cap) : 0) : 0;
     return { id: d.id, nome: d.nome, capital: cap, r: taxaMensal(d), prest, fee: Math.max(0, +d.comissao || 0), cartao, pct, minimo: d.minimoCartao == null ? 25 : +d.minimoCartao }; });
   const fim = {}; ds.forEach(d => fim[d.id] = null);
   let livre = null, jurosT = 0, comT = 0, minT = 0, extraT = 0, emerg = +o.fundoInicial || 0, poup = 0;
@@ -585,11 +585,19 @@ function despesas(v) {
 }
 
 /* ---------- Dívidas e créditos ---------- */
-const COLS_DIV = () => [{ k: 'nome', label: 'Designação', ph: 'ex.: Crédito habitação' }, { k: 'credor', label: 'Credor', ph: 'ex.: Banco X' },
+function pctCartao(d) {
+  const ux = d && d.contaCartao ? M().extratos.filter(e => e.conta === d.contaCartao).sort((a, b) => String(b.data).localeCompare(String(a.data)))[0] : null;
+  const ext = (ux && +ux.opcaoPct > 0 ? +ux.opcaoPct : null) ?? (+d.opcaoPct > 0 ? +d.opcaoPct : null);
+  if (+d.opcaoPctNova > 0 && !(ux && d.opcaoPctDesde && String(ux.data) > String(d.opcaoPctDesde))) return { pct: +d.opcaoPctNova, provisorio: true, extrato: ext };
+  return { pct: ext, provisorio: false, extrato: ext };
+}
+const COLS_DIV = (x = {}) => [{ k: 'nome', label: 'Designação', ph: 'ex.: Crédito habitação' }, { k: 'credor', label: 'Credor', ph: 'ex.: Banco X' },
   { k: 'tipo', label: 'Tipo', type: 'select', opts: TIPOS_DIVIDA }, { k: 'tipoTaxa', label: 'Tipo de taxa', type: 'select', opts: TIPOS_TAXA },
   { k: 'capital', label: 'Capital em dívida', type: 'money' }, { k: 'taxa', label: 'Taxa anual', type: 'pct' },
   { k: 'prestacao', label: 'Prestação mensal', type: 'money' }, { k: 'meses', label: 'Meses em falta', type: 'int', min: 0 },
   { k: 'comissao', label: 'Comissão de amortização antecipada', type: 'pct', hint: 'Deixe vazio para usar a comissão legal (0,5% / 0,25% / 0%).' },
+  ...(x.tipo === 'cartao' && !x.cartaoDe ? [{ k: 'opcaoPctNova', label: 'Nova opção de pagamento (% do saldo)', type: 'pct', full: true,
+    hint: `O último extrato indica ${(e => e ? pct(e) : '—')(pctCartao(x).extrato)}. Se pediu ao banco outra %, indique-a: conta nos cálculos só até ao extrato seguinte, que passa a mandar. Vazio = segue o extrato.` }] : []),
   { k: 'dia', label: 'Dia da prestação', type: 'int', min: 1, max: 28 }, { k: 'contaOrigem', label: 'Pagar a partir de', type: 'select', opts: optsContas() }, { k: 'ativo', label: 'Ativa', type: 'check' }];
 function dividas(v) {
   const m = M(), ed = podeEditar(), ds = divAtivas(), kn = app.kn, tot = sum(ds, 'capital');
@@ -599,7 +607,7 @@ function dividas(v) {
       ${kpi('Juros deste mês', eur(jurosMes), 'sobre o capital atual')}${kpi(kn('pf_custo', 'Taxa média ponderada'), pct(tan))}</div>
     <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Dívidas</h3><span class="sub">clique numa linha para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Dívida</th><th class="r">Capital</th><th class="r">${kn('pf_tan', 'Taxa')}</th><th class="r">Prestação</th><th class="r">Juro / mês</th><th>Fim só com prestações</th><th>Prestação seguinte</th><th></th></tr></thead><tbody>
     ${ordenarDividas(m.dividas).map(d => { const n = mesesParaLiquidar(d), pr = proxima(d), ps = estadoPed(chaveDiv(d, pr)), on = d.ativo !== false && d.capital > 0.005, cart = d.cartaoDe ? m.dividas.find(y => y.id === d.cartaoDe) : null;
-      return `<tr class="${ed ? 'click' : ''}" data-v="${d.id}" style="${on ? '' : 'opacity:.5'}"><td style="${cart ? 'padding-left:28px' : ''}"><b>${esc(d.nome)}</b><div class="faint" style="font-size:12px">${cart ? `plano PagaSimples · ${esc(cart.nome)}${d.prazo ? ` · ${d.prazo} prestações` : ''}` : `${esc(nomeTipo(d.tipo))}${d.credor ? ' · ' + esc(d.credor) : ''}${d.limite ? ` · limite ${eur(d.limite)}` : ''}${d.ultimoExtrato ? ` · extrato n.º ${d.ultimoExtrato.numero} de ${date(d.ultimoExtrato.data)}` : ''}`}</div></td>
+      return `<tr class="${ed ? 'click' : ''}" data-v="${d.id}" style="${on ? '' : 'opacity:.5'}"><td style="${cart ? 'padding-left:28px' : ''}"><b>${esc(d.nome)}</b><div class="faint" style="font-size:12px">${cart ? `plano PagaSimples · ${esc(cart.nome)}${d.prazo ? ` · ${d.prazo} prestações` : ''}` : `${esc(nomeTipo(d.tipo))}${d.credor ? ' · ' + esc(d.credor) : ''}${d.limite ? ` · limite ${eur(d.limite)}` : ''}${d.ultimoExtrato ? ` · extrato n.º ${d.ultimoExtrato.numero} de ${date(d.ultimoExtrato.data)}` : ''}${d.tipo === 'cartao' && !d.cartaoDe ? (pc => pc.pct ? ` · paga ${pct(pc.pct)} do saldo${pc.provisorio ? ` <span class="badge info" data-tip="${esc(`Alterado em ${date(d.opcaoPctDesde)}; o extrato indica ${pc.extrato ? pct(pc.extrato) : '—'}. Confirma-se no extrato seguinte.`)}">por confirmar</span>` : ''}` : '')(pctCartao(d)) : ''}`}</div></td>
       <td class="r num">${eur(d.capital)}</td><td class="r num">${pct(d.taxa)} <span class="faint" style="font-size:11px">${esc((d.tipoTaxa || '').replace('-', ' '))}</span></td><td class="r num">${eur(d.prestacao)}</td><td class="r num">${eur(d.capital * taxaMensal(d))}</td>
       <td>${!on ? (d.canceladoEm ? `<span class="badge warn" data-tip="O banco cancelou o plano em ${date(d.canceladoEm)} e o valor em dívida passou para o saldo do cartão.">cancelado · passou para o cartão</span>` : '<span class="badge ok">liquidada</span>') : d.incumprimento ? `<span class="badge bad">em incumprimento${d.incumprimento.montante ? ' · ' + eur(d.incumprimento.montante) + ' em atraso' : ''}</span>${d.incumprimento.bloqueado ? ' <span class="badge bad">bloqueado</span>' : ''}` : n === Infinity ? '<span class="badge bad">nunca (juro > prestação)</span>' : `${n} meses`}</td>
       <td>${!on ? '—' : cartaoComExtratos(d) ? (d.cartaoDe ? '<span class="faint" style="font-size:12px">paga-se no cartão</span>' : (() => { const ux = M().extratos.filter(e => e.conta === d.contaCartao).sort((a, b) => String(b.data).localeCompare(String(a.data)))[0]; const sx = ux && estadoExtrato(ux); return ux ? badgeExtrato(sx) + (podeDeclarar(sx) ? ` <button class="btn sm" data-dx="${ux.id}">${icon('check')} Marcar pago</button>` : '') : ''; })()) : ps || (app.can('criar') ? `<button class="btn sm" data-p="${d.id}">Pedir ${eur(d.prestacao)}</button>` : date(pr))}</td>
@@ -610,8 +618,10 @@ function dividas(v) {
   v.querySelectorAll('[data-dx]').forEach(b => b.onclick = ev => { ev.stopPropagation(); declararPagamento(m.extratos.find(x => x.id === b.dataset.dx)); });
   const lx = v.querySelector('#lx'); if (lx) lx.onclick = escolherExtratos;
   const ed1 = d0 => { const novo = !d0, x = d0 || { tipo: 'consumo', tipoTaxa: 'TAN-fixa', dia: 1, contaOrigem: CAIXA, ativo: true, capital: 0, taxa: 0, prestacao: 0, comissao: null };
-    editar({ titulo: 'Dívida / crédito', cols: COLS_DIV(), x, novo, validar: f => !f.nome ? 'Indique a designação' : f.capital < 0 ? 'Capital inválido' : null,
-      onSave: f => { if (f.comissao == null) f.comissao = comissaoLegal(f.tipo, f.tipoTaxa, f.meses); Object.assign(x, f); if (novo) { x.id = 'V' + uid(); m.dividas.push(x); }
+    editar({ titulo: 'Dívida / crédito', cols: COLS_DIV(x), x, novo, validar: f => !f.nome ? 'Indique a designação' : f.capital < 0 ? 'Capital inválido' : null,
+      onSave: f => { if (f.comissao == null) f.comissao = comissaoLegal(f.tipo, f.tipoTaxa, f.meses);
+        if ('opcaoPctNova' in f) { if (!(+f.opcaoPctNova > 0)) { delete f.opcaoPctNova; delete x.opcaoPctNova; delete x.opcaoPctDesde; } else if (+f.opcaoPctNova !== +x.opcaoPctNova) { x.opcaoPctDesde = today(); audit('PF_CARTAO_OPCAO', `${x.nome}: pagamento de ${pct(f.opcaoPctNova)} do saldo (até ao extrato seguinte)`); } }
+        Object.assign(x, f); if (novo) { x.id = 'V' + uid(); m.dividas.push(x); }
         const c = x.conta && app.conta(x.conta); if (c && f.credor) c.nome = f.credor; audit('PF_DIVIDA', `${x.nome} · capital ${eur(x.capital)} · ${pct(x.taxa)}`); },
       onDelete: y => { m.dividas = m.dividas.filter(z => z !== y); audit('PF_DIVIDA_REMOVIDA', y.nome); } }); };
   v.querySelectorAll('[data-v]').forEach(tr => tr.onclick = e => { if (e.target.closest('button,a') || !ed) return; ed1(m.dividas.find(x => x.id === tr.dataset.v)); });
@@ -652,6 +662,7 @@ function aplicarExtrato(x, ov = {}) {
       capital: r2(ov.rotativo ?? x.rotativo ?? x.saldo ?? c.capital), taxa: ov.taxa ?? x.tan ?? c.taxa, prestacao: r2(ov.prestacao ?? x.prestacaoCartao ?? c.prestacao),
       dia: diaDe(x.dataLimite) || c.dia, opcaoPct: x.opcaoPct ?? c.opcaoPct ?? null, ultimoExtrato: { numero: x.numero, data: x.data, pagar: x.pagar, minimo: x.minimo, dataLimite: x.dataLimite }, incumprimento: x.incumprimento || null });
     if (ov.titular !== undefined) c.titular = ov.titular;
+    if (c.opcaoPctNova && c.opcaoPctDesde && String(x.data || '') > String(c.opcaoPctDesde)) { delete c.opcaoPctNova; delete c.opcaoPctDesde; }
     const chaves = new Set();
     (x.planos || []).forEach(p => {
       const chave = `${conta}|${p.descricao}|${p.inicio || ''}`; chaves.add(chave);
@@ -720,7 +731,7 @@ const cartaoComExtratos = d => d && d.tipo === 'cartao' && (d.cartaoDe || (d.con
    recalculado sobre o saldo mais baixo (% do saldo + prestações dos planos). O capital não muda aqui: confirma-se no extrato seguinte. */
 function amortizarCartao(d) {
   const m = M(), xs = m.extratos.filter(e => e.conta === d.contaCartao).sort((a, b) => String(b.data).localeCompare(String(a.data))), ux = xs[0], st = ux ? estadoExtrato(ux) : null;
-  const pctC = +d.opcaoPct || (ux && +ux.opcaoPct) || 0.05, planos = m.dividas.filter(y => y.cartaoDe === d.id && (+y.capital || 0) > 0.005), prestPl = r2(planos.reduce((t, y) => t + (+y.prestacao || 0), 0));
+  const pctC = pctCartao(d).pct || 0.05, planos = m.dividas.filter(y => y.cartaoDe === d.id && (+y.capital || 0) > 0.005), prestPl = r2(planos.reduce((t, y) => t + (+y.prestacao || 0), 0));
   const rot = +d.capital || 0, devido = st && ['aberto', 'aguarda'].includes(st.estado) ? st.pagar : 0;
   ui.modal({ title: 'Amortizar · ' + esc(d.nome), sub: `Saldo do cartão ${eur(rot)} · pagamento de ${pct(pctC)} do saldo${prestPl ? ` + ${eur(prestPl)} dos planos PagaSimples` : ''}`,
     body: `<div class="alert info" style="margin-bottom:12px">${icon('info')}<div>Para amortizar, pague à conta-cartão mais do que o montante a pagar do extrato. O valor a mais abate ao saldo do cartão (não aos planos PagaSimples) e o pagamento seguinte desce. <b>Não se marca aqui como pago</b>: confirma-se ao ler o extrato seguinte.${ux ? ` Último extrato: ${date(ux.data)}, ${badgeExtrato(st)}.` : ''}</div></div>
