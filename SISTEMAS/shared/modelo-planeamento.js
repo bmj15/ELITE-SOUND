@@ -286,11 +286,21 @@ function pedirAmortizacao(x, valor) {
   app.novoPedido({ categoria: 'LIQUIDAÇÃO DE CRÉDITO', contaOrigem: x.contaOrigem || CAIXA, contaDestino: destino, valor: r2(valor), metodo: 'DÉBITO',
     descricao: `Amortização antecipada ${x.nome}${+x.comissao ? ` (comissão ${pct(x.comissao)} incluída)` : ''}`, dataPrevista: today(), origem: { mod: 'dividas', key: `pf:amort:${x.id}:${uid()}` } });
 }
-function registarEntrada(r) {
-  const key = chaveRec(r); if (vivos(key).length) { app.go('pedidos/' + vivos(key)[0].id); return; }
-  app.novoPedido({ categoria: ENTRADA, contaDestino: CAIXA, valor: +r.liquido || 0, metodo: 'CAPITALIZAÇÃO', dataPrevista: today(),
-    descricao: `Vencimento ${MESES[+r.mes - 1]} ${r.ano}${r.entidade ? ' · ' + r.entidade : ''}`, origem: { mod: 'rendimentos', key } });
+// entrada do vencimento na tesouraria: data = fim do mês do recibo (ou hoje, se ainda não acabou)
+const entradaRecibo = r => { const fim = new Date(+r.ano, +r.mes, 0), d = `${fim.getFullYear()}-${String(fim.getMonth() + 1).padStart(2, '0')}-${String(fim.getDate()).padStart(2, '0')}`;
+  return { contaDestino: CAIXA, valor: +r.liquido || 0, metodo: 'CAPITALIZAÇÃO', dataPrevista: d < today() ? d : today(),
+    descricao: `Vencimento ${MESES[+r.mes - 1]} ${r.ano}${r.entidade ? ' · ' + r.entidade : ''}`, origem: { mod: 'rendimentos', key: chaveRec(r) } }; };
+// rendimentos não passam pelo circuito de aprovação: uma assinatura regista e executa a entrada
+async function registarEntradas(rs) {
+  rs = rs.filter(r => (+r.liquido || 0) > 0 && !vivos(chaveRec(r)).length); if (!rs.length) return;
+  if (!app.registarEntradas || !app.podeRegistarEntrada()) { if (rs.length === 1) app.novoPedido({ categoria: ENTRADA, ...entradaRecibo(rs[0]) }); return; }
+  try {
+    const feitos = await app.registarEntradas(rs.map(entradaRecibo), rs.length === 1 ? 'Registar entrada do vencimento' : 'Registar entrada dos vencimentos',
+      `${rs.map(r => `${MESES[+r.mes - 1]} ${r.ano} · <b>${eur(r.liquido)}</b>`).join('<br>')}<br><span style="font-size:12px">Entra na tesouraria sem circuito de aprovação: fica registada e executada com esta assinatura.</span>`);
+    if (feitos) { ui.toast(`${feitos.length === 1 ? 'Entrada registada' : feitos.length + ' entradas registadas'} na tesouraria`, 'ok'); app.refresh(); }
+  } catch (e) { ui.toast(esc(e.message), 'bad'); }
 }
+const registarEntrada = r => registarEntradas([r]);
 const estadoPed = key => { const ps = vivos(key); return ps.length ? `${linkPeds(ps)} ${SPAP.ui.estadoBadge(ps[0].estado)}` : ''; };
 
 /* ---------- Formulários ---------- */
@@ -438,7 +448,9 @@ function reverRecibos(lidos) {
       if (!novos.length) { ui.toast('Nenhum recibo marcado para gravar', 'warn'); return false; }
       novos.forEach(r => { m.recibos.push(r); audit('PF_RECIBO', `${MESES[r.mes - 1]} ${r.ano} · líquido ${eur(r.liquido)} · lido de ${r.ficheiro} (${r.lidoPor})`); });
       app.save(); ui.toast(`${novos.length} ${novos.length === 1 ? 'recibo gravado' : 'recibos gravados'}`, 'ok');
-      setTab('pf-ano', String(novos[novos.length - 1].ano)); app.refresh(); } }] });
+      setTab('pf-ano', String(novos[novos.length - 1].ano)); app.refresh();
+      // logo a seguir, uma só assinatura regista a entrada dos vencimentos na tesouraria (pode cancelar e fazê-lo depois)
+      if (app.can('criar')) setTimeout(() => registarEntradas(novos), 0); } }] });
 }
 function rendimentos(v) {
   const T = tabs('pf-rend', 'rec', [['rec', 'Recibos de vencimento'], ['proj', 'Projeção anual']]), m = M(), kn = app.kn, ed = podeEditar();

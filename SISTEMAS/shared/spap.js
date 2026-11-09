@@ -672,6 +672,32 @@ SPAP.createApp = function (cfg) {
     for (const p of criados) await s.signer(p, 'SUBMETER');
     save(); return criados;
   };
+  /* Entradas de fundos com registo direto (ex.: vencimento lido de um recibo). Um rendimento não
+     tira dinheiro de nenhuma conta, por isso não passa pelo circuito de aprovação: com uma só
+     assinatura de quem o regista fica criado, autorizado e executado (movimento lançado). */
+  app.podeRegistarEntrada = () => can('criar') && can('executar');
+  app.registarEntradas = async (lista, titulo, resumo) => {
+    if (!app.podeRegistarEntrada()) throw new Error('O seu perfil não pode registar entradas diretamente');
+    const s = await app.assinar(titulo || 'Registar entrada', resumo || `${lista.length} entrada(s) · total <b>${eur(lista.reduce((a, d) => a + r2(d.valor), 0))}</b>`);
+    if (!s) return null;
+    const criados = [], seqs = { ...db.meta };
+    try {
+      lista.forEach(d => criados.push(app.criarPedido({ ...d, categoria: ENTRADA, contaOrigem: null })));
+      for (const p of criados) {
+        await s.signer(p, 'SUBMETER');
+        p.aprovacoes.push({ user: app.user.id, em: new Date().toISOString(), decisao: 'APROVADO', nota: 'Entrada de fundos: registo direto (sem circuito de aprovação)' });
+        p.estado = 'APROVADO'; p.autorizacao = nextAut(); p.aprovadoEm = new Date().toISOString(); p.registoDireto = true;
+        await s.signer(p, 'EXECUTAR');
+        app.executar(p, { data: p.dataPrevista });
+        log('ENTRADA_REGISTO_DIRETO', `${p.numero} · ${eur(p.valor)} → ${nomeConta(p.contaDestino)}${p.descricao ? ' · ' + p.descricao : ''}`, p.id);
+      }
+    } catch (e) {
+      const ids = new Set(criados.map(p => p.id));
+      db.pedidos = db.pedidos.filter(p => !ids.has(p.id)); db.movimentos = db.movimentos.filter(m => !ids.has(m.pedido));
+      db.meta.seqReq = seqs.seqReq; db.meta.seqAut = seqs.seqAut; throw e;
+    }
+    save(); return criados;
+  };
 
   /* Perfil de assinatura do utilizador */
   function perfilAssinatura() {
