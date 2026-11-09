@@ -125,17 +125,17 @@ function projecao(ano) {
     // ano futuro: parte do ano atual (média sem subsídios, subsídios e refeição) atualizado pelo salário mínimo
     // a refeição faz parte do líquido e não acompanha o salário: só o resto é atualizado
     const p0 = projecao(anoAtual), S = salarioAno(+ano), media = r2((p0.media - p0.mediaRef) * S.fator + p0.mediaRef), sub = r2((salarioBase() || p0.media - p0.mediaRef) * S.fator), linhas = [];
-    for (let m = 1; m <= 12; m++) { const sb = m === MES_FERIAS || m === MES_NATAL; linhas.push({ m, real: null, proj: r2(media + (sb ? sub : 0)), refeicao: r2(p0.mediaRef), sub: sb }); }
+    for (let m = 1; m <= 12; m++) { const sb = m === MES_FERIAS || m === MES_NATAL; linhas.push({ m, real: null, proj: r2(media + (sb ? sub : 0)), refeicao: r2(p0.mediaRef), sub: sb, subValor: sb ? sub : 0, subTipo: m === MES_FERIAS ? 'férias' : m === MES_NATAL ? 'Natal' : '' }); }
     return { linhas, ytd: 0, n: 0, media, mediaMes: media, total: sum(linhas, 'proj'), refeicaoTotal: sum(linhas, 'refeicao'), mediaRef: r2(p0.mediaRef), subF: sub, subN: sub, temF: false, temN: false, futuro: true, salario: S };
   }
   const rs = M().recibos.filter(p => +p.ano === +ano), base = salarioBase();
-  const real = {}, ref = {}, so = [], refs = []; let temF = false, temN = false, valF = 0, valN = 0;
+  const real = {}, ref = {}, so = [], refs = [], subM = {}; let temF = false, temN = false, valF = 0, valN = 0;
   rs.forEach(p => {
     const m = +p.mes, liq = +p.liquido || 0, rf = +p.refeicao || 0;
     real[m] = (real[m] || 0) + liq;
     if (rf > 0) { ref[m] = (ref[m] || 0) + rf; refs.push(rf); }
-    if (p.subFerias) { temF = true; valF += +p.subFeriasValor || 0; }
-    if (p.subNatal) { temN = true; valN += +p.subNatalValor || 0; }
+    if (p.subFerias) { temF = true; valF += +p.subFeriasValor || 0; subM[m] = subM[m] || { v: 0, t: [] }; subM[m].v += +p.subFeriasValor || 0; subM[m].t.push('férias'); }
+    if (p.subNatal) { temN = true; valN += +p.subNatalValor || 0; subM[m] = subM[m] || { v: 0, t: [] }; subM[m].v += +p.subNatalValor || 0; subM[m].t.push('Natal'); }
     if (!p.subFerias && !p.subNatal) so.push(liq);
   });
   const media = so.length ? so.reduce((a, b) => a + b, 0) / so.length : base;
@@ -143,9 +143,9 @@ function projecao(ano) {
   const mediaRef = refs.length ? refs.reduce((a, b) => a + b, 0) / refs.length : 0;
   const linhas = [];
   for (let m = 1; m <= 12; m++) {
-    if (m in real) linhas.push({ m, real: r2(real[m]), proj: r2(real[m]), refeicao: r2(ref[m] || 0), refReal: m in ref, sub: (m === MES_FERIAS && temF) || (m === MES_NATAL && temN) });
-    else { let v = media, sb = false; if (m === MES_FERIAS && !temF) { v += projF; sb = true; } if (m === MES_NATAL && !temN) { v += projN; sb = true; }
-      linhas.push({ m, real: null, proj: r2(v), refeicao: r2(mediaRef), sub: sb }); }
+    if (m in real) linhas.push({ m, real: r2(real[m]), proj: r2(real[m]), refeicao: r2(ref[m] || 0), refReal: m in ref, sub: (m === MES_FERIAS && temF) || (m === MES_NATAL && temN) || !!subM[m], subValor: subM[m] ? r2(subM[m].v) : 0, subTipo: subM[m] ? subM[m].t.join(' e ') : '' });
+    else { let v = media, sb = false, sv = 0, st = ''; if (m === MES_FERIAS && !temF) { v += projF; sv = projF; st = 'férias'; sb = true; } if (m === MES_NATAL && !temN) { v += projN; sv = projN; st = 'Natal'; sb = true; }
+      linhas.push({ m, real: null, proj: r2(v), refeicao: r2(mediaRef), sub: sb, subValor: r2(sv), subTipo: st }); }
   }
   const ytd = r2(Object.values(real).reduce((a, b) => a + b, 0)), n = Object.keys(real).length;
   return { linhas, ytd, n, media: r2(media), mediaMes: n ? r2(ytd / n) : r2(media), total: sum(linhas, 'proj'), refeicaoTotal: sum(linhas, 'refeicao'), mediaRef: r2(mediaRef),
@@ -399,7 +399,7 @@ function visao(v) {
   const R = compararEstrategias(), melhor = ESTRATEGIAS.map(e => R[e[0]]).sort((a, b) => (a.meses.length - b.meses.length) || (a.juros - b.juros))[0];
   v.innerHTML = `<div class="row" style="justify-content:flex-end;gap:8px;margin-bottom:10px"><span class="muted">Mês</span><select class="inp inp-sm" id="pfm">${mesesSel.map(x => `<option value="${x}" ${x === ym ? 'selected' : ''}>${nomeYm(x)}${x === hojeYm ? ' (atual)' : ''}</option>`).join('')}</select>${podeEditar() ? `<button class="btn sm" id="imp">${icon('download')} Importar do Planeador</button>` : ''}</div>${I.alertas.map(([k, t]) => `<div class="alert ${k}" style="margin-bottom:10px">${icon('alert')}<div>${t}</div></div>`).join('')}
     <div class="grid g4" style="margin-top:${I.alertas.length ? 6 : 0}px">
-      ${kpi(`${icon('wallet')} ${kn('pf_rend', 'Rendimento líquido do mês')}`, eur(I.rend), `${linhaYm.real != null ? 'recibo de ' : 'previsto: '}${nomeYm(ymRec)}${ymRec !== ym ? ` (pago em ${MESES[+ym.slice(5, 7) - 1]})` : ''}${subYm ? ' · com subsídio' : ''}${M().plano.incluirRefeicao ? ' · inclui refeição' : ''}<br>média a 12 meses ${eur(rendimentoMensal())}`, '', true)}
+      ${kpi(`${icon('wallet')} ${kn('pf_rend', 'Rendimento líquido do mês')}`, eur(I.rend), `${linhaYm.real != null ? 'recibo de ' : 'previsto: '}${nomeYm(ymRec)}${ymRec !== ym ? ` (pago em ${MESES[+ym.slice(5, 7) - 1]})` : ''}${linhaYm.subValor > 0.004 ? `<br>inclui ${eur(linhaYm.subValor)} de subsídio de ${linhaYm.subTipo}` : subYm ? ' · com subsídio' : ''}${linhaYm.refeicao > 0.004 ? (M().plano.incluirRefeicao ? `<br>inclui ${eur(linhaYm.refeicao)} de subsídio de refeição` : `<br>+ ${eur(linhaYm.refeicao)} de subsídio de refeição (não conta como rendimento)`) : ''}<br>média a 12 meses ${eur(rendimentoMensal())}`, '', true)}
       ${kpi(`${icon('list')} ${kn('pf_desp', 'Despesas fixas / mês')}`, eur(I.desp), (() => { const c = casaParte(ym), n = despAtivas(ym).length, proprias = r2(despAtivas(ym).reduce((t, e) => t + mensalDesp(e), 0));
         const txt = `${n} ${n === 1 ? 'despesa própria' : 'despesas próprias'}${n ? ' · ' + eur(proprias) : ''}`;
         return `<a href="#/despesas">${txt}</a>${c && !c.semDados ? `<br>+ ${eur(c.valor)} parte na casa (${c.n} ${c.n === 1 ? 'despesa comum' : 'despesas comuns'})` : ''}`; })())}
