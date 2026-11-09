@@ -34,7 +34,7 @@ const nomeEstr = k => k === 'baseline' ? 'Só prestações' : (ESTRATEGIAS.find(
 const BENCH = { dtiAviso: 0.35, dtiCritico: 0.50, poupMin: 0.10, poupBoa: 0.20, tanAlta: 0.15, tanCartao: 0.18, emergMin: 1, emergSeguro: 3 };
 const PLANO_PADRAO = () => ({ salarioBase: 0, outrosRendimentos: 0, incluirRefeicao: true, extraFixo: 0, emergMeses: 3, emergProgressivo: 0,
   fundoOrigem: 'tesouraria', fundoInicial: 0, poupancaTipo: 'none', poupancaFixa: 0, poupancaPct: 0, horizonte: 240, diaSalario: 1,
-  atualizarSMN: true, brutoBase: 0, smnTabela: '', smnAumento: 50, pagoMesSeguinte: false });
+  atualizarSMN: true, brutoBase: 0, smnTabela: '', smnAumento: 50, pagoMesSeguinte: false, aumentoSalarial: 0 });
 
 const M = () => { const m = app.db.mod; ['recibos', 'despesas', 'dividas', 'objetivos', 'extratos'].forEach(k => { if (!Array.isArray(m[k])) m[k] = []; });
   m.plano = Object.assign(PLANO_PADRAO(), m.plano || {}); return m; };
@@ -112,17 +112,18 @@ function brutoBase() {
   if (!r) return { valor: 0, origem: 'sem recibos' };
   return +r.ss > 0 ? { valor: r2(+r.ss / 0.11), origem: `base da SS do recibo de ${MESES[r.mes - 1]} ${r.ano}` } : { valor: r2(+r.bruto), origem: `bruto do recibo de ${MESES[r.mes - 1]} ${r.ano}` };
 }
-// salário de um ano futuro: max(vencimento atual, mínimo desse ano); fator = usado ÷ vencimento atual
+// salário de um ano futuro: max(vencimento atual com o aumento anual previsto, mínimo desse ano); fator = usado ÷ vencimento atual
 function salarioAno(y) {
-  const b = brutoBase().valor, smn = smnAno(y), on = M().plano.atualizarSMN !== false;
-  const usado = on && b > 0 ? Math.max(b, smn) : b;
-  return { bruto: b, smn, usado: r2(usado), minimo: on && b > 0 && smn > b, fator: on && b > 0 ? usado / b : 1 };
+  const b = brutoBase().valor, smn = smnAno(y), on = M().plano.atualizarSMN !== false, anos = Math.max(0, y - +today().slice(0, 4));
+  const efetivo = b * Math.pow(1 + (+M().plano.aumentoSalarial || 0), anos), usado = b > 0 ? (on ? Math.max(efetivo, smn) : efetivo) : 0;
+  return { bruto: b, smn, efetivo: r2(efetivo), usado: r2(usado), minimo: on && b > 0 && smn > efetivo, fator: b > 0 ? usado / b : 1 };
 }
 function projecao(ano) {
   const anoAtual = +today().slice(0, 4);
   if (+ano > anoAtual && !M().recibos.some(p => +p.ano === +ano)) {
     // ano futuro: parte do ano atual (média sem subsídios, subsídios e refeição) atualizado pelo salário mínimo
-    const p0 = projecao(anoAtual), S = salarioAno(+ano), media = r2(p0.media * S.fator), sub = r2((salarioBase() || p0.media) * S.fator), linhas = [];
+    // a refeição faz parte do líquido e não acompanha o salário: só o resto é atualizado
+    const p0 = projecao(anoAtual), S = salarioAno(+ano), media = r2((p0.media - p0.mediaRef) * S.fator + p0.mediaRef), sub = r2((salarioBase() || p0.media - p0.mediaRef) * S.fator), linhas = [];
     for (let m = 1; m <= 12; m++) { const sb = m === MES_FERIAS || m === MES_NATAL; linhas.push({ m, real: null, proj: r2(media + (sb ? sub : 0)), refeicao: r2(p0.mediaRef), sub: sb }); }
     return { linhas, ytd: 0, n: 0, media, mediaMes: media, total: sum(linhas, 'proj'), refeicaoTotal: sum(linhas, 'refeicao'), mediaRef: r2(p0.mediaRef), subF: sub, subN: sub, temF: false, temN: false, futuro: true, salario: S };
   }
@@ -141,7 +142,7 @@ function projecao(ano) {
   const mediaRef = refs.length ? refs.reduce((a, b) => a + b, 0) / refs.length : 0;
   const linhas = [];
   for (let m = 1; m <= 12; m++) {
-    if (m in real) linhas.push({ m, real: r2(real[m]), proj: r2(real[m]), refeicao: r2(ref[m] || mediaRef), refReal: m in ref, sub: (m === MES_FERIAS && temF) || (m === MES_NATAL && temN) });
+    if (m in real) linhas.push({ m, real: r2(real[m]), proj: r2(real[m]), refeicao: r2(ref[m] || 0), refReal: m in ref, sub: (m === MES_FERIAS && temF) || (m === MES_NATAL && temN) });
     else { let v = media, sb = false; if (m === MES_FERIAS && !temF) { v += projF; sb = true; } if (m === MES_NATAL && !temN) { v += projN; sb = true; }
       linhas.push({ m, real: null, proj: r2(v), refeicao: r2(mediaRef), sub: sb }); }
   }
@@ -152,7 +153,7 @@ function projecao(ano) {
 // rendimento líquido mensal médio a 12 meses (inclui subsídios, refeição se configurado e outros rendimentos)
 function rendimentoMensal(ano = +today().slice(0, 4)) {
   const p = projecao(ano), pl = M().plano;
-  return r2((p.total + (pl.incluirRefeicao ? p.refeicaoTotal : 0)) / 12 + (+pl.outrosRendimentos || 0));
+  return r2((p.total - (pl.incluirRefeicao ? 0 : p.refeicaoTotal)) / 12 + (+pl.outrosRendimentos || 0));
 }
 
 // rendimento de um mês concreto: recibo real ou projeção desse ano (anos futuros atualizados pelo salário mínimo, se ativo)
@@ -162,7 +163,7 @@ const mesDoRecibo = (y, m) => M().plano.pagoMesSeguinte ? (m === 1 ? [y - 1, 12]
 const mesDaEntrada = (y, m) => M().plano.pagoMesSeguinte ? (m === 12 ? [y + 1, 1] : [y, m + 1]) : [y, m];
 function rendimentoDoMes(y, m, P = projecao) {
   const pl = M().plano, [ry, rm] = mesDoRecibo(y, m), l = P(ry).linhas[rm - 1];
-  return r2(l.proj + (pl.incluirRefeicao ? l.refeicao : 0) + (+pl.outrosRendimentos || 0));
+  return r2(l.proj - (pl.incluirRefeicao ? 0 : l.refeicao) + (+pl.outrosRendimentos || 0));
 }
 
 /* ---------- Motor: simulador mês a mês (porta direta de simulator.py) ---------- */
@@ -418,7 +419,7 @@ function visao(v) {
   const imp = v.querySelector('#imp'); if (imp) imp.onclick = importarPlaneador;
   v.querySelector('#pfm').onchange = e => { setTab('pf-painel-mes', e.target.value); app.refresh(); };
   chart.bars(v.querySelector('#chr'), { labels: MES3, stacked: true, series: [
-    { name: 'Real', values: P.linhas.map(l => l.real || 0) }, { name: 'Projetado', values: P.linhas.map(l => l.real == null ? l.proj : 0), color: 'var(--accent2)' },
+    { name: 'Real', values: P.linhas.map(l => l.real != null ? r2(l.real - l.refeicao) : 0) }, { name: 'Projetado', values: P.linhas.map(l => l.real == null ? r2(l.proj - l.refeicao) : 0), color: 'var(--accent2)' },
     ...(M().plano.incluirRefeicao && P.refeicaoTotal ? [{ name: 'Subsídio de refeição', values: P.linhas.map(l => l.refeicao), color: 'var(--info)' }] : [])] });
   const chd = v.querySelector('#chd');
   if (chd) { const ms = melhor.meses, passo = Math.max(1, Math.ceil(ms.length / 24)), pts = ms.filter((_, i) => i % passo === 0 || i === ms.length - 1);
@@ -533,19 +534,19 @@ function rendimentos(v) {
     const P = projecao(ano), refOn = m.plano.incluirRefeicao, smnOn = m.plano.atualizarSMN !== false, BB = brutoBase();
     const proximos = [anoAtual, ...futuros].map(y => ({ y, p: projecao(y), S: salarioAno(y) }));
     const smnCard = `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Próximos anos</h3><span class="sub">${smnOn ? `vencimento base ${eur(BB.valor)} (${esc(BB.origem)}) comparado com o salário mínimo de cada ano` : 'sem atualização do salário mínimo: os anos futuros repetem o atual'}</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ano</th><th class="r">Salário mínimo</th><th class="r">Vencimento usado</th><th></th><th class="r">Líquido/mês (sem subsídios)</th><th class="r">Projeção anual líquida</th></tr></thead><tbody>
-      ${proximos.map(({ y, p, S }) => `<tr class="click" data-ano="${y}"${y === ano ? ' style="background:rgba(127,127,127,.10)"' : ''}><td><b>${y}</b></td><td class="r num">${eur(S.smn)}</td><td class="r num">${eur(y === anoAtual ? S.bruto : S.usado)}</td><td>${y === anoAtual ? '<span class="badge ok">recibos</span>' : !smnOn ? '<span class="badge">igual ao atual</span>' : S.minimo ? '<span class="badge warn">salário mínimo</span>' : '<span class="badge info">valor efetivo</span>'}</td><td class="r num">${eur(p.media)}</td><td class="r num"><b>${eur(p.total + (refOn ? p.refeicaoTotal : 0))}</b></td></tr>`).join('')}</tbody></table></div></div>`;
+      ${proximos.map(({ y, p, S }) => `<tr class="click" data-ano="${y}"${y === ano ? ' style="background:rgba(127,127,127,.10)"' : ''}><td><b>${y}</b></td><td class="r num">${eur(S.smn)}</td><td class="r num">${eur(y === anoAtual ? S.bruto : S.usado)}</td><td>${y === anoAtual ? '<span class="badge ok">recibos</span>' : !smnOn ? '<span class="badge">igual ao atual</span>' : S.minimo ? '<span class="badge warn">salário mínimo</span>' : '<span class="badge info">valor efetivo</span>'}</td><td class="r num">${eur(p.media)}</td><td class="r num"><b>${eur(p.total - (refOn ? 0 : p.refeicaoTotal))}</b></td></tr>`).join('')}</tbody></table></div></div>`;
     v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano</span>${anoSel}</div>${ed ? `<label class="check"><input type="checkbox" id="smn" ${smnOn ? 'checked' : ''}> Atualizar pelo salário mínimo</label>` : ''}</div>
-      ${P.futuro ? `<div class="alert info" style="margin-bottom:16px">${icon('chart')}<div>Projeção de ${ano}: ${!smnOn ? 'repete o ano atual (atualização do salário mínimo desligada).' : P.salario.minimo ? `o salário mínimo previsto (<b>${eur(P.salario.smn)}</b>) é superior ao seu vencimento base (${eur(P.salario.bruto)}), por isso usa-se o mínimo: <b>+${pct(P.salario.fator - 1)}</b> sobre o líquido atual.` : `o seu vencimento base (<b>${eur(P.salario.bruto)}</b>) é superior ao salário mínimo previsto (${eur(P.salario.smn)}), por isso usa-se o valor efetivo.`} Ajuste em <a href="#/simulador" data-aba="pf-sim=par">Parâmetros do plano</a>.</div></div>` : ''}
-      <div class="grid g4">${kpi(`${icon('chart')} ${kn('pf_proj', 'Projeção anual líquida')}`, eur(P.total + (refOn ? P.refeicaoTotal : 0)), refOn ? `inclui ${eur(P.refeicaoTotal)} de refeição` : 'sem subsídio de refeição', '', true)}
-        ${kpi('Recebido até agora (YTD)', eur(P.ytd), `${P.n} meses com recibo`)}${kpi('Média mensal (sem subsídios)', eur(P.media))}
-        ${kpi('Subsídios por receber', eur(P.subF + P.subN), `${P.temF ? 'férias recebido' : 'férias ' + eur(P.subF)} · ${P.temN ? 'Natal recebido' : 'Natal ' + eur(P.subN)}`)}</div>
+      ${P.futuro ? `<div class="alert info" style="margin-bottom:16px">${icon('chart')}<div>Projeção de ${ano}: ${P.salario.minimo ? `o salário mínimo previsto (<b>${eur(P.salario.smn)}</b>) é superior ao seu vencimento ${+m.plano.aumentoSalarial ? `com o aumento anual (${eur(P.salario.efetivo)})` : `base (${eur(P.salario.bruto)})`}, por isso usa-se o mínimo` : `usa-se o seu vencimento ${+m.plano.aumentoSalarial ? `com o aumento anual de ${pct(+m.plano.aumentoSalarial)} (<b>${eur(P.salario.efetivo)}</b>)` : `base (<b>${eur(P.salario.bruto)}</b>)`}${smnOn ? `, superior ao salário mínimo previsto (${eur(P.salario.smn)})` : ' (atualização pelo salário mínimo desligada)'}`}: <b>${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)}</b> sobre o líquido atual sem refeição. Ajuste em <a href="#/simulador" data-aba="pf-sim=par">Parâmetros do plano</a>.</div></div>` : ''}
+      <div class="grid g4">${kpi(`${icon('chart')} ${kn('pf_proj', 'Projeção anual líquida')}`, eur(P.total - (refOn ? 0 : P.refeicaoTotal)), refOn ? `inclui ${eur(P.refeicaoTotal)} de refeição` : `sem os ${eur(P.refeicaoTotal)} de refeição`, '', true)}
+        ${P.futuro ? kpi('Vencimento base previsto', eur(P.salario.usado), `${P.salario.minimo ? 'salário mínimo' : 'o seu salário'} · ${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)} face a hoje`) : kpi('Recebido até agora (YTD)', eur(P.ytd), `${P.n} meses com recibo`)}${kpi('Média mensal (sem subsídios)', eur(P.media), `inclui ${eur(P.mediaRef)} de refeição`)}
+        ${kpi(P.futuro ? 'Subsídios previstos' : 'Subsídios por receber', eur(P.subF + P.subN), `${P.temF ? 'férias recebido' : 'férias ' + eur(P.subF)} · ${P.temN ? 'Natal recebido' : 'Natal ' + eur(P.subN)}`)}</div>
       <div class="card" style="margin-top:16px"><div class="card-h"><h3>Mês a mês</h3><span class="sub">meses sem recibo usam a média; subsídios estimados em junho e novembro</span></div><div id="ch"></div></div>
-      <div class="card flush" style="margin-top:16px"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Mês</th><th class="r">Real</th><th class="r">Projetado</th><th class="r">Refeição</th><th>Notas</th></tr></thead><tbody>
+      <div class="card flush" style="margin-top:16px"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Mês</th><th class="r">Real</th><th class="r">Projetado</th><th class="r">dos quais refeição</th><th>Notas</th></tr></thead><tbody>
       ${P.linhas.map(l => `<tr><td><b>${MESES[l.m - 1]}</b></td><td class="r num">${l.real == null ? '<span class="faint">—</span>' : eur(l.real)}</td><td class="r num">${eur(l.proj)}</td><td class="r num">${eur(l.refeicao)}</td><td>${l.real == null ? '<span class="badge">estimado</span> ' : '<span class="badge ok">recibo</span> '}${l.sub ? '<span class="badge info">subsídio</span>' : ''}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td>TOTAL</td><td class="r num">${eur(P.ytd)}</td><td class="r num">${eur(P.total)}</td><td class="r num">${eur(P.refeicaoTotal)}</td><td></td></tr></tfoot></table></div></div>${smnCard}`;
     const cs = v.querySelector('#smn'); if (cs) cs.onchange = () => { m.plano.atualizarSMN = cs.checked; audit('PF_PLANO', `Atualização pelo salário mínimo ${cs.checked ? 'ligada' : 'desligada'}`); app.save(); app.refresh(); };
     v.querySelectorAll('[data-ano]').forEach(tr => tr.onclick = () => { setTab('pf-ano', tr.dataset.ano); app.refresh(); });
-    chart.bars(v.querySelector('#ch'), { labels: MES3, stacked: true, series: [{ name: 'Real', values: P.linhas.map(l => l.real || 0) }, { name: 'Projetado', values: P.linhas.map(l => l.real == null ? l.proj : 0), color: 'var(--accent2)' },
+    chart.bars(v.querySelector('#ch'), { labels: MES3, stacked: true, series: [{ name: 'Real', values: P.linhas.map(l => l.real != null ? r2(l.real - l.refeicao) : 0) }, { name: 'Projetado', values: P.linhas.map(l => l.real == null ? r2(l.proj - l.refeicao) : 0), color: 'var(--accent2)' },
       ...(refOn && P.refeicaoTotal ? [{ name: 'Subsídio de refeição', values: P.linhas.map(l => l.refeicao), color: 'var(--info)' }] : [])] });
   }
   bindTabs(v); const s = v.querySelector('#pfa'); if (s) s.onchange = () => { setTab('pf-ano', s.value); app.refresh(); };
@@ -928,6 +929,7 @@ const COLS_PLANO = () => [
   { k: 'salarioBase', label: 'Salário líquido recorrente', type: 'money', hint: `Deixe 0 para estimar pelos recibos (${eur(estimarLiquido(M().recibos).base)}).` },
   { k: 'atualizarSMN', label: 'Projetar os anos futuros com a atualização do salário mínimo', type: 'check', full: true },
   { k: 'brutoBase', label: 'Vencimento base bruto mensal', type: 'money', hint: `Para comparar com o salário mínimo. Deixe 0 para estimar (${(b => b.valor ? eur(b.valor) + ', ' + b.origem : 'sem recibos')(brutoBase())}).` },
+  { k: 'aumentoSalarial', label: 'Aumento anual do seu salário', type: 'pct', hint: 'Aumento esperado por ano (mérito, categoria, contrato coletivo). Nos anos futuros usa-se o maior entre o seu salário com este aumento e o salário mínimo.' },
   { k: 'smnAumento', label: 'Aumento anual do mínimo depois do último ano da tabela', type: 'money' },
   { k: 'smnTabela', label: 'Corrigir salário mínimo por ano', full: true, ph: 'ex.: 2027: 980; 2030: 1150', hint: `Tabela usada: ${Object.entries(SMN_PADRAO).map(([a, v]) => a + ': ' + v).join(' · ')} €. Escreva só os anos a corrigir ou a acrescentar.` },
   { k: 'pagoMesSeguinte', label: 'O ordenado de cada mês é pago no início do mês seguinte', type: 'check', full: true, hint: 'Ex.: o recibo de novembro entra a 1 de dezembro. Muda o mês em que cada recibo conta no Painel, no simulador e na previsão de liquidez.' },
