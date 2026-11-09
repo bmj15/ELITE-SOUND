@@ -32,7 +32,13 @@ function planoCartao(e) {
 }
 const linhaPlano = (e, ym) => planoCartao(e).find(l => l.ym === ym) || null;
 const ativaNoMes = (e, ym) => e.periodicidade === 'cartao' ? !!linhaPlano(e, ym) : vigente(e, ym);
-const valorMes = (e, ym) => { if (e.periodicidade === 'cartao') { const l = linhaPlano(e, ym); return { valor: l ? l.prestacao : 0, real: true, plano: l }; }
+// despesa "por compras" (ex.: alimentação): o valor do mês é a soma das compras que cada membro registou (e.compras, juntas pelo
+// registo comum); meses futuros (ou o atual, enquanto as compras não passam o orçamento) usam o orçamento mensal (e.valor)
+const comprasMes = (e, ym) => (e.compras || []).filter(c => !c.anulada && String(c.data).slice(0, 7) === ym);
+const totalCompras = (e, ym) => r2(comprasMes(e, ym).reduce((t, c) => t + (+c.valor || 0), 0));
+const valorMes = (e, ym) => { if (e.periodicidade === 'compras') { const t = totalCompras(e, ym), hoje = ymHoje();
+    return ym < hoje ? { valor: t, real: true, compras: true } : { valor: Math.max(t, r2(+e.valor || 0)), real: ym === hoje && t >= (+e.valor || 0), compras: true, registado: t }; }
+  if (e.periodicidade === 'cartao') { const l = linhaPlano(e, ym); return { valor: l ? l.prestacao : 0, real: true, plano: l }; }
   const v = (e.valores || {})[ym]; if (v !== '' && v != null && isFinite(+v)) return { valor: r2(+v), real: true };
   return e.variavel ? { valor: media(e), real: false } : { valor: r2(mensal(e)), real: true }; };
 const ymHoje = () => new Date().toISOString().slice(0, 7);
@@ -43,9 +49,11 @@ const ler = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e)
 // parte de cada membro e quanto adianta num mês; e as transferências que acertam a diferença
 function resumoMes(d, ym) {
   const ms = d.mod.membros || [], out = Object.fromEntries(ms.map(x => [x.id, { parte: 0, paga: 0 }]));
-  (d.mod.despesas || []).filter(e => e.ativo !== false && ativaNoMes(e, ym)).forEach(e => { const v = valorMes(e, ym).valor;
+  (d.mod.despesas || []).filter(e => e.ativo !== false && ativaNoMes(e, ym)).forEach(e => {
+    // por compras: cada um adianta o que comprou; a parte é sobre o total das compras do mês (sem orçamento)
+    const cs = e.periodicidade === 'compras' ? comprasMes(e, ym) : null, v = cs ? totalCompras(e, ym) : valorMes(e, ym).valor;
     Object.entries(e.partes || {}).forEach(([id, q]) => { if (out[id]) out[id].parte += v * (+q || 0); });
-    if (out[e.pagaPor]) out[e.pagaPor].paga += v; });
+    if (cs) cs.forEach(c => { if (out[c.membro]) out[c.membro].paga += +c.valor || 0; }); else if (out[e.pagaPor]) out[e.pagaPor].paga += v; });
   ms.forEach(x => { const o = out[x.id]; o.parte = r2(o.parte); o.paga = r2(o.paga); o.saldo = r2(o.paga - o.parte); });
   return out;
 }
@@ -60,15 +68,17 @@ function transferencias(saldos) {
 // despesas variáveis de um mês ainda sem valor real registado
 const estimadas = (d, ym) => (d.mod.despesas || []).filter(e => e.ativo !== false && e.variavel && vigente(e, ym) && !valorMes(e, ym).real);
 const Conta = SPAP.contaCasa = {
-  resumoMes, transferencias, fimMes, ymHoje, valorMes, media, estimadas, mesSeguinte, planoCartao, ativaNoMes,
+  resumoMes, transferencias, fimMes, ymHoje, valorMes, media, estimadas, mesSeguinte, planoCartao, ativaNoMes, comprasMes, totalCompras,
   livro: casa => ler('spap:' + casa),
-  registo: casa => Object.assign({ pagamentos: [], dividas: [], despesas: [] }, ler('spap:' + casa + ':conta') || {}),
+  registo: casa => Object.assign({ pagamentos: [], dividas: [], despesas: [], compras: [] }, ler('spap:' + casa + ':conta') || {}),
+  // junta a uma despesa "por compras" as compras registadas pelos membros (cópia: não altera o livro)
+  comCompras(casa, e, R = Conta.registo(casa)) { return e.periodicidade === 'compras' ? Object.assign({}, e, { compras: (R.compras || []).filter(c => c.despesa === e.id && !c.anulada) }) : e; },
   // lê, altera e grava logo a seguir (registo pequeno e só de acrescentar: não apaga o que outro sistema escreveu)
   alterar(casa, fn) { const r = Conta.registo(casa); const out = fn(r); localStorage.setItem('spap:' + casa + ':conta', JSON.stringify(r)); return out; },
   membros: casa => ((Conta.livro(casa) || {}).mod || {}).membros || [],
   // despesas da casa: as do livro da casa e as acrescentadas pelos planos pessoais (ex.: uma compra no cartão que é toda da casa)
   despesasRegisto: casa => (Conta.registo(casa).despesas || []).filter(e => !e.anulada),
-  todasDespesas: (casa, d = Conta.livro(casa)) => [...(((d || {}).mod || {}).despesas || []), ...Conta.despesasRegisto(casa)],
+  todasDespesas: (casa, d = Conta.livro(casa)) => { const R = Conta.registo(casa); return [...(((d || {}).mod || {}).despesas || []), ...(R.despesas || []).filter(e => !e.anulada)].map(e => Conta.comCompras(casa, e, R)); },
   // extrato da conta corrente: obrigações (acertos mensais e dívidas pontuais) e pagamentos
   extrato(casa, ate = ymHoje()) {
     const d0 = Conta.livro(casa); if (!d0 || !d0.mod) return null;
@@ -79,7 +89,7 @@ const Conta = SPAP.contaCasa = {
       const R0 = resumoMes(d, ym);
       transferencias(Object.fromEntries(Object.entries(R0).map(([id, o]) => [id, o.saldo]))).forEach(t =>
         linhas.push({ tipo: 'acerto', id: `mensal:${ym}:${t.de}>${t.para}`, mes: ym, data: fimMes(ym), de: t.de, para: t.para, valor: t.valor, descricao: `Acerto das despesas comuns · ${ym}`,
-          estimado: estimadas(d, ym).map(e => e.nome) }));
+          estimado: estimadas(d, ym).map(e => e.nome), emCurso: ym >= ymHoje() && d.mod.despesas.some(e => e.periodicidade === 'compras' && e.ativo !== false && vigente(e, ym)) }));
     }
     // dívidas pontuais: as do livro da casa (importadas) e as criadas nos planos pessoais
     // uma dívida do registo comum pode substituir uma dívida antiga do livro da casa (ex.: ligada depois à compra no cartão)

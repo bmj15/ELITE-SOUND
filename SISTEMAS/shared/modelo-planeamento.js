@@ -846,6 +846,7 @@ function importarPlaneador() {
 const CC = () => SPAP.contaCasa;
 const ligacaoCasa = () => { const pl = M().plano; return pl.casa && pl.membroCasa && CC() ? { casa: pl.casa, eu: pl.membroCasa } : null; };
 const textoPag = p => ['CASA-PAG', p.casa || '', p.id, p.de, p.para, (+p.valor || 0).toFixed(2), p.data || '', p.descricao || '', ...(p.mes ? [p.mes] : [])].join('|');
+const textoCompra = c => ['CASA-COMPRA', c.casa || '', c.id, c.despesa, c.membro, (+c.valor || 0).toFixed(2), c.data || '', c.descricao || ''].join('|');
 const textoConta = c => ['CASA-CONTA', c.casa || '', c.id, c.despesa, c.mes, (+c.valor || 0).toFixed(2), c.data || '', c.membro].join('|');
 
 /* Contas da casa que este membro paga por inteiro (a despesa está em nome dele). Cada uma só pode ser dada como
@@ -855,20 +856,21 @@ function contasAPagar(L, ym) {
   const d0 = CC().livro(L.casa); if (!d0 || !d0.mod) return null;
   const desp = CC().todasDespesas(L.casa, d0).filter(e => e.ativo !== false && CC().ativaNoMes(e, ym)), R = CC().registo(L.casa);
   const val = e => CC().valorMes(e, ym).valor, parte = (e, id) => +((e.partes || {})[id]) || 0;
-  const outros = (d0.mod.membros || []).filter(x => x.id !== L.eu), acerto = {};
+  const outros = (d0.mod.membros || []).filter(x => x.id !== L.eu), acerto = {}, minhas = desp.filter(e => e.pagaPor === L.eu && e.periodicidade !== 'compras');
+  const hoje = today().slice(0, 7), ex = CC().extrato(L.casa, ym > hoje ? ym : hoje);
   outros.forEach(o => {
-    // o que eu devo a este membro pelas contas que ele paga desconta ao que ele me deve pelas minhas
-    const comp = desp.filter(e => e.pagaPor === o.id).reduce((t, e) => t + val(e) * parte(e, L.eu), 0);
+    // acerto do mês que este membro me envia: as minhas contas menos as que ele paga e as compras de cada um (por compras)
+    const obrig = minhas.reduce((t, e) => t + val(e) * parte(e, o.id), 0), linha = ex && ex.linhas.find(l => l.tipo === 'acerto' && l.mes === ym && l.de === o.id && l.para === L.eu);
     const pags = R.pagamentos.filter(p => p.de === o.id && p.para === L.eu && p.mes === ym);
     const recebido = r2(pags.filter(p => p.estado === 'concluido').reduce((t, p) => t + p.valor, 0)), porConfirmar = r2(pags.filter(p => p.estado === 'registado').reduce((t, p) => t + p.valor, 0));
-    const deve = r2(Math.max(0, desp.filter(e => e.pagaPor === L.eu).reduce((t, e) => t + val(e) * parte(e, o.id), 0) - comp));
+    const deve = r2(linha ? linha.valor : 0);
     // o que ainda falta deste acerto: o saldo em dívida até ao fim do mês (pagamentos confirmados, crédito de meses anteriores
     // e liquidações antigas descontam), no máximo o acerto do mês
     const emDivida = CC().saldoAte(L.casa, o.id, L.eu, ym), pendente = r2(Math.max(0, Math.min(deve, emDivida)));
-    acerto[o.id] = { nome: (o.nome || o.id), deve, recebido, porConfirmar, pendente, liquidado: deve > 0.004 && pendente <= 0.004, credito: comp + deve - pendente };
+    acerto[o.id] = { nome: (o.nome || o.id), deve, recebido, porConfirmar, pendente, liquidado: deve > 0.004 && pendente <= 0.004, credito: obrig - pendente, emCurso: !!(linha && linha.emCurso) };
   });
   const cum = {};
-  const linhas = desp.filter(e => e.pagaPor === L.eu).sort((a, b) => (+a.dia || 1) - (+b.dia || 1) || String(a.nome).localeCompare(String(b.nome))).map(e => {
+  const linhas = minhas.slice().sort((a, b) => (+a.dia || 1) - (+b.dia || 1) || String(a.nome).localeCompare(String(b.nome))).map(e => {
     const v = val(e); let falta = 0, deOutros = 0;
     outros.forEach(o => { const x = v * parte(e, o.id); deOutros += x; cum[o.id] = (cum[o.id] || 0) + x; falta += Math.max(0, cum[o.id] - acerto[o.id].credito); });
     const paga = (R.contasPagas || []).find(c => c.despesa === e.id && c.mes === ym && !c.anulada) || null;
@@ -883,6 +885,33 @@ async function pagarConta(L, ym, x) {
   c.registo = { user: app.user.id, nome: app.user.nome, membro: L.eu, assinatura: await s.signer.texto('CONTA_PAGA', textoConta(c)) };
   CC().alterar(L.casa, r => { r.contasPagas = r.contasPagas || []; if (!r.contasPagas.some(y => y.despesa === c.despesa && y.mes === ym && !y.anulada)) r.contasPagas.push(c); });
   audit('CASA_CONTA_PAGA', `${x.e.nome} · ${fmtMes(ym)} · ${eur(x.valor)}`); app.save(); ui.toast('Conta registada como paga', 'ok'); return true;
+}
+/* Despesas "por compras" (ex.: alimentação): cada membro regista as compras que fez; a parte de cada um é sobre o total do mês
+   e quem comprou mais do que a sua parte recebe a diferença no acerto mensal. */
+function comprasCasa(L, ym) {
+  const d0 = CC().livro(L.casa); if (!d0 || !d0.mod) return [];
+  const ms = d0.mod.membros || [];
+  return CC().todasDespesas(L.casa, d0).filter(e => e.periodicidade === 'compras' && e.ativo !== false && CC().ativaNoMes(e, ym)).map(e => {
+    const cs = CC().comprasMes(e, ym).sort((a, b) => String(a.data).localeCompare(String(b.data))), total = r2(cs.reduce((t, c) => t + (+c.valor || 0), 0));
+    const por = ms.map(x => { const comprou = r2(cs.filter(c => c.membro === x.id).reduce((t, c) => t + (+c.valor || 0), 0)), parte = r2(total * (+((e.partes || {})[x.id]) || 0));
+      return { id: x.id, nome: x.nome, comprou, parte, saldo: r2(comprou - parte) }; });
+    return { e, cs, total, por };
+  });
+}
+async function registarCompra(L, e, f) {
+  const s = await app.assinar('Compra da casa', `<b>${esc(e.nome)}</b> · ${esc(f.descricao || 'Compra')} · ${date(f.data)} · <b>${eur(f.valor)}</b><br><span style="font-size:12px">Conta no acerto do mês: cada um paga a sua parte do total das compras.</span>`);
+  if (!s) return false;
+  const c = { id: 'Q' + uid(), casa: L.casa, despesa: e.id, membro: L.eu, data: f.data || today(), valor: r2(+f.valor), descricao: f.descricao || '', sistema: sub.key, criadoEm: new Date().toISOString() };
+  c.registo = { user: app.user.id, nome: app.user.nome, membro: L.eu, assinatura: await s.signer.texto('CASA_COMPRA', textoCompra(c)) };
+  CC().alterar(L.casa, r => { r.compras = r.compras || []; r.compras.push(c); });
+  audit('CASA_COMPRA', `${e.nome} · ${c.descricao} · ${date(c.data)} · ${eur(c.valor)}`); app.save(); ui.toast('Compra registada', 'ok'); return true;
+}
+async function anularCompra(L, c) {
+  const s = await app.assinar('Anular compra', `${esc(c.descricao || 'Compra')} · ${date(c.data)} · <b>${eur(c.valor)}</b><br><span style="font-size:12px">Deixa de contar no acerto do mês.</span>`);
+  if (!s) return false;
+  const an = { user: app.user.id, nome: app.user.nome, em: new Date().toISOString(), assinatura: await s.signer.texto('CASA_COMPRA_ANULADA', textoCompra(c)) };
+  CC().alterar(L.casa, r => { const x = (r.compras || []).find(y => y.id === c.id); if (x && x.membro === L.eu) Object.assign(x, { anulada: true, anulacao: an }); });
+  audit('CASA_COMPRA_ANULADA', `${c.descricao || 'Compra'} · ${date(c.data)} · ${eur(c.valor)}`); app.save(); ui.toast('Compra anulada', 'ok'); return true;
 }
 const estadoPag = p => p.estado === 'concluido' ? `<span class="badge ok">concluído${p.concluidoEm ? ' ' + date(p.concluidoEm) : ''}</span>`
   : p.estado === 'registado' ? '<span class="badge info">pagamento registado · aguarda confirmação</span>' : '<span class="badge warn">pendente</span>';
@@ -914,7 +943,7 @@ function casaPessoal(v) {
   if (!ex) { v.innerHTML = `<div class="empty">A casa partilhada ainda não foi aberta neste computador.</div>`; return; }
   const eu = L.eu, nm = id => ex.nomeM(id).split(' ')[0], ed = podeEditar();
   const aReceber = ex.deve.filter(x => x.para === eu), aPagar = ex.deve.filter(x => x.de === eu);
-  const ymC = tab('pf-casa-mes', today().slice(0, 7)), CP = contasAPagar(L, ymC);
+  const ymC = tab('pf-casa-mes', today().slice(0, 7)), CP = contasAPagar(L, ymC), COMP = comprasCasa(L, ymC);
   const meus = ex.linhas.filter(l => l.de === eu || l.para === eu), porConfirmar = meus.filter(l => l.tipo === 'pagamento' && l.estado === 'registado' && l.para === eu);
   const outros = ex.membros.filter(x => x.id !== eu);
   v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Conta corrente com os outros membros de <b>${esc(ex.nome)}</b>. Os acertos mensais são calculados a partir das despesas comuns da casa.</span>
@@ -937,13 +966,30 @@ function casaPessoal(v) {
           <td>${x.paga ? `<span class="badge ok">paga ${date(x.paga.data)}</span>` : x.falta > 0.004 ? `<span class="badge warn">falta acerto de ${eur(x.falta)}</span>` : '<span class="badge info">pode pagar</span>'}</td>
           <td class="r">${!x.paga && x.falta <= 0.004 && ed ? `<button class="btn sm primary" data-cp="${i}">${icon('key')} Paga</button>` : ''}</td></tr>`).join('')}</tbody>
         <tfoot><tr><td>TOTAL</td><td></td><td class="r num">${eur(sum(CP.linhas, 'valor'))}</td><td class="r num">${eur(sum(CP.linhas, 'deOutros'))}</td><td colspan="2"></td></tr></tfoot></table></div></div>`; })() : ''}
+    ${COMP.map((k, ki) => { const meses = Array.from({ length: 6 }, (_, i) => SPAP.addMonths(today().slice(0, 7) + '-01', i - 4).slice(0, 7)), eu0 = k.por.find(x => x.id === eu);
+      return `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>${esc(k.e.nome)} · compras partilhadas</h3><span class="sub">cada um regista as compras que fez · paga-se a parte do total</span>
+        <select class="inp inp-sm" data-cpm style="margin-left:auto">${meses.map(x => `<option value="${x}" ${x === ymC ? 'selected' : ''}>${fmtMes(x)}</option>`).join('')}</select>${ed ? `<button class="btn sm primary" data-nc="${ki}">${icon('plus')} Registar compra</button>` : ''}</div>
+        <div style="padding:0 16px 8px">${k.por.map(x => `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${x.id === eu ? '<b>Eu</b>' : esc(nm(x.id))}: comprou <b class="num">${eur(x.comprou)}</b> · parte ${eur(x.parte)}</span>
+          <span>${Math.abs(x.saldo) <= 0.004 ? '<span class="badge plain">certo</span>' : x.saldo > 0 ? `<span class="badge ok">adiantou ${eur(x.saldo)}</span>` : `<span class="badge warn">falta ${eur(-x.saldo)}</span>`}</span></div>`).join('')}
+          <p class="faint" style="font-size:12px;margin:8px 0 0">Total de ${fmtMes(ymC)}: <b>${eur(k.total)}</b>${+k.e.valor ? ` (orçamento ${eur(k.e.valor)})` : ''}. A diferença entra no acerto do mês${eu0 && eu0.saldo < -0.004 ? `: pode abater os ${eur(-eu0.saldo)} em falta registando as suas compras` : ''}.</p></div>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Quem</th><th>Descrição</th><th class="r">Valor</th><th></th></tr></thead><tbody>
+        ${k.cs.slice().reverse().map(c => `<tr><td>${date(c.data)}</td><td>${c.membro === eu ? 'eu' : esc(nm(c.membro))}</td><td>${esc(c.descricao || '—')}</td><td class="r num">${eur(c.valor)}</td>
+          <td class="r">${c.membro === eu && ed ? `<button class="btn sm ghost" data-ac="${c.id}" title="Anular">${icon('trash')}</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Sem compras registadas neste mês.</td></tr>'}</tbody>
+        <tfoot><tr><td colspan="3">TOTAL</td><td class="r num">${eur(k.total)}</td><td></td></tr></tfoot></table></div></div>`; }).join('')}
     <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Extrato</h3><span class="sub">acertos, dívidas e pagamentos</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Movimento</th><th>Tipo</th><th class="r">Deve</th><th class="r">Pago</th><th>Estado</th><th></th></tr></thead><tbody>
     ${meus.slice().reverse().map(l => { const sentido = l.de === eu ? `eu → ${esc(nm(l.para))}` : `${esc(nm(l.de))} → eu`;
       if (l.tipo === 'pagamento') return `<tr><td>${date(l.data)}</td><td>${esc(l.descricao || 'Pagamento')}<div class="faint" style="font-size:12px">${sentido}${l.registo ? ' · registado por ' + esc(l.registo.nome.split(' ')[0]) : ''}${l.confirmacao && (!l.registo || l.confirmacao.nome !== l.registo.nome) ? ' · confirmado por ' + esc(l.confirmacao.nome.split(' ')[0]) : ''}</div></td><td><span class="badge plain">pagamento</span></td><td></td><td class="r num">${eur(l.valor)}</td><td>${estadoPag(l)}</td>
         <td class="r">${l.estado === 'registado' && l.para === eu ? `<button class="btn sm primary" data-cf="${l.id}">${icon('key')} Confirmar</button>` : ''}</td></tr>`;
-      return `<tr><td>${date(l.data)}</td><td>${esc(l.tipo === 'acerto' ? 'Acerto das despesas comuns · ' + fmtMes(l.mes) : l.descricao)}<div class="faint" style="font-size:12px">${sentido}</div>${l.estimado && l.estimado.length ? `<div style="font-size:11px"><span class="badge warn" data-tip="${esc('Ainda sem valor real de: ' + l.estimado.join(', ') + '. Usa-se a média; quando o valor real for registado na Casa, o acerto é corrigido.')}">estimado</span></div>` : ''}</td><td><span class="badge plain">${l.tipo === 'acerto' ? 'acerto mensal' : 'dívida'}</span></td><td class="r num">${eur(l.valor)}</td><td></td><td></td><td></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Sem movimentos.</td></tr>'}</tbody></table></div></div>`;
+      return `<tr><td>${date(l.data)}</td><td>${esc(l.tipo === 'acerto' ? 'Acerto das despesas comuns · ' + fmtMes(l.mes) : l.descricao)}<div class="faint" style="font-size:12px">${sentido}</div>${l.estimado && l.estimado.length ? `<div style="font-size:11px"><span class="badge warn" data-tip="${esc('Ainda sem valor real de: ' + l.estimado.join(', ') + '. Usa-se a média; quando o valor real for registado na Casa, o acerto é corrigido.')}">estimado</span></div>` : ''}</td><td><span class="badge plain">${l.tipo === 'acerto' ? 'acerto mensal' : 'dívida'}</span>${l.emCurso ? ' <span class="badge info" data-tip="Inclui compras partilhadas: o valor muda à medida que se registam compras neste mês.">em curso</span>' : ''}</td><td class="r num">${eur(l.valor)}</td><td></td><td></td><td></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Sem movimentos.</td></tr>'}</tbody></table></div></div>`;
   v.querySelectorAll('[data-cf]').forEach(b => b.onclick = async () => { if (await confirmarPagamento(b.dataset.cf)) app.refresh(); });
-  const cm = v.querySelector('#cmes'); if (cm) cm.onchange = () => { setTab('pf-casa-mes', cm.value); app.refresh(); };
+  v.querySelectorAll('#cmes, [data-cpm]').forEach(cm => cm.onchange = () => { setTab('pf-casa-mes', cm.value); app.refresh(); });
+  v.querySelectorAll('[data-ac]').forEach(b => b.onclick = async () => { const c = COMP.flatMap(k => k.cs).find(x => x.id === b.dataset.ac); if (c && await anularCompra(L, c)) app.refresh(); });
+  v.querySelectorAll('[data-nc]').forEach(b => b.onclick = () => { const e = COMP[+b.dataset.nc].e;
+    ui.modal({ title: 'Registar compra · ' + esc(e.nome), sub: 'Conta no acerto do mês da data da compra. Fica registada com a sua assinatura.',
+      body: `<form class="form"><div class="fld"><label>Data</label><input class="inp" type="date" name="data" value="${ymC === today().slice(0, 7) ? today() : SPAP.contaCasa.fimMes(ymC)}"></div><div class="fld"><label>Valor (€)</label><input class="inp num" type="number" step="any" name="valor"></div>
+        <div class="fld full"><label>Descrição</label><input class="inp" name="descricao" placeholder="ex.: Continente, Lidl, talho…"></div></form>`,
+      actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('key') + 'Assinar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!(+f.valor > 0)) { ui.toast('Indique o valor', 'warn'); return false; } if (!f.data) { ui.toast('Indique a data', 'warn'); return false; }
+        setTimeout(async () => { if (await registarCompra(L, e, f)) { setTab('pf-casa-mes', f.data.slice(0, 7)); app.refresh(); } }, 0); } }] }); });
   v.querySelectorAll('[data-cp]').forEach(b => b.onclick = async () => { if (await pagarConta(L, ymC, CP.linhas[+b.dataset.cp])) app.refresh(); });
   const formPag = (concluir, lista) => {
     const opts = lista.map(x => { const o = concluir ? x.de : x.para; return `<option value="${o}" data-v="${x.valor}">${esc(ex.nomeM(o))} (${concluir ? 'deve-lhe' : 'deve'} ${eur(x.valor)})</option>`; }).join('');

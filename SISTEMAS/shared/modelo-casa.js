@@ -15,9 +15,10 @@ const { eur, pct, date, esc, uid, today, r2, MES3, MESES, icon, ui, chart } = SP
 const CAIXA = sub.contaCaixa || 'CAIXA', OPER = sub.contaOperacional || 'OPERACIONAL', HOLD = sub.contaHolding || 'HOLDING';
 let app;
 const M = () => { const m = app.db.mod; ['membros', 'despesas', 'acertos'].forEach(k => { if (!Array.isArray(m[k])) m[k] = []; }); return m; };
-const PERIODOS = [['mensal', 'Mensal', 1], ['pontual', 'Pontual (uma vez)', 1], ['cartao', 'A prestações pelo cartão', 1], ['trimestral', 'Trimestral', 3], ['semestral', 'Semestral', 6], ['anual', 'Anual', 12]];
+const PERIODOS = [['mensal', 'Mensal', 1], ['pontual', 'Pontual (uma vez)', 1], ['cartao', 'A prestações pelo cartão', 1], ['compras', 'Por compras (cada um regista as suas)', 1], ['trimestral', 'Trimestral', 3], ['semestral', 'Semestral', 6], ['anual', 'Anual', 12]];
 const daRegisto = () => SPAP.contaCasa ? SPAP.contaCasa.despesasRegisto(sub.key).map(e => Object.assign({ doRegisto: true }, e)) : [];
-const todas = () => [...M().despesas, ...daRegisto()];
+// as despesas "por compras" levam as compras registadas pelos membros nos planos pessoais
+const todas = () => [...M().despesas, ...daRegisto()].map(e => SPAP.contaCasa ? SPAP.contaCasa.comCompras(sub.key, e) : e);
 const CATS = ['Habitação', 'Alimentação', 'Serviços (água/luz/gás)', 'Comunicações', 'Seguros', 'Transportes', 'Saúde', 'Educação', 'Lazer', 'Outros'];
 const mensal = e => (+e.valor || 0) / ((PERIODOS.find(p => p[0] === e.periodicidade) || [0, 0, 1])[2]);
 const ymHoje = () => today().slice(0, 7);
@@ -31,7 +32,7 @@ const audit = (a, t) => app.log(a, t);
 const kpi = (rot, val, foot = '', cls = '', hero = false) => `<div class="card kpi ${hero ? 'hero' : ''}"><div class="lbl">${rot}</div><div class="val num ${cls}">${val}</div>${foot ? `<div class="foot">${foot}</div>` : ''}</div>`;
 
 /* ---------- Contas: parte de cada um, quem adianta e o acerto mensal ---------- */
-const valorMes = (e, ym = ymHoje()) => SPAP.contaCasa ? SPAP.contaCasa.valorMes(e, ym) : { valor: r2(mensal(e)), real: true };
+const valorMes = (e, ym = ymHoje()) => SPAP.contaCasa ? SPAP.contaCasa.valorMes(e.periodicidade === 'compras' && !e.compras ? SPAP.contaCasa.comCompras(sub.key, e) : e, ym) : { valor: r2(mensal(e)), real: true };
 // meses (até ao mês atual) de despesas variáveis sem o valor real registado
 function valoresEmFalta() {
   const out = []; M().despesas.filter(e => e.ativo !== false && e.variavel && e.inicio).forEach(e => {
@@ -50,6 +51,7 @@ function editarValores(e) {
       app.save(); app.refresh(); } }] });
 }
 function resumoMes(ym = ymHoje()) {
+  if (SPAP.contaCasa) return SPAP.contaCasa.resumoMes({ mod: { membros: M().membros, despesas: todas() } }, ym);
   const ms = M().membros, out = Object.fromEntries(ms.map(x => [x.id, { parte: 0, paga: 0 }]));
   ativas(ym).forEach(e => { const v = valorMes(e, ym).valor;
     Object.entries(e.partes || {}).forEach(([id, q]) => { if (out[id]) out[id].parte += v * (+q || 0); });
@@ -99,9 +101,9 @@ function editarDespesa(e0) {
   ui.modal({ title: (novo ? 'Nova' : 'Editar') + ' despesa comum', wide: true, body: `<form class="form">
       <div class="fld"><label>Designação</label><input class="inp" name="nome" value="${esc(e.nome || '')}" placeholder="ex.: Renda"></div>
       <div class="fld"><label>Categoria</label><select class="inp" name="categoria">${CATS.map(c => `<option ${c === e.categoria ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
-      <div class="fld"><label>Valor por cobrança (€)</label><input class="inp num" type="number" step="any" name="valor" value="${esc(e.valor)}"></div>
+      <div class="fld"><label>Valor por cobrança (€)</label><input class="inp num" type="number" step="any" name="valor" value="${esc(e.valor)}"><span class="hint">Por compras: orçamento mensal, só para a previsão.</span></div>
       <div class="fld"><label>Periodicidade</label><select class="inp" name="periodicidade">${PERIODOS.map(p => `<option value="${p[0]}" ${p[0] === e.periodicidade ? 'selected' : ''}>${p[1]}</option>`).join('')}</select></div>
-      <div class="fld"><label>Quem paga</label><select class="inp" name="pagaPor">${ms.map(x => `<option value="${x.id}" ${x.id === e.pagaPor ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select><span class="hint">Quem tem a despesa em seu nome e adianta a parte dos outros.</span></div>
+      <div class="fld"><label>Quem paga</label><select class="inp" name="pagaPor">${ms.map(x => `<option value="${x.id}" ${x.id === e.pagaPor ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select><span class="hint">Quem tem a despesa em seu nome e adianta a parte dos outros. Por compras: cada um adianta o que comprou.</span></div>
       <div class="fld"><label>Dia de cobrança</label><input class="inp num" type="number" min="1" max="28" name="dia" value="${esc(e.dia || 1)}"></div>
       <div class="fld"><label>Desde (mês)</label><input class="inp" type="month" name="inicio" value="${esc(e.inicio || '')}"></div>
       <div class="fld"><label>Até (mês)</label><input class="inp" type="month" name="fim" value="${esc(e.fim || '')}"><span class="hint">Opcional: despesas temporárias.</span></div>
@@ -113,18 +115,18 @@ function editarDespesa(e0) {
         const f = ui.formData(el), partes = {}; el.querySelectorAll('[data-parte]').forEach(i => { partes[i.dataset.parte] = r2((+i.value || 0) / 100 * 10000) / 10000; });
         const soma = Object.values(partes).reduce((a, b) => a + b, 0);
         if (!f.nome) { ui.toast('Indique a designação', 'warn'); return false; }
-        if (!(+f.valor > 0)) { ui.toast('Indique o valor', 'warn'); return false; }
+        if (!(+f.valor > 0) && f.periodicidade !== 'compras') { ui.toast('Indique o valor', 'warn'); return false; }
         if (Math.abs(soma - 1) > 0.0001) { ui.toast(`As partes somam ${pct(soma)}: devem somar 100%`, 'warn'); return false; }
         const x = e0 || { id: 'C' + uid() };
-        Object.assign(x, { nome: f.nome, categoria: f.categoria, valor: r2(+f.valor), periodicidade: f.periodicidade, pagaPor: f.pagaPor, dia: Math.min(28, Math.max(1, parseInt(f.dia, 10) || 1)), inicio: f.inicio || '', fim: f.fim || '', variavel: !!f.variavel, ativo: !!f.ativo, partes });
+        Object.assign(x, { nome: f.nome, categoria: f.categoria, valor: r2(+f.valor), periodicidade: f.periodicidade, pagaPor: f.pagaPor, dia: Math.min(28, Math.max(1, parseInt(f.dia, 10) || 1)), inicio: f.inicio || '', fim: f.fim || '', variavel: f.periodicidade !== 'compras' && !!f.variavel, ativo: !!f.ativo, partes });
         if (novo) m.despesas.push(x); audit('CASA_DESPESA', `${x.nome} · ${eur(x.valor)} · paga ${nomeM(x.pagaPor)}`); app.save(); app.refresh(); } }] });
 }
 function despesas(v) {
   const m = M(), ed = podeEditar(), ms = m.membros;
   v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Despesas da casa divididas entre os membros. A parte de cada um entra no plano pessoal dessa pessoa.</span>${ed ? `<button class="btn primary" id="nd">${icon('plus')} Nova despesa comum</button>` : ''}</div>
     <div class="card flush"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th>Periodicidade</th><th class="r">Valor</th><th class="r">Mensal</th><th>Quem paga</th>${ms.map(x => `<th class="r">${esc(x.nome.split(' ')[0])}</th>`).join('')}<th>Período</th></tr></thead><tbody>
-    ${todas().filter(e => !['pontual', 'cartao'].includes(e.periodicidade)).map(e => { const on = e.ativo !== false && vigente(e); return `<tr class="${ed && !e.doRegisto ? 'click' : ''}" ${e.doRegisto ? '' : `data-d="${e.id}"`} style="${on ? '' : 'opacity:.5'}"><td><b>${esc(e.nome)}</b><div class="faint" style="font-size:12px">${esc(e.categoria || '')}${e.variavel ? ' · variável' : ''}${e.doRegisto ? ` · registada no plano pessoal de ${esc(curto(e.pagaPor))}${e.ref ? ' (cartão)' : ''}` : ''}</div>${e.notas ? `<div class="faint" style="font-size:11px">${esc(e.notas)}</div>` : ''}${e.variavel && ed ? `<button class="btn sm ghost" data-vr="${e.id}" style="margin-top:4px">${icon('edit')} Valores reais</button>` : ''}</td>
-      <td>${esc((PERIODOS.find(p => p[0] === e.periodicidade) || [0, e.periodicidade])[1])}</td><td class="r num">${e.variavel ? `${eur(SPAP.contaCasa.media(e))}<div class="faint" style="font-size:11px">média</div>` : eur(e.valor)}</td><td class="r num">${(() => { const x = valorMes(e); return `${eur(x.valor)}${e.variavel ? `<div style="font-size:11px">${x.real ? '<span class="badge ok">valor real</span>' : '<span class="badge warn">estimado</span>'}</div>` : ''}`; })()}</td><td>${esc(curto(e.pagaPor))}</td>
+    ${todas().filter(e => !['pontual', 'cartao'].includes(e.periodicidade)).map(e => { const on = e.ativo !== false && vigente(e); return `<tr class="${ed && !e.doRegisto ? 'click' : ''}" ${e.doRegisto ? '' : `data-d="${e.id}"`} style="${on ? '' : 'opacity:.5'}"><td><b>${esc(e.nome)}</b><div class="faint" style="font-size:12px">${esc(e.categoria || '')}${e.variavel ? ' · variável' : ''}${e.periodicidade === 'compras' ? ` · compras de ${fmtMes(ymHoje())}: ${ms.map(x => `${esc(curto(x.id))} ${eur((e.compras || []).filter(c => c.membro === x.id && String(c.data).slice(0, 7) === ymHoje()).reduce((t, c) => t + (+c.valor || 0), 0))}`).join(' · ')}` : ''}${e.doRegisto ? ` · registada no plano pessoal de ${esc(curto(e.pagaPor))}${e.ref ? ' (cartão)' : ''}` : ''}</div>${e.notas ? `<div class="faint" style="font-size:11px">${esc(e.notas)}</div>` : ''}${e.variavel && ed ? `<button class="btn sm ghost" data-vr="${e.id}" style="margin-top:4px">${icon('edit')} Valores reais</button>` : ''}</td>
+      <td>${esc((PERIODOS.find(p => p[0] === e.periodicidade) || [0, e.periodicidade])[1])}</td><td class="r num">${e.variavel ? `${eur(SPAP.contaCasa.media(e))}<div class="faint" style="font-size:11px">média</div>` : e.periodicidade === 'compras' ? `${eur(e.valor)}<div class="faint" style="font-size:11px">orçamento</div>` : eur(e.valor)}</td><td class="r num">${(() => { const x = valorMes(e); if (x.compras) return `${eur(x.registado ?? x.valor)}<div class="faint" style="font-size:11px">registado até agora</div>`; return `${eur(x.valor)}${e.variavel ? `<div style="font-size:11px">${x.real ? '<span class="badge ok">valor real</span>' : '<span class="badge warn">estimado</span>'}</div>` : ''}`; })()}</td><td>${e.periodicidade === 'compras' ? 'cada um' : esc(curto(e.pagaPor))}</td>
       ${ms.map(x => `<td class="r num">${+((e.partes || {})[x.id]) ? `${eur(valorMes(e).valor * e.partes[x.id])} <span class="faint" style="font-size:11px">${pct(e.partes[x.id])}</span>` : '<span class="faint">—</span>'}</td>`).join('')}
       <td style="font-size:12px">${e.ativo === false ? 'inativa' : `${e.inicio ? 'desde ' + fmtMes(e.inicio) : ''} ${e.fim ? 'até ' + fmtMes(e.fim) : ''}`.trim() || 'sem fim'}${on || e.ativo === false ? '' : ` <span class="badge">${e.fim && e.fim < ymHoje() ? 'terminou' : 'futura'}</span>`}</td></tr>`; }).join('') || `<tr><td colspan="${6 + ms.length}" class="empty">Sem despesas comuns.</td></tr>`}</tbody></table></div></div>
     ${(() => { const cs = todas().filter(e => e.periodicidade === 'cartao' && e.ativo !== false); if (!cs.length) return '';
