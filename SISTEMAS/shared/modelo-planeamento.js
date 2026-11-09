@@ -565,7 +565,7 @@ function catAIRS(ano) {
   return o;
 }
 // Cat. B do ano: faturas-recibo (FR) e recibos (RG); uma fatura (FT) sozinha não é rendimento recebido
-const contaCatB = x => ['FR', 'RG'].includes(String(x.tipo || '').toUpperCase());
+const contaCatB = x => !x.anulado && ['FR', 'RG'].includes(String(x.tipo || '').toUpperCase());
 const catBIRS = ano => { const rs = M().recibosB.filter(x => +String(x.data).slice(0, 4) === ano && contaCatB(x)); return { bruto: r2(sum(rs, 'bruto')), irs: r2(sum(rs, 'irs')), iva: r2(sum(rs, 'iva')), n: rs.length }; };
 function calcIRS(ano) {
   const pl = M().plano, { out: regras, erros } = regrasIRS(), avisos = [];
@@ -589,15 +589,41 @@ function calcIRS(ano) {
   const preJovem = A.bruto + B.bruto * coefB - especifica, minimo = r.minimo > 0 && preJovem <= r.minimo, devido = minimo ? 0 : aposDed - benef, retido = A.irs + B.irs;
   return { ano, r, avisos, erros, A, B, pj, idx, idade, isA, isB, coefB, tribB, especifica, global, coletavel, isentos, paraTaxa, E, coleta, redJ, coletaJ, solid, det, ded, iva, ivaAplic, aposDed, mun, benef, minimo, preJovem, devido: r2(devido), retido: r2(retido), acerto: r2(retido - devido) };
 }
+// CSV exportado do Portal das Finanças (Faturas e Recibos / SIRE): ";" separado, números em formato PT ("1.040", "781,56")
+const numSIRE = x => { const t = String(x == null ? '' : x).trim().replace(/\./g, '').replace(',', '.'); const v = parseFloat(t); return isFinite(v) ? v : 0; };
+function lerSIRE(texto) {
+  const linhas = String(texto).replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim()); if (linhas.length < 2) throw new Error('ficheiro vazio');
+  const cab = linhas[0].split(';').map(semAcento), col = re => cab.findIndex(h => re.test(h));
+  const c = { ref: col(/^REFERENCIA/), tipo: col(/^TIPO DOCUMENTO/), sit: col(/^SITUACAO/), data: col(/^DATA DA TRANSACAO/), emis: col(/^DATA DE EMISSAO/), nif: col(/^NIF ADQUIRENTE/), nome: col(/^NOME DO ADQUIRENTE/), base: col(/^VALOR TRIBUTAVEL/), iva: col(/^VALOR DO IVA/), irs: col(/^VALOR DO IRS/), atcud: col(/^ATCUD/) };
+  if (c.ref < 0 || c.base < 0) throw new Error('não parece um ficheiro de faturas e recibos do Portal das Finanças');
+  return linhas.slice(1).map(l => { const f = l.split(';'), g = k => c[k] < 0 ? '' : (f[c[k]] || '').trim(), ref = g('ref');
+    return { numero: ref, tipo: (ref.match(/^(FR|RG|FT|NC)\b/i) || [, ''])[1].toUpperCase() || (/RECIBO/i.test(g('tipo')) ? 'FR' : 'FT'), anulado: /ANULAD/i.test(g('sit')), data: g('data') || g('emis'), nif: g('nif'), cliente: g('nome'), atcud: g('atcud'), bruto: r2(numSIRE(g('base'))), iva: r2(numSIRE(g('iva'))), irs: r2(numSIRE(g('irs'))) }; }).filter(x => x.numero && /^\d{4}-\d{2}-\d{2}$/.test(x.data));
+}
+function importarSIRE() {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.csv,text/csv';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return; let docs;
+    try { docs = lerSIRE(await f.text()); } catch (e) { ui.toast('Não consegui ler o ficheiro: ' + e.message, 'bad'); return; }
+    const m = M(), chave = n => { const t = String(n || '').replace(/\s+/g, '').toUpperCase(), k = t.match(/(FR|RG|FT|NC)\/\d+$/); return k ? k[0] : t; }, ex = new Map(m.recibosB.map(x => [chave(x.numero), x]));
+    let novos = 0, atual = 0, anul = 0;
+    docs.forEach(d => { const x = ex.get(chave(d.numero));
+      if (d.anulado) { if (x && !x.anulado) { x.anulado = true; x.tipo = d.tipo; anul++; } return; }
+      if (x) { let mud = false; ['cliente', 'nif', 'atcud'].forEach(k => { if (d[k] && x[k] !== d[k]) { x[k] = d[k]; mud = true; } }); if (x.numero !== d.numero) { x.numero = d.numero; mud = true; } if (mud) atual++; return; }
+      m.recibosB.push({ id: 'B' + uid(), data: d.data, tipo: d.tipo, numero: d.numero, cliente: d.cliente, nif: d.nif, atcud: d.atcud, bruto: d.bruto, iva: d.iva, irs: d.irs, origem: 'portal', criadoEm: new Date().toISOString() }); novos++; });
+    if (!novos && !atual && !anul) { ui.toast('Nada de novo: todos os documentos já estavam registados.', 'info'); return; }
+    audit('PF_CATB_IMPORT', `Portal das Finanças: ${novos} novos, ${atual} atualizados, ${anul} anulados`); app.save();
+    ui.toast(`Importado: ${novos} novos · ${atual} atualizados${anul ? ` · ${anul} anulados ignorados` : ''}`, 'ok'); app.refresh(); };
+  inp.click();
+}
 function rendCatB(v, T) {
   const m = M(), ed = podeEditar(), y0 = +today().slice(0, 4), anos = [...new Set([y0, ...m.recibosB.map(x => +String(x.data).slice(0, 4))])].sort((a, b) => b - a);
   let ano = +tab('pf-anob', y0); if (!anos.includes(ano)) ano = y0;
   const rs = m.recibosB.filter(x => +String(x.data).slice(0, 4) === ano).sort((a, b) => String(b.data).localeCompare(String(a.data))), B = catBIRS(ano), lim = 15000;
-  v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano</span><select class="inp inp-sm" id="pfb">${anos.map(y => `<option ${y === ano ? 'selected' : ''}>${y}</option>`).join('')}</select></div>${ed ? `<button class="btn primary" id="nb">${icon('plus')} Novo recibo verde</button>` : ''}</div>
+  v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano</span><select class="inp inp-sm" id="pfb">${anos.map(y => `<option ${y === ano ? 'selected' : ''}>${y}</option>`).join('')}</select></div>${ed ? `<div class="row"><button class="btn" id="ib" data-tip="Portal das Finanças › Faturas e Recibos › Consultar › Exportar (CSV)">${icon('upload')} Importar do Portal (CSV)</button><button class="btn primary" id="nb">${icon('plus')} Novo recibo verde</button></div>` : ''}</div>
     <div class="grid g4">${kpi(`${icon('wallet')} Recebido em ${ano} (Cat. B)`, eur(B.bruto), `${B.n} faturas-recibo / recibos`, '', true)}${kpi('IRS retido', eur(B.irs))}${kpi('IVA liquidado', eur(B.iva))}
       ${kpi('Limite de isenção de IVA (art. 53.º)', pct(B.bruto / lim), `${eur(B.bruto)} de ${eur(lim)}`, B.bruto >= lim ? 'neg' : B.bruto >= lim * 0.8 ? 'neg' : '')}</div>
     <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Recibos verdes ${ano}</h3><span class="sub">FR e RG contam como rendimento; uma FT sozinha é só informativa · clique para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Documento</th><th>Cliente</th><th class="r">Valor</th><th class="r">IVA</th><th class="r">Retenção IRS</th><th class="r">Total</th><th></th></tr></thead><tbody>
-    ${rs.map(x => `<tr class="${ed ? 'click' : ''}" data-b="${x.id}" style="${contaCatB(x) ? '' : 'opacity:.6'}"><td>${date(x.data)}</td><td><span class="badge ${contaCatB(x) ? 'ok' : ''}">${esc(x.tipo || '—')}</span> ${esc(x.numero || '')}</td><td>${esc(x.cliente || '—')}${x.nif ? `<div class="faint" style="font-size:11px">NIF ${esc(x.nif)}</div>` : ''}</td><td class="r num">${eur(x.bruto)}</td><td class="r num">${eur(x.iva)}</td><td class="r num">${eur(x.irs)}</td><td class="r num">${eur((+x.bruto || 0) + (+x.iva || 0) - (+x.irs || 0))}</td><td>${contaCatB(x) ? '' : '<span class="faint" style="font-size:11px">não conta</span>'}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">Sem recibos verdes neste ano.</td></tr>'}</tbody></table></div></div>`;
+    ${rs.map(x => `<tr class="${ed ? 'click' : ''}" data-b="${x.id}" style="${contaCatB(x) ? '' : 'opacity:.6'}"><td>${date(x.data)}</td><td><span class="badge ${contaCatB(x) ? 'ok' : ''}">${esc(x.tipo || '—')}</span> ${esc(x.numero || '')}</td><td>${esc(x.cliente || '—')}${x.nif ? `<div class="faint" style="font-size:11px">NIF ${esc(x.nif)}</div>` : ''}</td><td class="r num">${eur(x.bruto)}</td><td class="r num">${eur(x.iva)}</td><td class="r num">${eur(x.irs)}</td><td class="r num">${eur((+x.bruto || 0) + (+x.iva || 0) - (+x.irs || 0))}</td><td>${contaCatB(x) ? '' : `<span class="faint" style="font-size:11px">${x.anulado ? 'anulado' : 'não conta'}</span>`}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">Sem recibos verdes neste ano.</td></tr>'}</tbody></table></div></div>`;
   bindTabs(v); const s = v.querySelector('#pfb'); if (s) s.onchange = () => { setTab('pf-anob', s.value); app.refresh(); };
   const editarB = x0 => { const x = x0 || { data: today(), tipo: 'FR', bruto: 0, iva: 0, irs: 0 };
     ui.modal({ title: x0 ? 'Recibo verde' : 'Novo recibo verde', sub: 'Categoria B · fatura-recibo emitida no Portal das Finanças',
@@ -609,6 +635,7 @@ function rendCatB(v, T) {
           const y = x0 || { id: 'B' + uid(), criadoEm: new Date().toISOString() }; Object.assign(y, { data: f.data, tipo: f.tipo, numero: f.numero.trim(), cliente: f.cliente.trim(), nif: f.nif.trim(), bruto: r2(+f.bruto), iva: r2(+f.iva || 0), irs: r2(+f.irs || 0) });
           if (!x0) m.recibosB.push(y); audit('PF_CATB', `${y.tipo} ${y.numero} · ${y.data} · ${eur(y.bruto)}`); app.save(); app.refresh(); } }] }); };
   const nb = v.querySelector('#nb'); if (nb) nb.onclick = () => editarB();
+  const ib = v.querySelector('#ib'); if (ib) ib.onclick = importarSIRE;
   v.querySelectorAll('[data-b]').forEach(tr => tr.onclick = () => { if (ed) editarB(m.recibosB.find(x => x.id === tr.dataset.b)); });
 }
 function rendIRS(v, T) {
