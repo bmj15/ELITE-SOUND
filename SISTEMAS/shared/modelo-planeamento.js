@@ -89,7 +89,26 @@ function estimarLiquido(recibos, semRefeicao = true) {
   const limpos = c.map(x => x.v).filter(v => Math.abs(v - med) / Math.max(med, 1) < 0.15);
   return { base: r2(limpos.length ? Math.max(...limpos) : med), metodo: 'máximo sem valores atípicos', n, mediana: r2(med) };
 }
-const salarioBase = () => +M().plano.salarioBase || estimarLiquido(M().recibos).base || 0;
+// recibos que representam o salário atual: desde a mudança de emprego (se registada) e sem meses incompletos
+const recibosAtuais = () => { const d = M().plano.empregoDesde; return M().recibos.filter(r => !r.parcial && (!d || ymOf(+r.ano, +r.mes) >= d)); };
+const salarioBase = () => +M().plano.salarioBase || estimarLiquido(recibosAtuais()).base || 0;
+// mudança de emprego: os últimos recibos (2 ou mais) são de uma entidade diferente dos anteriores
+const chaveEnt = r => String(r.nifEntidade || '').trim() || String(r.entidade || '').trim().toLowerCase();
+function mudancaEmprego() {
+  const pl = M().plano, rs = M().recibos.filter(r => +r.liquido > 0).slice().sort((a, b) => a.ano - b.ano || a.mes - b.mes);
+  if (rs.length < 3) return null; const k = chaveEnt(rs[rs.length - 1]); if (!k) return null;
+  let i = rs.length; while (i > 0 && chaveEnt(rs[i - 1]) === k) i--;
+  const novos = rs.slice(i), antigos = rs.slice(0, i); if (novos.length < 2 || !antigos.length) return null;
+  const normais = x => !x.subFerias && !x.subNatal, outros = novos.slice(1).filter(normais), medO = outros.length ? sum(outros, 'liquido') / outros.length : 0;
+  // primeiro recibo muito abaixo dos seguintes: entrou a meio do mês
+  const parcial = novos[0].parcial || (normais(novos[0]) && medO > 0 && +novos[0].liquido < 0.6 * medO) ? novos[0] : null;
+  const uteis = novos.filter(r => r !== parcial && !r.parcial), ult = uteis.filter(normais).filter(r => +r.ss > 0).pop();
+  const desde = ymOf(+novos[0].ano, +novos[0].mes), chave = 'emprego:' + k;
+  return { ent: novos[novos.length - 1].entidade || 'nova entidade', entAnt: antigos[antigos.length - 1].entidade || '', desde, n: novos.length, parcial,
+    liquido: estimarLiquido(uteis).base, bruto: ult ? r2(+ult.ss / 0.11) : 0, feito: pl.empregoDesde === desde, chave, dispensada: (pl.sugDispensadas || []).includes(chave) };
+}
+// avisar só enquanto as previsões ainda não refletem o novo emprego
+const avisoEmprego = () => { const e = mudancaEmprego(); return e && !e.feito && !e.dispensada && e.liquido > 0 ? e : null; };
 // YTD real + projeção até dezembro, com subsídios de férias (junho) e Natal (novembro) estimados se ainda não recebidos
 /* ---------- Salário mínimo nacional (bruto mensal, pago 14 vezes) ----------
    Até 2026: valores publicados. 2027–2028: acordo de rendimentos. 2029: objetivo anunciado.
@@ -137,10 +156,12 @@ function projecao(ano) {
     if (rf > 0) { ref[m] = (ref[m] || 0) + rf; refs.push(rf); }
     if (p.subFerias) { temF = true; valF += +p.subFeriasValor || 0; subM[m] = subM[m] || { v: 0, t: [] }; subM[m].v += +p.subFeriasValor || 0; subM[m].t.push('férias'); }
     if (p.subNatal) { temN = true; valN += +p.subNatalValor || 0; subM[m] = subM[m] || { v: 0, t: [] }; subM[m].v += +p.subNatalValor || 0; subM[m].t.push('Natal'); }
-    if (!p.subFerias && !p.subNatal) so.push(liq);
+    if (!p.subFerias && !p.subNatal && !p.parcial && !(M().plano.empregoDesde && ymOf(+p.ano, m) < M().plano.empregoDesde)) so.push(liq);
   });
   const media = so.length ? so.reduce((a, b) => a + b, 0) / so.length : base;
-  const projF = temF ? valF : (base || media), projN = temN ? valN : (base || media);
+  // no ano de entrada num emprego, os subsídios são proporcionais aos meses trabalhados nesse ano
+  const ed0 = M().plano.empregoDesde, propAno = ed0 && +ed0.slice(0, 4) === +ano ? (13 - +ed0.slice(5, 7)) / 12 : 1;
+  const projF = temF ? valF : (base || media) * propAno, projN = temN ? valN : (base || media) * propAno;
   const mediaRef = refs.length ? refs.reduce((a, b) => a + b, 0) / refs.length : 0;
   const linhas = [];
   for (let m = 1; m <= 12; m++) {
@@ -288,6 +309,7 @@ function indicadores(ym = ymHoje(), porMes = false) {
   const pts = comp.reduce((s, c) => s + c.p, 0), max = comp.reduce((s, c) => s + c.max, 0), score = Math.round(100 * pts / max);
   const nota = score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : score >= 40 ? 'D' : 'F';
   const alertas = [];
+  { const e = avisoEmprego(); if (e) alertas.push(['warn', `Parece ter mudado de emprego: desde ${fmtMes(e.desde)} os recibos são de <b>${esc(e.ent)}</b>. As previsões ainda usam o salário anterior. <a href="#/rendimentos" data-aba="pf-rend=rec">Atualizar em Rendimentos</a>.`]); }
   if (!M().recibos.length && !+M().plano.salarioBase) alertas.push(['info', `Ainda não há rendimentos. Registe recibos de vencimento em <a href="#/rendimentos" data-aba="pf-rend=rec">Rendimentos</a> ou indique o salário líquido em <a href="#/simulador" data-aba="pf-sim=par">Parâmetros do plano</a>.`]);
   if (dti != null && dti > BENCH.dtiCritico) alertas.push(['bad', `A taxa de esforço é ${pct(dti)}: mais de metade do rendimento vai para prestações.`]);
   else if (dti != null && dti > BENCH.dtiAviso) alertas.push(['warn', `A taxa de esforço é ${pct(dti)} (acima de 35%).`]);
@@ -726,16 +748,25 @@ function rendimentos(v) {
   const est = estimarLiquido(m.recibos);
   if (T.t === 'rec') {
     const rs = m.recibos.filter(r => +r.ano === ano).sort((a, b) => b.mes - a.mes);
-    v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano</span>${anoSel}</div>${ed ? `<div class="row"><button class="btn" id="lr">${icon('upload')} Ler recibos (PDF/foto)</button><button class="btn primary" id="nr">${icon('plus')} Registar recibo</button></div>` : ''}</div>
+    const EMP = avisoEmprego();
+    v.innerHTML = `${T.html}${EMP ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div style="flex:1"><b>Mudança de emprego detetada.</b> Desde ${fmtMes(EMP.desde)} há ${EMP.n} recibos de <b>${esc(EMP.ent)}</b>${EMP.entAnt ? ` (antes: ${esc(EMP.entAnt)})` : ', diferente dos anteriores'}.
+        As previsões usam ${eur(salarioBase())} de líquido recorrente; com o novo emprego são <b>${eur(EMP.liquido)}</b>${EMP.bruto ? ` (vencimento sujeito a SS ≈ ${eur(EMP.bruto)})` : ''}.${EMP.parcial ? ` O recibo de ${MESES[EMP.parcial.mes - 1]} ${EMP.parcial.ano} (${eur(EMP.parcial.liquido)}) é de um mês incompleto e deixa de contar para as médias.` : ''}
+        ${dica('Atualizar grava o novo líquido recorrente e o vencimento nos Parâmetros do plano e passa a usar só os recibos do novo emprego para as médias. Os valores recebidos continuam todos registados.')}</div>
+        ${ed ? `<button class="btn sm primary" id="emp">${icon('check')} Atualizar previsões</button><button class="btn sm ghost" id="empx">Dispensar</button>` : ''}</div>` : ''}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano</span>${anoSel}</div>${ed ? `<div class="row"><button class="btn" id="lr">${icon('upload')} Ler recibos (PDF/foto)</button><button class="btn primary" id="nr">${icon('plus')} Registar recibo</button></div>` : ''}</div>
       <div class="grid g4">${kpi(`${icon('wallet')} Líquido recebido ${ano}`, eur(sum(rs, 'liquido')), `${rs.length} ${rs.length === 1 ? 'recibo' : 'recibos'}`, '', true)}${kpi('Bruto ' + ano, eur(sum(rs, 'bruto')))}${kpi('IRS retido', eur(sum(rs, 'irs')), `SS ${eur(sum(rs, 'ss'))}`)}
         ${kpi(kn('pf_liqrec', 'Líquido recorrente'), eur(salarioBase()), +m.plano.salarioBase ? 'definido nos parâmetros' : est.n ? esc(est.metodo) : 'sem recibos')}</div>
       <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Recibos ${ano}</h3><span class="sub">clique numa linha para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Mês</th><th>Entidade</th><th class="r">Bruto</th><th class="r">IRS</th><th class="r">SS</th><th class="r">Refeição</th><th class="r">Líquido</th><th>Subsídios</th><th>Entrada na tesouraria</th></tr></thead><tbody>
       ${rs.map(r => { const ps = estadoPed(chaveRec(r)); return `<tr class="${ed ? 'click' : ''}" data-r="${r.id}"><td><b>${MESES[r.mes - 1]}</b></td><td>${esc(r.entidade || '—')}</td><td class="r num">${eur(r.bruto)}</td><td class="r num">${eur(r.irs)}</td><td class="r num">${eur(r.ss)}</td><td class="r num">${eur(r.refeicao)}</td><td class="r num"><b>${eur(r.liquido)}</b></td>
-        <td>${r.subFerias ? '<span class="badge info">Férias</span> ' : ''}${r.subNatal ? '<span class="badge info">Natal</span>' : ''}</td>
+        <td>${r.subFerias ? '<span class="badge info">Férias</span> ' : ''}${r.subNatal ? '<span class="badge info">Natal</span>' : ''}${r.parcial ? '<span class="badge plain" data-tip="Mês incompleto: não conta para as médias">mês incompleto</span>' : ''}</td>
         <td>${ps || (app.can('criar') ? `<button class="btn sm" data-e="${r.id}">${icon('download')} Registar entrada</button>` : '<span class="faint">—</span>')}</td></tr>`; }).join('') || '<tr><td colspan="9" class="empty">Sem recibos neste ano.</td></tr>'}</tbody></table></div></div>`;
     v.querySelectorAll('[data-r]').forEach(tr => tr.onclick = e => { if (e.target.closest('button,a') || !ed) return; editarRecibo(m.recibos.find(r => r.id === tr.dataset.r)); });
     v.querySelectorAll('[data-e]').forEach(b => b.onclick = () => registarEntrada(m.recibos.find(r => r.id === b.dataset.e)));
     const nr = v.querySelector('#nr'); if (nr) nr.onclick = () => editarRecibo();
+    const emp = v.querySelector('#emp'); if (emp) emp.onclick = () => { const e = mudancaEmprego(); if (!e) return; const pl = m.plano;
+      pl.salarioBase = e.liquido; if (e.bruto) pl.brutoBase = e.bruto; pl.empregoDesde = e.desde; if (e.parcial) e.parcial.parcial = true;
+      audit('PF_PLANO', `Mudança de emprego: ${e.ent} desde ${fmtMes(e.desde)} · líquido recorrente ${eur(e.liquido)}${e.bruto ? ` · vencimento ${eur(e.bruto)}` : ''}${e.parcial ? ` · ${MESES[e.parcial.mes - 1]} ${e.parcial.ano} marcado como mês incompleto` : ''}`);
+      app.save(); ui.toast('Previsões atualizadas para o novo emprego', 'ok'); app.refresh(); };
+    const empx = v.querySelector('#empx'); if (empx) empx.onclick = () => { const e = mudancaEmprego(); if (!e) return; m.plano.sugDispensadas = [...new Set([...(m.plano.sugDispensadas || []), e.chave])]; app.save(); app.refresh(); };
     const lr = v.querySelector('#lr'); if (lr) lr.onclick = escolherRecibos;
   } else {
     const P = projecao(ano), refOn = m.plano.incluirRefeicao, smnOn = m.plano.atualizarSMN !== false, BB = brutoBase();
