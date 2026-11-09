@@ -845,14 +845,52 @@ function importarPlaneador() {
    quem recebe confirma na sua Caixa de entrada (assinado) e o pagamento fica concluído. */
 const CC = () => SPAP.contaCasa;
 const ligacaoCasa = () => { const pl = M().plano; return pl.casa && pl.membroCasa && CC() ? { casa: pl.casa, eu: pl.membroCasa } : null; };
-const textoPag = p => ['CASA-PAG', p.casa || '', p.id, p.de, p.para, (+p.valor || 0).toFixed(2), p.data || '', p.descricao || ''].join('|');
+const textoPag = p => ['CASA-PAG', p.casa || '', p.id, p.de, p.para, (+p.valor || 0).toFixed(2), p.data || '', p.descricao || '', ...(p.mes ? [p.mes] : [])].join('|');
+const textoConta = c => ['CASA-CONTA', c.casa || '', c.id, c.despesa, c.mes, (+c.valor || 0).toFixed(2), c.data || '', c.membro].join('|');
+
+/* Contas da casa que este membro paga por inteiro (a despesa está em nome dele). Cada uma só pode ser dada como
+   paga quando o acerto desse mês, enviado por quem divide, já está confirmado: o acerto serve de saldo e é gasto
+   pela ordem do dia de cobrança. Se não chegar, aparece "falta acerto de X €". */
+function contasAPagar(L, ym) {
+  const d0 = CC().livro(L.casa); if (!d0 || !d0.mod) return null;
+  const desp = CC().todasDespesas(L.casa, d0).filter(e => e.ativo !== false && CC().ativaNoMes(e, ym)), R = CC().registo(L.casa);
+  const val = e => CC().valorMes(e, ym).valor, parte = (e, id) => +((e.partes || {})[id]) || 0;
+  const outros = (d0.mod.membros || []).filter(x => x.id !== L.eu), acerto = {};
+  outros.forEach(o => {
+    // o que eu devo a este membro pelas contas que ele paga desconta ao que ele me deve pelas minhas
+    const comp = desp.filter(e => e.pagaPor === o.id).reduce((t, e) => t + val(e) * parte(e, L.eu), 0);
+    const pags = R.pagamentos.filter(p => p.de === o.id && p.para === L.eu && p.mes === ym);
+    const recebido = r2(pags.filter(p => p.estado === 'concluido').reduce((t, p) => t + p.valor, 0)), porConfirmar = r2(pags.filter(p => p.estado === 'registado').reduce((t, p) => t + p.valor, 0));
+    const deve = r2(Math.max(0, desp.filter(e => e.pagaPor === L.eu).reduce((t, e) => t + val(e) * parte(e, o.id), 0) - comp));
+    // o que ainda falta deste acerto: o saldo em dívida até ao fim do mês (pagamentos confirmados, crédito de meses anteriores
+    // e liquidações antigas descontam), no máximo o acerto do mês
+    const emDivida = CC().saldoAte(L.casa, o.id, L.eu, ym), pendente = r2(Math.max(0, Math.min(deve, emDivida)));
+    acerto[o.id] = { nome: (o.nome || o.id), deve, recebido, porConfirmar, pendente, liquidado: deve > 0.004 && pendente <= 0.004, credito: comp + deve - pendente };
+  });
+  const cum = {};
+  const linhas = desp.filter(e => e.pagaPor === L.eu).sort((a, b) => (+a.dia || 1) - (+b.dia || 1) || String(a.nome).localeCompare(String(b.nome))).map(e => {
+    const v = val(e); let falta = 0, deOutros = 0;
+    outros.forEach(o => { const x = v * parte(e, o.id); deOutros += x; cum[o.id] = (cum[o.id] || 0) + x; falta += Math.max(0, cum[o.id] - acerto[o.id].credito); });
+    const paga = (R.contasPagas || []).find(c => c.despesa === e.id && c.mes === ym && !c.anulada) || null;
+    return { e, valor: r2(v), deOutros: r2(deOutros), falta: r2(falta), paga };
+  });
+  return { ym, linhas, acerto, outros };
+}
+async function pagarConta(L, ym, x) {
+  const s = await app.assinar('Conta da casa paga', `<b>${esc(x.e.nome)}</b> · ${fmtMes(ym)} · <b>${eur(x.valor)}</b><br><span style="font-size:12px">Fica registada como paga por si, com esta assinatura.</span>`);
+  if (!s) return false;
+  const c = { id: 'K' + uid(), casa: L.casa, despesa: x.e.id, nome: x.e.nome, mes: ym, valor: x.valor, data: today(), membro: L.eu, sistema: sub.key, criadoEm: new Date().toISOString() };
+  c.registo = { user: app.user.id, nome: app.user.nome, membro: L.eu, assinatura: await s.signer.texto('CONTA_PAGA', textoConta(c)) };
+  CC().alterar(L.casa, r => { r.contasPagas = r.contasPagas || []; if (!r.contasPagas.some(y => y.despesa === c.despesa && y.mes === ym && !y.anulada)) r.contasPagas.push(c); });
+  audit('CASA_CONTA_PAGA', `${x.e.nome} · ${fmtMes(ym)} · ${eur(x.valor)}`); app.save(); ui.toast('Conta registada como paga', 'ok'); return true;
+}
 const estadoPag = p => p.estado === 'concluido' ? `<span class="badge ok">concluído${p.concluidoEm ? ' ' + date(p.concluidoEm) : ''}</span>`
   : p.estado === 'registado' ? '<span class="badge info">pagamento registado · aguarda confirmação</span>' : '<span class="badge warn">pendente</span>';
-async function assinarPagamento({ de, para, valor, data, descricao, concluir }, ex) {
+async function assinarPagamento({ de, para, valor, data, descricao, concluir, mes }, ex) {
   const L = ligacaoCasa(); const s = await app.assinar(concluir ? 'Registar recebimento' : 'Registar pagamento',
     `${concluir ? `Recebi <b>${eur(valor)}</b> de ${esc(ex.nomeM(de))}` : `Paguei <b>${eur(valor)}</b> a ${esc(ex.nomeM(para))}`} · ${esc(descricao)}<br><span style="font-size:12px">${concluir ? 'Fica concluído.' : `Fica a aguardar a confirmação de ${esc(ex.nomeM(para).split(' ')[0])}, na Caixa de entrada do plano dele.`}</span>`);
   if (!s) return false;
-  const pag = { id: 'P' + uid(), casa: L.casa, de, para, valor: r2(valor), data: data || today(), descricao, criadoEm: new Date().toISOString(), sistema: sub.key };
+  const pag = { id: 'P' + uid(), casa: L.casa, de, para, valor: r2(valor), data: data || today(), descricao, criadoEm: new Date().toISOString(), sistema: sub.key, ...(mes ? { mes } : {}) };
   const reg = { user: app.user.id, nome: app.user.nome, membro: L.eu, assinatura: await s.signer.texto(concluir ? 'REGISTAR_RECEBIMENTO' : 'REGISTAR_PAGAMENTO', textoPag(pag)) };
   if (concluir) Object.assign(pag, { estado: 'concluido', concluidoEm: today(), confirmacao: reg, registo: reg }); else Object.assign(pag, { estado: 'registado', registo: reg });
   CC().alterar(L.casa, r => r.pagamentos.push(pag));
@@ -876,32 +914,52 @@ function casaPessoal(v) {
   if (!ex) { v.innerHTML = `<div class="empty">A casa partilhada ainda não foi aberta neste computador.</div>`; return; }
   const eu = L.eu, nm = id => ex.nomeM(id).split(' ')[0], ed = podeEditar();
   const aReceber = ex.deve.filter(x => x.para === eu), aPagar = ex.deve.filter(x => x.de === eu);
+  const ymC = tab('pf-casa-mes', today().slice(0, 7)), CP = contasAPagar(L, ymC);
   const meus = ex.linhas.filter(l => l.de === eu || l.para === eu), porConfirmar = meus.filter(l => l.tipo === 'pagamento' && l.estado === 'registado' && l.para === eu);
   const outros = ex.membros.filter(x => x.id !== eu);
   v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Conta corrente com os outros membros de <b>${esc(ex.nome)}</b>. Os acertos mensais são calculados a partir das despesas comuns da casa.</span>
-      ${ed ? `<div class="row">${aPagar.length ? `<button class="btn primary" id="pg">${icon('key')} Registar pagamento</button>` : ''}${aReceber.length ? `<button class="btn" id="rc">${icon('key')} Registar recebimento</button><button class="btn" id="lq">${icon('check')} Liquidar até…</button>` : ''}<button class="btn ghost" id="nd">${icon('plus')} Nova dívida</button></div>` : ''}</div>
+      ${ed ? `<div class="row">${aPagar.length || ex.linhas.some(l => l.tipo === 'acerto' && l.de === eu && l.mes === ymC) ? `<button class="btn primary" id="pg">${icon('key')} Registar pagamento</button>` : ''}${aReceber.length ? `<button class="btn" id="rc">${icon('key')} Registar recebimento</button><button class="btn" id="lq">${icon('check')} Liquidar até…</button>` : ''}<button class="btn ghost" id="nd">${icon('plus')} Nova dívida</button></div>` : ''}</div>
     ${porConfirmar.length ? `<div class="alert warn" style="margin-bottom:16px">${icon('inbox')}<div>${porConfirmar.length === 1 ? 'Há 1 pagamento' : `Há ${porConfirmar.length} pagamentos`} registados a aguardar a sua confirmação. <a href="#/aprovacoes">Abrir a Caixa de entrada</a></div></div>` : ''}
     <div class="grid g3">
       ${outros.map(o => { const r = aReceber.find(x => x.de === o.id), pg = aPagar.find(x => x.para === o.id);
         return kpi(`${icon('users')} Conta com ${esc(nm(o.id))}`, r ? eur(r.valor) : pg ? eur(pg.valor) : eur(0), r ? `${esc(nm(o.id))} deve-lhe` : pg ? `deve a ${esc(nm(o.id))}` : 'contas acertadas', r ? 'pos' : pg ? 'neg' : '', true); }).join('')}
       ${kpi('Pagamentos por confirmar', String(meus.filter(l => l.tipo === 'pagamento' && l.estado === 'registado').length), 'registados e à espera de quem recebe')}
       ${kpi('Acerto deste mês', (() => { const t = meus.find(l => l.tipo === 'acerto' && l.mes === today().slice(0, 7)); return t ? eur(t.valor) : eur(0); })(), (() => { const t = meus.find(l => l.tipo === 'acerto' && l.mes === today().slice(0, 7)); return t ? (t.de === eu ? `a pagar a ${esc(nm(t.para))}` : `a receber de ${esc(nm(t.de))}`) : 'sem acerto'; })())}</div>
+    ${CP && CP.linhas.length ? (() => {
+      const meses = Array.from({ length: 6 }, (_, i) => SPAP.addMonths(today().slice(0, 7) + '-01', i - 4).slice(0, 7));
+      const res = CP.outros.map(o => { const a = CP.acerto[o.id];
+        return `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>Acerto de ${esc(nm(o.id))} · ${fmtMes(ymC)}: <b class="num">${eur(a.deve)}</b></span><span>${a.deve <= 0.004 ? '<span class="badge plain">sem acerto a receber</span>' : a.liquidado ? `<span class="badge ok">pago${a.recebido < a.deve - 0.004 ? ' (com crédito anterior)' : ''}</span>` : `${a.recebido ? `<span class="badge ok">${eur(a.recebido)} confirmado</span> ` : ''}${a.porConfirmar ? `<span class="badge info">${eur(a.porConfirmar)} enviado · por confirmar</span> ` : ''}<span class="badge warn">falta receber ${eur(a.pendente)}</span>`}</span></div>`; }).join('');
+      return `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Contas que paga</h3><span class="sub">despesas comuns em seu nome · pagam-se com o acerto confirmado de quem divide</span>
+        <select class="inp inp-sm" id="cmes" style="margin-left:auto">${meses.map(x => `<option value="${x}" ${x === ymC ? 'selected' : ''}>${fmtMes(x)}</option>`).join('')}</select></div>
+        <div style="padding:0 16px 8px">${res}</div>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Conta</th><th>Dia</th><th class="r">Valor total</th><th class="r">Parte dos outros</th><th>Estado</th><th></th></tr></thead><tbody>
+        ${CP.linhas.map((x, i) => `<tr><td><b>${esc(x.e.nome)}</b></td><td>${x.e.dia || 1}</td><td class="r num">${eur(x.valor)}</td><td class="r num">${eur(x.deOutros)}</td>
+          <td>${x.paga ? `<span class="badge ok">paga ${date(x.paga.data)}</span>` : x.falta > 0.004 ? `<span class="badge warn">falta acerto de ${eur(x.falta)}</span>` : '<span class="badge info">pode pagar</span>'}</td>
+          <td class="r">${!x.paga && x.falta <= 0.004 && ed ? `<button class="btn sm primary" data-cp="${i}">${icon('key')} Paga</button>` : ''}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td>TOTAL</td><td></td><td class="r num">${eur(sum(CP.linhas, 'valor'))}</td><td class="r num">${eur(sum(CP.linhas, 'deOutros'))}</td><td colspan="2"></td></tr></tfoot></table></div></div>`; })() : ''}
     <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Extrato</h3><span class="sub">acertos, dívidas e pagamentos</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Movimento</th><th>Tipo</th><th class="r">Deve</th><th class="r">Pago</th><th>Estado</th><th></th></tr></thead><tbody>
     ${meus.slice().reverse().map(l => { const sentido = l.de === eu ? `eu → ${esc(nm(l.para))}` : `${esc(nm(l.de))} → eu`;
       if (l.tipo === 'pagamento') return `<tr><td>${date(l.data)}</td><td>${esc(l.descricao || 'Pagamento')}<div class="faint" style="font-size:12px">${sentido}${l.registo ? ' · registado por ' + esc(l.registo.nome.split(' ')[0]) : ''}${l.confirmacao && (!l.registo || l.confirmacao.nome !== l.registo.nome) ? ' · confirmado por ' + esc(l.confirmacao.nome.split(' ')[0]) : ''}</div></td><td><span class="badge plain">pagamento</span></td><td></td><td class="r num">${eur(l.valor)}</td><td>${estadoPag(l)}</td>
         <td class="r">${l.estado === 'registado' && l.para === eu ? `<button class="btn sm primary" data-cf="${l.id}">${icon('key')} Confirmar</button>` : ''}</td></tr>`;
       return `<tr><td>${date(l.data)}</td><td>${esc(l.tipo === 'acerto' ? 'Acerto das despesas comuns · ' + fmtMes(l.mes) : l.descricao)}<div class="faint" style="font-size:12px">${sentido}</div>${l.estimado && l.estimado.length ? `<div style="font-size:11px"><span class="badge warn" data-tip="${esc('Ainda sem valor real de: ' + l.estimado.join(', ') + '. Usa-se a média; quando o valor real for registado na Casa, o acerto é corrigido.')}">estimado</span></div>` : ''}</td><td><span class="badge plain">${l.tipo === 'acerto' ? 'acerto mensal' : 'dívida'}</span></td><td class="r num">${eur(l.valor)}</td><td></td><td></td><td></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Sem movimentos.</td></tr>'}</tbody></table></div></div>`;
   v.querySelectorAll('[data-cf]').forEach(b => b.onclick = async () => { if (await confirmarPagamento(b.dataset.cf)) app.refresh(); });
+  const cm = v.querySelector('#cmes'); if (cm) cm.onchange = () => { setTab('pf-casa-mes', cm.value); app.refresh(); };
+  v.querySelectorAll('[data-cp]').forEach(b => b.onclick = async () => { if (await pagarConta(L, ymC, CP.linhas[+b.dataset.cp])) app.refresh(); });
   const formPag = (concluir, lista) => {
     const opts = lista.map(x => { const o = concluir ? x.de : x.para; return `<option value="${o}" data-v="${x.valor}">${esc(ex.nomeM(o))} (${concluir ? 'deve-lhe' : 'deve'} ${eur(x.valor)})</option>`; }).join('');
     ui.modal({ title: concluir ? 'Registar recebimento' : 'Registar pagamento', sub: concluir ? 'Fica concluído com a sua assinatura.' : 'Fica a aguardar a confirmação de quem recebe, na Caixa de entrada do plano dele.',
       body: `<form class="form"><div class="fld"><label>${concluir ? 'Recebido de' : 'Pago a'}</label><select class="inp" name="outro">${opts}</select></div><div class="fld"><label>Valor (€)</label><input class="inp num" type="number" step="any" name="valor" value="${lista[0].valor}"></div>
+        <div class="fld"><label>Acerto do mês</label><input class="inp" type="month" name="mes" value="${today().slice(0, 7)}"><span class="hint">Com o acerto confirmado, quem tem as contas em seu nome pode pagá-las.</span></div>
         <div class="fld"><label>Data</label><input class="inp" type="date" name="data" value="${today()}"></div><div class="fld"><label>Descrição</label><input class="inp" name="descricao" value="Acerto da casa"></div></form>`,
-      onOpen: el => { const sel = el.querySelector('[name=outro]'); sel.onchange = () => { el.querySelector('[name=valor]').value = sel.selectedOptions[0].dataset.v; }; },
+      onOpen: el => { const sel = el.querySelector('[name=outro]'), mes = el.querySelector('[name=mes]');
+        // valor do acerto desse mês entre os dois (se existir); senão o saldo total em dívida
+        const valorMes = () => { const o = sel.value, l = ex.linhas.find(x => x.tipo === 'acerto' && x.mes === mes.value && (concluir ? x.de === o && x.para === eu : x.de === eu && x.para === o));
+          el.querySelector('[name=valor]').value = l ? l.valor : sel.selectedOptions[0].dataset.v; el.querySelector('[name=descricao]').value = l ? `Acerto da casa · ${fmtMes(mes.value)}` : 'Acerto da casa'; };
+        sel.onchange = valorMes; mes.oninput = valorMes; valorMes(); },
       actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('key') + 'Assinar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!(+f.valor > 0)) { ui.toast('Indique o valor', 'warn'); return false; }
-        setTimeout(async () => { if (await assinarPagamento({ de: concluir ? f.outro : eu, para: concluir ? eu : f.outro, valor: +f.valor, data: f.data, descricao: f.descricao || 'Acerto da casa', concluir }, ex)) app.refresh(); }, 0); } }] });
+        setTimeout(async () => { if (await assinarPagamento({ de: concluir ? f.outro : eu, para: concluir ? eu : f.outro, valor: +f.valor, data: f.data, descricao: f.descricao || 'Acerto da casa', concluir, mes: f.mes || null }, ex)) app.refresh(); }, 0); } }] });
   };
-  const pg = v.querySelector('#pg'); if (pg) pg.onclick = () => formPag(false, aPagar);
+  const pg = v.querySelector('#pg'); if (pg) pg.onclick = () => formPag(false, aPagar.length ? aPagar : outros.map(o => ({ para: o.id, valor: 0 })));
   const rc = v.querySelector('#rc'); if (rc) rc.onclick = () => formPag(true, aReceber);
   const lq = v.querySelector('#lq'); if (lq) lq.onclick = () => {
     const ant = (() => { let [a, mm] = today().slice(0, 7).split('-').map(Number); mm--; if (!mm) { mm = 12; a--; } return `${a}-${String(mm).padStart(2, '0')}`; })();
