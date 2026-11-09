@@ -72,7 +72,17 @@ function casaParte(ym = ymHoje()) {
   const ds = (SPAP.contaCasa ? SPAP.contaCasa.todasDespesas(pl.casa, d) : d.mod.despesas).filter(e => e.ativo !== false && (SPAP.contaCasa ? SPAP.contaCasa.ativaNoMes(e, ym) : vigente(e, ym)) && +((e.partes || {})[pl.membroCasa]) > 0);
   const membro = (d.mod.membros || []).find(x => x.id === pl.membroCasa);
   const val = e => SPAP.contaCasa ? SPAP.contaCasa.valorMes(e, ym).valor : mensalDesp(e);
-  return { nome, membro: membro ? membro.nome : '', valor: r2(ds.reduce((t, e) => t + val(e) * +e.partes[pl.membroCasa], 0)), n: ds.length };
+  return { nome, membro: membro ? membro.nome : '', valor: r2(ds.reduce((t, e) => t + val(e) * +e.partes[pl.membroCasa], 0)), n: ds.length,
+    alim: r2(ds.filter(e => ehAlim(e)).reduce((t, e) => t + val(e) * +e.partes[pl.membroCasa], 0)) };
+}
+const ehAlim = e => /aliment/i.test(e.categoria || '') || /aliment|supermercado|refei/i.test(e.nome || '');
+// subsídio de refeição reservado à alimentação (não conta como rendimento): paga primeiro as despesas de alimentação desse mês,
+// para a comida não ser descontada duas vezes
+function refeicaoCobre(ym = ymHoje(), P = projecao) {
+  const pl = M().plano; if (pl.incluirRefeicao) return 0;
+  const [ry, rm] = mesDoRecibo(+ym.slice(0, 4), +ym.slice(5, 7)), ref = +P(ry).linhas[rm - 1].refeicao || 0; if (ref <= 0) return 0;
+  const alim = despAtivas(ym).filter(ehAlim).reduce((t, e) => t + mensalDesp(e), 0) + ((casaParte(ym) || {}).alim || 0);
+  return r2(Math.min(ref, alim));
 }
 // despesas de um mês: as próprias em vigor nesse mês + a parte na casa nesse mês (valores reais, médias ou plano do cartão)
 const despesasMensais = (ym = ymHoje()) => r2(despAtivas(ym).reduce((s, e) => s + mensalDesp(e), 0) + ((casaParte(ym) || {}).valor || 0));
@@ -289,7 +299,7 @@ const tesouraria = () => app.contasInternas().filter(c => c.categoria === 'TESOU
 const fundoAtual = () => M().plano.fundoOrigem === 'manual' ? +M().plano.fundoInicial || 0 : r2(tesouraria().reduce((s, c) => s + app.saldo(c.id), 0));
 // porMes: rendimento real/projetado desse mês (Painel); sem porMes, a média a 12 meses
 function indicadores(ym = ymHoje(), porMes = false) {
-  const rend = porMes ? rendimentoDoMes(+ym.slice(0, 4), +ym.slice(5, 7)) : rendimentoMensal(), desp = despesasMensais(ym), prest = prestacoesMensais(), ds = divAtivas();
+  const rend = porMes ? rendimentoDoMes(+ym.slice(0, 4), +ym.slice(5, 7)) : rendimentoMensal(), refC = refeicaoCobre(ym), desp = r2(despesasMensais(ym) - refC), prest = prestacoesMensais(), ds = divAtivas();
   const exc = r2(rend - desp - prest), divida = sum(ds, 'capital'), fundo = fundoAtual();
   const dti = rend > 0 ? prest / rend : null, poup = rend > 0 ? Math.max(0, exc) / rend : null, emerg = desp + prest > 0 ? fundo / (desp + prest) : null;
   const tanMedia = divida > 0 ? ds.reduce((s, d) => s + (+d.taxa || 0) * (+d.capital || 0), 0) / divida : 0;
@@ -324,7 +334,7 @@ function indicadores(ym = ymHoje(), porMes = false) {
   ds.filter(d => d.incumprimento && !incumprimentoRegularizado(d)).forEach(d => { const u = d.ultimoExtrato || {}; alertas.unshift(['bad', `<b>${esc(d.nome)}</b> está em incumprimento${d.incumprimento.montante ? `: <b>${eur(d.incumprimento.montante)}</b> em atraso` : ''}${d.incumprimento.bloqueado ? ' e a utilização está bloqueada pelo banco' : ''}.${u.pagar ? ` O extrato n.º ${u.numero} pede ${eur(u.pagar)}${u.dataLimite ? ' até ' + date(u.dataLimite) : ''}.` : ''} Veja em <a href="#/dividas">Dívidas e créditos</a>.`]); });
   { const AT = atrasos(); if (AT.length) alertas.unshift(['bad', `${AT.length === 1 ? '1 despesa vencida' : AT.length + ' despesas vencidas'} por pagar: ${AT.map(x => `<b>${esc(x.e.nome)}</b> de ${date(x.d)}`).join(', ')}. <a href="#/despesas">Ver Despesas fixas</a>`]); }
   ds.filter(d => mesesParaLiquidar(d) === Infinity).forEach(d => alertas.push(['bad', `A prestação de <b>${esc(d.nome)}</b> não cobre os juros: a dívida cresce todos os meses.`]));
-  return { rend, desp, prest, exc, divida, fundo, dti, poup, emerg, tanMedia, comp, score, nota, alertas };
+  return { rend, desp, refC, prest, exc, divida, fundo, dti, poup, emerg, tanMedia, comp, score, nota, alertas };
 }
 
 /* ---------- Ligação ao SPAP: contas de entidade e pedidos ---------- */
@@ -446,7 +456,7 @@ function visao(v) {
       ${kpi(`${icon('wallet')} ${kn('pf_rend', 'Rendimento líquido do mês')}`, eur(I.rend), `${linhaYm.real != null ? 'recibo de ' : 'previsto: '}${nomeYm(ymRec)}${ymRec !== ym ? ` (pago em ${MESES[+ym.slice(5, 7) - 1]})` : ''}${linhaYm.subValor > 0.004 ? `<br>inclui ${eur(linhaYm.subValor)} de subsídio de ${linhaYm.subTipo}` : subYm ? ' · com subsídio' : ''}${linhaYm.refeicao > 0.004 ? (M().plano.incluirRefeicao ? `<br>inclui ${eur(linhaYm.refeicao)} de subsídio de refeição` : `<br>+ ${eur(linhaYm.refeicao)} de subsídio de refeição, reservado à alimentação`) : ''}<br>média a 12 meses ${eur(rendimentoMensal())}`, '', true)}
       ${kpi(`${icon('list')} ${kn('pf_desp', 'Despesas fixas / mês')}`, eur(I.desp), (() => { const c = casaParte(ym), n = despAtivas(ym).length, proprias = r2(despAtivas(ym).reduce((t, e) => t + mensalDesp(e), 0));
         const txt = `${n} ${n === 1 ? 'despesa própria' : 'despesas próprias'}${n ? ' · ' + eur(proprias) : ''}`;
-        return `<a href="#/despesas">${txt}</a>${c && !c.semDados ? `<br>+ ${eur(c.valor)} parte nas partilhadas (${c.n} ${c.n === 1 ? 'despesa' : 'despesas'})` : ''}`; })())}
+        return `<a href="#/despesas">${txt}</a>${c && !c.semDados ? `<br>+ ${eur(c.valor)} parte nas partilhadas (${c.n} ${c.n === 1 ? 'despesa' : 'despesas'})` : ''}${I.refC > 0.004 ? `<br>− ${eur(I.refC)} de alimentação paga pelo subsídio de refeição` : ''}`; })())}
       ${kpi(`${icon('credit')} ${kn('pf_prest', 'Prestações / mês')}`, eur(I.prest), `<a href="#/dividas">${divAtivas().length} dívidas · ${eur(I.divida)}</a>`)}
       ${kpi(`${icon('coins')} ${kn('pf_exc', 'Excedente mensal')}`, eur(I.exc), `${nomeYm(ym)}${I.rend > 0 ? ` · ${pct(Math.max(0, I.exc) / I.rend)} do rendimento` : ''}`, I.exc < 0 ? 'neg' : 'pos')}
     </div>
@@ -1618,7 +1628,7 @@ function excedentesMes(n = 120) {
     if (c.saldo <= 0.005) return 0; const sj = c.saldo * (1 + c.r), p = i === 0 ? Math.min(sj, +d.prestacao || 0) : Math.min(sj, Math.max(c.min, c.pct * c.saldo)); c.saldo = Math.max(0, sj - p); return p; };
   const y0 = +ymHoje().slice(0, 4), m0 = +ymHoje().slice(5, 7), out = [];
   for (let i = 0; i < n; i++) { const t = m0 - 1 + i, y = y0 + Math.floor(t / 12), mm = t % 12 + 1, ym = ymOf(y, mm);
-    const rend = rendimentoDoMes(y, mm, P), desp = despesasMensais(ym), prest = r2(ds.reduce((a, d, k) => a + prestDe(d, k, i), 0));
+    const rend = rendimentoDoMes(y, mm, P), desp = r2(despesasMensais(ym) - refeicaoCobre(ym, P)), prest = r2(ds.reduce((a, d, k) => a + prestDe(d, k, i), 0));
     // a poupança mensal do plano (Simulador › Parâmetros) sai primeiro, como um objetivo fixo, para não usar o mesmo dinheiro duas vezes
     const sobra = rend - desp - prest, poup = r2(Math.min(Math.max(0, sobra), Math.max(0, poupancaMes(rend, desp, prest))));
     out.push({ ym, rend, desp, prest, poup, exc: r2(sobra - poup) }); }
