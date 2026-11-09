@@ -86,6 +86,8 @@ function movimentos(d, t) {
   for (const m of t.matchAll(/^\s*(\d{2}\/\d{2}(?:\/\d{2,4})?)(?:\s+(\d{2}\/\d{2}(?:\/\d{2,4})?))?\s+(.{3,80}?)\s+(-?[\d.\s]*\d[,.][\d/]\d)\s*(?:EUR|€)?\s*$/gm)) {
     const desc = m[3].trim();
     if (/saldo\s+em\s+d[ií]vida|montante\s+a\s+pagar|limite\s+de\s+cr|m[ií]nimo\s+a\s+pagar|per[ií]odo\s+extrato|data\s+limite/i.test(desc)) continue;
+    // quadro de incumprimento ("30 Incumprimento 0,00 € 64,62"): resumo dos valores em atraso, não é um movimento
+    if (/^\d+\s+Incumprimento\b/i.test(desc)) continue;
     const v = num(m[4].replace(/\//g, '0')); if (v == null) continue;
     const data = iso(m[1]), k = `${data}|${desc.toUpperCase()}|${v.toFixed(2)}`; if (vistos.has(k)) continue; vistos.add(k);
     d.movimentos.push({ data, descricao: desc, valor: v, tipo: tipoMov(desc) });
@@ -119,5 +121,5 @@ function analisar(texto) {
   return d;
 }
 
-SPAP.leitorExtratos = { analisar };
+SPAP.leitorExtratos = { analisar, tipoMov };
 })();

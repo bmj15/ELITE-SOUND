@@ -682,17 +682,21 @@ function aplicarExtrato(x, ov = {}) {
 /* Pagamento de cada extrato: não se marca à mão. Compara-se com o extrato seguinte do mesmo cartão: os movimentos
    "Pagamento" depois da data do extrato, até à data limite, dizem se foi pago (total ou mínimo), pago em atraso ou está
    em falta; as comissões de atraso / incumprimento cobradas no extrato seguinte aparecem como multa. */
-const RX_MULTA = /ATRASO|INCUMPR|MORA\b|RECUPERA|IRREGULAR|DESCOBERTO|EXCESSO/i;
-const ehPagamento = m => (+m.valor || 0) < 0 && (m.tipo === 'Pagamento' || /^PAG(AMENTO|\.?\s*TRANS)/i.test(m.descricao || ''));
+const RX_MULTA = /ATRASO|INCUMPR|\bMORA\b|RECUP|IRREGULAR|DESCOBERTO|EXCESSO/i;
+// extratos antigos (importados do Planeador) têm tipos menos rigorosos: reclassifica pela descrição e ignora o quadro de incumprimento
+const resumoIncump = m => /^\d+\s+Incumprimento\b/i.test(m.descricao || '');
+const tipoDe = m => (SPAP.leitorExtratos && SPAP.leitorExtratos.tipoMov ? SPAP.leitorExtratos.tipoMov(m.descricao || '') : m.tipo) || m.tipo;
+const movsDe = x => (x.movimentos || []).filter(m => !resumoIncump(m)).map(m => Object.assign({}, m, { tipo: tipoDe(m) }));
+const ehPagamento = m => (+m.valor || 0) < 0 && (tipoDe(m) === 'Pagamento' || /^PAG(AMENTO|\.?\s*TRANS)/i.test(m.descricao || ''));
 function estadoExtrato(x) {
   const hoje = today(), seg = M().extratos.filter(e => e.conta === x.conta && String(e.data) > String(x.data)).sort((a, b) => String(a.data).localeCompare(String(b.data)))[0] || null;
   const pagar = +x.pagar || 0, minimo = +x.minimo || 0, lim = x.dataLimite || null;
   const dec = x.declarado || null;
   if (!seg) return { x, seg: null, dec, estado: pagar <= 0.004 ? 'nada' : dec ? 'declarado' : lim && lim >= hoje ? 'aberto' : 'aguarda', pagar, minimo, lim, pago: 0, pagoAte: 0, multa: 0, multas: [] };
   // pagamentos: todos os do extrato seguinte (o período começa no dia do extrato); alguns bancos chamam-lhes "PAG.TRANS.BANCARIA"
-  const pags = (seg.movimentos || []).filter(ehPagamento);
+  const pags = movsDe(seg).filter(ehPagamento);
   const pago = r2(pags.reduce((t, m) => t + Math.abs(+m.valor || 0), 0)), pagoAte = r2(pags.filter(m => !lim || String(m.data) <= lim).reduce((t, m) => t + Math.abs(+m.valor || 0), 0));
-  const multas = (seg.movimentos || []).filter(m => ['Comissão', 'Juros', 'Imposto do selo'].includes(m.tipo) && (+m.valor || 0) > 0 && RX_MULTA.test(m.descricao || '')), multa = r2(multas.reduce((t, m) => t + (+m.valor || 0), 0));
+  const multas = movsDe(seg).filter(m => m.tipo !== 'Pagamento' && m.tipo !== 'Plano cancelado' && (+m.valor || 0) > 0 && RX_MULTA.test(m.descricao || '')), multa = r2(multas.reduce((t, m) => t + (+m.valor || 0), 0));
   const ultimo = pags.map(m => m.data).sort().pop() || null;
   const estado = pagar <= 0.004 ? 'nada' : pagoAte >= pagar - 0.01 ? 'pago' : pagoAte >= minimo - 0.01 ? 'minimo' : pago >= minimo - 0.01 ? 'atraso' : 'falta';
   // o pagamento declarado não aparece (ou aparece mais baixo) no extrato seguinte
@@ -888,7 +892,7 @@ function verExtrato(x) {
     body: `<div class="kv" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div><span>Saldo em dívida</span><b class="num">${eur(x.saldo)}</b></div><div><span>Montante a pagar</span><b class="num">${eur(x.pagar)}</b></div><div><span>Mínimo</span><b class="num">${eur(x.minimo)}</b></div><div><span>Data limite</span><b>${x.dataLimite ? date(x.dataLimite) : '—'}</b></div></div>
       <div style="margin-top:10px">Pagamento: ${badgeExtrato(estadoExtrato(x))}${podeDeclarar(estadoExtrato(x)) ? ` <button class="btn sm" id="dxm">${icon('check')} Marcar pago</button>` : ''}</div>
       <div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>Data</th><th>Movimento</th><th>Tipo</th><th class="r">Montante</th>${ex ? '<th>Divisão com a casa</th>' : ''}</tr></thead><tbody>
-      ${(x.movimentos || []).map((mv, i) => { const dv = ex ? divisoesDe(x, mv) : [];
+      ${(x.movimentos || []).map((mv, i) => { if (resumoIncump(mv)) return ''; mv = Object.assign({}, mv, { tipo: tipoDe(mv) }); const dv = ex ? divisoesDe(x, mv) : [];
         return `<tr><td>${date(mv.data)}</td><td>${esc(mv.descricao)}</td><td><span class="badge ${mv.tipo === 'Pagamento' ? 'ok' : mv.tipo === 'Compra' ? '' : 'warn'}">${esc(mv.tipo)}</span></td><td class="r num ${mv.valor < 0 ? 'pos' : ''}">${eur(mv.valor)}</td>
         ${ex ? `<td style="white-space:nowrap">${dv.map(d => `<span class="badge acc">${d.casa ? (d.periodicidade === 'cartao' ? `despesa da casa a prestações · ${Object.entries(d.partes || {}).filter(([id]) => id !== casa.eu).map(([id, q]) => `${esc(ex.nomeM(id).split(' ')[0])} ${pct(q)}`).join(', ')}` : `despesa da casa · ${Object.entries(d.partes || {}).filter(([id]) => id !== casa.eu).map(([id, q]) => `${esc(ex.nomeM(id).split(' ')[0])} ${eur(d.valor * q)}`).join(', ')}`) : `dividida · ${esc(ex.nomeM(d.de).split(' ')[0])} ${eur(d.valor)}`}</span>${d.sistema === sub.key ? ` <button type="button" class="btn sm ghost" data-an="${d.id}" title="Anular divisão">${icon('x')}</button>` : ''}`).join(' ')}
           ${!dv.length && ['Compra', 'Transferência', 'Adiantamento'].includes(mv.tipo) && mv.valor > 0 && podeEditar() ? `<button type="button" class="btn sm" data-dv="${i}">${icon('users')} Dividir com a casa</button>` : ''}${dv.length ? `<div class="faint" style="font-size:11px">${dv.some(d => d.periodicidade === 'cartao') ? 'prestações divididas na casa' : `a sua parte ${eur(dv.some(d => d.casa) ? dv.filter(d => d.casa).reduce((t, d) => t + d.valor * ((d.partes || {})[casa.eu] || 0), 0) : mv.valor - dv.reduce((t, d) => t + d.valor, 0))}`}</div>` : ''}</td>` : ''}</tr>`; }).join('') || `<tr><td colspan="${ex ? 5 : 4}" class="empty">Sem movimentos.</td></tr>`}</tbody></table></div>
