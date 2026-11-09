@@ -37,7 +37,9 @@ const ativaNoMes = (e, ym) => e.periodicidade === 'cartao' ? !!linhaPlano(e, ym)
 const comprasMes = (e, ym) => (e.compras || []).filter(c => !c.anulada && String(c.data).slice(0, 7) === ym);
 const totalCompras = (e, ym) => r2(comprasMes(e, ym).reduce((t, c) => t + (+c.valor || 0), 0));
 const valorMes = (e, ym) => { if (e.periodicidade === 'compras') { const t = totalCompras(e, ym), hoje = ymHoje();
-    return ym < hoje ? { valor: t, real: true, compras: true } : { valor: Math.max(t, r2(+e.valor || 0)), real: ym === hoje && t >= (+e.valor || 0), compras: true, registado: t }; }
+    // sem orçamento indicado, as previsões usam uma estimativa (média das compras ou a despesa que esta substituiu)
+    const orc = r2(+e.valor || +e.orcEstimado || 0);
+    return ym < hoje ? { valor: t, real: true, compras: true } : { valor: Math.max(t, orc), real: ym === hoje && t >= orc, compras: true, registado: t, orcEstimado: !(+e.valor) && orc > 0 }; }
   if (e.periodicidade === 'cartao') { const l = linhaPlano(e, ym); return { valor: l ? l.prestacao : 0, real: true, plano: l }; }
   const v = (e.valores || {})[ym]; if (v !== '' && v != null && isFinite(+v)) return { valor: r2(+v), real: true };
   return e.variavel ? { valor: media(e), real: false } : { valor: r2(mensal(e)), real: true }; };
@@ -83,7 +85,18 @@ const Conta = SPAP.contaCasa = {
   nova(dados) { const id = 'partilha:' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
     localStorage.setItem('spap:' + id + ':conta', JSON.stringify(Object.assign({ pagamentos: [], dividas: [], despesas: [], compras: [], convites: [], contasPagas: [], acertos: [], criadaEm: new Date().toISOString() }, dados))); return id; },
   // junta a uma despesa "por compras" as compras registadas pelos membros (cópia: não altera o livro)
-  comCompras(casa, e, R = Conta.registo(casa)) { return e.periodicidade === 'compras' ? Object.assign({}, e, { compras: (R.compras || []).filter(c => c.despesa === e.id && !c.anulada) }) : e; },
+  comCompras(casa, e, R = Conta.registo(casa)) { if (e.periodicidade !== 'compras') return e;
+    const compras = (R.compras || []).filter(c => c.despesa === e.id && !c.anulada), hoje = ymHoje();
+    let orcEstimado = 0, orcOrigem = '';
+    if (!(+e.valor > 0)) {
+      // 1) média dos últimos 3 meses completos com compras; 2) a despesa mensal da mesma categoria que acabou antes desta começar
+      const tot = {}; compras.forEach(c => { const m = String(c.data).slice(0, 7); if (m < hoje) tot[m] = (tot[m] || 0) + (+c.valor || 0); });
+      const ult = Object.keys(tot).sort().slice(-3);
+      if (ult.length) { orcEstimado = r2(ult.reduce((t, m) => t + tot[m], 0) / ult.length); orcOrigem = 'média das compras'; }
+      else { const ant = [...(((Conta.livro(casa) || {}).mod || {}).despesas || []), ...(R.despesas || [])].filter(x => x !== e && x.id !== e.id && !x.anulada && x.periodicidade !== 'compras' && x.periodicidade !== 'pontual' && x.periodicidade !== 'cartao'
+            && x.categoria && x.categoria === e.categoria && x.fim && (!e.inicio || x.fim < e.inicio)).sort((a, b) => String(b.fim).localeCompare(String(a.fim)))[0];
+        if (ant) { orcEstimado = r2(mensal(ant)); orcOrigem = ant.nome; } } }
+    return Object.assign({}, e, { compras, orcEstimado, orcOrigem }); },
   // lê, altera e grava logo a seguir (registo pequeno e só de acrescentar: não apaga o que outro sistema escreveu)
   alterar(casa, fn) { const r = Object.assign({ pagamentos: [], dividas: [], despesas: [], compras: [], convites: [] }, lerNovo('spap:' + casa + ':conta') || {}); const out = fn(r); localStorage.setItem('spap:' + casa + ':conta', JSON.stringify(r)); return out; },
   membros: casa => ((Conta.livro(casa) || {}).mod || {}).membros || [],
