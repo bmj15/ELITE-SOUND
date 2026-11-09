@@ -290,6 +290,7 @@ function indicadores(ym = ymHoje(), porMes = false) {
       ex.deve.filter(x => x.para === L.eu).forEach(x => alertas.push(['info', `${nm(x.de)} deve-lhe <b>${eur(x.valor)}</b> nas despesas partilhadas. <a href="#/casa">Ver Partilhas</a>`]));
       const n = ex.linhas.filter(l => l.tipo === 'pagamento' && l.estado === 'registado' && l.para === L.eu).length; if (n) alertas.unshift(['warn', `${n === 1 ? 'Há 1 pagamento' : `Há ${n} pagamentos`} de partilhas a aguardar a sua confirmação. <a href="#/aprovacoes">Caixa de entrada</a>`]); } }
   ds.filter(d => d.incumprimento).forEach(d => { const u = d.ultimoExtrato || {}; alertas.unshift(['bad', `<b>${esc(d.nome)}</b> está em incumprimento${d.incumprimento.montante ? `: <b>${eur(d.incumprimento.montante)}</b> em atraso` : ''}${d.incumprimento.bloqueado ? ' e a utilização está bloqueada pelo banco' : ''}.${u.pagar ? ` O extrato n.º ${u.numero} pede ${eur(u.pagar)}${u.dataLimite ? ' até ' + date(u.dataLimite) : ''}.` : ''} Veja em <a href="#/dividas">Dívidas e créditos</a>.`]); });
+  { const AT = atrasos(); if (AT.length) alertas.unshift(['bad', `${AT.length === 1 ? '1 despesa vencida' : AT.length + ' despesas vencidas'} por pagar: ${AT.map(x => `<b>${esc(x.e.nome)}</b> de ${date(x.d)}`).join(', ')}. <a href="#/despesas">Ver Despesas fixas</a>`]); }
   ds.filter(d => mesesParaLiquidar(d) === Infinity).forEach(d => alertas.push(['bad', `A prestação de <b>${esc(d.nome)}</b> não cobre os juros: a dívida cresce todos os meses.`]));
   return { rend, desp, prest, exc, divida, fundo, dti, poup, emerg, tanMedia, comp, score, nota, alertas };
 }
@@ -320,12 +321,22 @@ function ocorrencias(x, periodo, ini, fim) {
   return out;
 }
 const chaveDesp = (x, d) => `pf:desp:${x.id}:${d.slice(0, 7)}`, chaveDiv = (x, d) => `pf:div:${x.id}:${d.slice(0, 7)}`, chaveRec = r => `pf:rend:${r.id}`;
-function pedirDespesa(x) {
-  const d = proxima(x, x.periodicidade), key = chaveDesp(x, d);
+/* Cobranças em atraso: uma cobrança já vencida sem pedido de pagamento continua por pagar e passa para os meses
+   seguintes até ser paga. O controlo começa no mês em que a despesa foi registada (ou no do 1.º pedido). */
+const controloDesde = e => e.controloDesde || app.db.pedidos.filter(p => p.origem && String(p.origem.key || '').startsWith(`pf:desp:${e.id}:`)).map(p => p.origem.key.slice(-7)).sort()[0] || null;
+function emAtraso(e) {
+  const desde = e.ativo === false ? null : controloDesde(e); if (!desde) return [];
+  const hoje = today(); return ocorrencias(e, e.periodicidade, (e.inicio && e.inicio > desde ? e.inicio : desde) + '-01', hoje)
+    .filter(d => d < hoje && vigente(e, d.slice(0, 7)) && !partilhaAceite(e, d.slice(0, 7)) && !vivos(chaveDesp(e, d)).length);
+}
+const atrasos = () => M().despesas.flatMap(e => emAtraso(e).map(d => ({ e, d })));
+function pedirDespesa(x, dAtraso) {
+  const d = dAtraso || proxima(x, x.periodicidade), key = chaveDesp(x, d);
   if (vivos(key).length) { app.go('pedidos/' + vivos(key)[0].id); return; }
   const destino = garantirConta(x, 'FORNECEDOR', 'FN');
   app.novoPedido({ categoria: 'PAGAMENTO DE ENCARGOS E TAXAS', contaOrigem: x.contaOrigem || CAIXA, contaDestino: destino, valor: +x.valor || 0, metodo: 'DÉBITO',
-    descricao: `${x.nome} · ${MESES[+d.slice(5, 7) - 1]} ${d.slice(0, 4)}`, dataPrevista: d, origem: { mod: 'despesas', key } });
+    descricao: `${x.nome} · ${MESES[+d.slice(5, 7) - 1]} ${d.slice(0, 4)}${d < today() ? ' (vencida a ' + date(d) + ')' : ''}`, dataPrevista: d, origem: { mod: 'despesas', key } });
+  if (d < today()) ui.toast('Cobrança vencida: ao executar o pagamento, indique a data em que foi realmente pago.', 'info');
 }
 function pedirPrestacao(x) {
   const d = proxima(x), key = chaveDiv(x, d);
@@ -749,24 +760,29 @@ const COLS_DESP = () => [{ k: 'nome', label: 'Designação', ph: 'ex.: Renda, El
   { k: 'variavel', label: 'Valor variável (é uma média)', type: 'check' }, { k: 'ativo', label: 'Ativa', type: 'check' }];
 function despesas(v) {
   const m = M(), ed = podeEditar(), at = despAtivas(), tot = despesasMensais(), kn = app.kn;
+  // começa o controlo de atrasos nas despesas que ainda não o têm (mês atual, ou o do 1.º pedido)
+  { let mudou = false; m.despesas.forEach(e => { if (!e.controloDesde) { e.controloDesde = controloDesde(e) || ymHoje(); mudou = true; } }); if (mudou && ed) app.save(); }
+  const AT = atrasos();
   const porCat = CATS_DESP.map(c => ({ label: c, value: r2(at.filter(e => e.categoria === c).reduce((s, e) => s + mensalDesp(e), 0)) })).filter(x => x.value > 0);
   v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Encargos que se repetem (renda, serviços, seguros…). As prestações de créditos registam-se em <a href="#/dividas">Dívidas e créditos</a>.</span>${ed ? `<button class="btn primary" id="nd">${icon('plus')} Nova despesa</button>` : ''}</div>
     ${(() => { const c = casaParte(); return c ? `<div class="alert info" style="margin-bottom:16px">${icon('users')}<div>${c.semDados ? 'Os dados das despesas partilhadas não estão disponíveis: a sua parte não está a ser contada.' : `Inclui <b>${eur(c.valor)}</b> por mês da sua parte nas ${c.n} ${c.n === 1 ? 'despesa partilhada' : 'despesas partilhadas'} (${esc(c.nome)}).`} Ver em <a href="#/casa">Partilhas</a>.</div></div>` : ''; })()}
+    ${AT.length ? `<div class="alert bad" style="margin-bottom:16px">${icon('alert')}<div><b>${AT.length === 1 ? '1 cobrança vencida' : AT.length + ' cobranças vencidas'} por pagar</b> (${eur(AT.reduce((t, x) => t + (+x.e.valor || 0), 0))}): ${AT.map(x => `${esc(x.e.nome)} de ${date(x.d)}`).join(' · ')}.
+      Continuam por pagar nos meses seguintes até haver pagamento. Use <b>Pedir</b> e, ao executar, indique a data em que foi realmente pago.</div></div>` : ''}
     <div class="grid g3">${kpi(`${icon('list')} ${kn('pf_desp', 'Despesas fixas / mês')}`, eur(tot), (() => { const c = casaParte(); return `${at.length} ${at.length === 1 ? 'própria' : 'próprias'}${c && !c.semDados ? ` + ${eur(c.valor)} parte nas partilhadas` : ''}`; })(), '', true)}${kpi('Por ano', eur(tot * 12))}${kpi('Peso no rendimento', rendimentoMensal() > 0 ? pct(tot / rendimentoMensal()) : '—', 'face ao rendimento líquido mensal')}</div>
     <div class="grid g2" style="margin-top:16px;grid-template-columns:2fr 1fr">
       <div class="card flush"><div class="card-h"><h3>Despesas</h3><span class="sub">o pedido de pagamento segue o circuito de autorização</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th>Periodicidade</th><th class="r">Valor</th><th class="r">Mensal</th><th>Próxima</th><th>Pedido</th></tr></thead><tbody>
       ${m.despesas.map(e => { const d = proxima(e, e.periodicidade), ps = estadoPed(chaveDesp(e, d)), cv = convDe(e), part = partilhaAceite(e, ymHoje()), on = e.ativo !== false && vigente(e) && !part; return `<tr class="${ed ? 'click' : ''}" data-d="${e.id}" style="${on ? '' : 'opacity:.5'}"><td><b>${esc(e.nome)}</b> ${badgePartilha(cv)}<div class="faint" style="font-size:12px">${esc(e.categoria || '')}${e.entidade ? ' · ' + esc(e.entidade) : ''}${e.variavel ? ' · variável' : ''}${e.inicio || e.fim ? ` · ${e.inicio ? 'desde ' + fmtMes(e.inicio) : ''}${e.inicio && e.fim ? ' ' : ''}${e.fim ? 'até ' + fmtMes(e.fim) : ''}` : ''}</div></td>
         <td>${esc((PERIODOS.find(p => p[0] === e.periodicidade) || [0, e.periodicidade])[1])}</td><td class="r num">${eur(e.valor)}</td><td class="r num">${eur(mensalDesp(e))}</td><td>${date(d)}</td>
-        <td style="white-space:nowrap">${e.ativo === false ? '<span class="faint">inativa</span>' : part ? '<a class="faint" href="#/casa">paga-se nas Partilhas</a>' : !vigente(e) ? `<span class="faint">${e.fim && e.fim < ymHoje() ? 'terminou' : 'ainda não começou'}</span>` : ps || (app.can('criar') ? `<button class="btn sm" data-p="${e.id}">Pedir ${eur(e.valor)}</button>` : '—')}
+        <td style="white-space:nowrap">${emAtraso(e).map(dv => `<div style="margin-bottom:4px"><span class="badge bad">vencida ${date(dv)}</span>${app.can('criar') ? ` <button class="btn sm primary" data-p="${e.id}" data-pd="${dv}">Pedir ${eur(e.valor)}</button>` : ''}</div>`).join('')}${e.ativo === false ? '<span class="faint">inativa</span>' : part ? '<a class="faint" href="#/casa">paga-se nas Partilhas</a>' : !vigente(e) ? `<span class="faint">${e.fim && e.fim < ymHoje() ? 'terminou' : 'ainda não começou'}</span>` : ps || (app.can('criar') ? `<button class="btn sm" data-p="${e.id}">Pedir ${eur(e.valor)}</button>` : '—')}
           ${ed && e.ativo !== false && (!cv || ['recusado', 'cancelado'].includes(cv.estado)) && (!e.fim || e.fim >= ymHoje()) ? ` <button class="btn sm ghost" data-ps="${e.id}" title="Partilhar com outra pessoa">${icon('users')} Partilhar</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="6" class="empty">Sem despesas fixas.</td></tr>'}</tbody></table></div></div>
       <div class="card"><div class="card-h"><h3>Por categoria</h3><span class="sub">equivalente mensal</span></div><div id="dn"></div></div></div>`;
   chart.donut(v.querySelector('#dn'), { items: porCat, center: eur(tot), sub: 'por mês' });
   const ed1 = e => { const novo = !e, x = e || { categoria: 'Outros', periodicidade: 'mensal', mes: +today().slice(5, 7), dia: 1, contaOrigem: CAIXA, ativo: true, valor: 0 };
     editar({ titulo: 'Despesa fixa', cols: COLS_DESP(), x, novo, validar: f => !f.nome ? 'Indique a designação' : !(f.valor > 0) ? 'Indique o valor' : null,
-      onSave: f => { f.mes = +f.mes; Object.assign(x, f); if (novo) { x.id = 'D' + uid(); m.despesas.push(x); } const c = x.conta && app.conta(x.conta); if (c && f.entidade) c.nome = f.entidade; audit('PF_DESPESA', `${x.nome} · ${eur(x.valor)} ${x.periodicidade}`); },
+      onSave: f => { f.mes = +f.mes; Object.assign(x, f); if (novo) { x.id = 'D' + uid(); x.controloDesde = f.inicio && f.inicio > ymHoje() ? f.inicio : ymHoje(); m.despesas.push(x); } const c = x.conta && app.conta(x.conta); if (c && f.entidade) c.nome = f.entidade; audit('PF_DESPESA', `${x.nome} · ${eur(x.valor)} ${x.periodicidade}`); },
       onDelete: y => { m.despesas = m.despesas.filter(z => z !== y); audit('PF_DESPESA_REMOVIDA', y.nome); } }); };
   v.querySelectorAll('[data-d]').forEach(tr => tr.onclick = e => { if (e.target.closest('button,a') || !ed) return; ed1(m.despesas.find(x => x.id === tr.dataset.d)); });
-  v.querySelectorAll('[data-p]').forEach(b => b.onclick = () => pedirDespesa(m.despesas.find(x => x.id === b.dataset.p)));
+  v.querySelectorAll('[data-p]').forEach(b => b.onclick = () => pedirDespesa(m.despesas.find(x => x.id === b.dataset.p), b.dataset.pd));
   v.querySelectorAll('[data-ps]').forEach(b => b.onclick = () => partilharDespesa(m.despesas.find(x => x.id === b.dataset.ps)));
   const nd = v.querySelector('#nd'); if (nd) nd.onclick = () => ed1();
 }
@@ -1598,6 +1614,7 @@ return {
   // despesas e prestações por pedir, e o salário projetado, entram na previsão de liquidez
   previsao: (a, ini, fim) => {
     const out = [], hoje = today(), de = ini && ini > hoje ? ini : hoje, ate = fim || SPAP.addMonths(hoje, 3), pl = M().plano;
+    if (de <= hoje) atrasos().forEach(({ e, d }) => out.push({ conta: e.contaOrigem || CAIXA, data: hoje, valor: -(+e.valor || 0), tipo: 'Despesa vencida', descricao: `${e.nome} (vencida a ${date(d)})` }));
     M().despesas.filter(e => e.ativo !== false).forEach(e => ocorrencias(e, e.periodicidade, de, ate).forEach(d => { if (vigente(e, d.slice(0, 7)) && !vivos(chaveDesp(e, d)).length) out.push({ conta: e.contaOrigem || CAIXA, data: d, valor: -(+e.valor || 0), tipo: 'Despesa fixa', descricao: e.nome }); }));
     divAtivas().forEach(x => ocorrencias(x, 'mensal', de, ate).forEach(d => { if (!vivos(chaveDiv(x, d)).length) out.push({ conta: x.contaOrigem || CAIXA, data: d, valor: -(+x.prestacao || 0), tipo: 'Prestação', descricao: x.nome }); }));
     ocorrencias({ dia: pl.diaSalario || 1 }, 'mensal', de, ate).forEach(d => {

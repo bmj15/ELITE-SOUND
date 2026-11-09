@@ -1190,7 +1190,7 @@ SPAP.createApp = function (cfg) {
       try { await s.signer(p, 'APROVAR'); app.aprovar(p, s.nota); save(); ui.toast(p.estado === 'APROVADO' ? `<b>Aprovado.</b> Autorização ${p.autorizacao}` : 'Aprovação registada. Falta outro aprovador.', 'ok'); render(); } catch (e) { ui.toast(esc(e.message), 'bad'); }
     };
     if ($('#a-ex') && okE) $('#a-ex').onclick = () => {
-      ui.modal({ title: 'Executar pagamento', sub: `${p.numero} · ${eur(p.valor)}`, body: `<form class="form"><div class="fld"><label>Data da operação</label><input class="inp" type="date" name="data" value="${today()}"></div>
+      ui.modal({ title: 'Executar pagamento', sub: `${p.numero} · ${eur(p.valor)}`, body: `<form class="form"><div class="fld"><label>Data da operação</label><input class="inp" type="date" name="data" value="${today()}" max="${today()}">${p.dataPrevista && p.dataPrevista < today() ? `<span class="hint">Previsto para ${date(p.dataPrevista)}. Se já foi pago antes, indique a data real do pagamento.</span>` : ''}</div>
         <div class="fld"><label>Comprovativo / referência</label><input class="inp" name="comprovativo" placeholder="Referência interna, documento de suporte…"></div></form>`,
         actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: 'Continuar', kind: 'primary', onClick: async el => {
           const f = ui.formData(el);
