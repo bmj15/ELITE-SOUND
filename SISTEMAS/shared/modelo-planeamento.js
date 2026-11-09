@@ -873,7 +873,9 @@ function contasAPagar(L, ym) {
   const linhas = minhas.slice().sort((a, b) => (+a.dia || 1) - (+b.dia || 1) || String(a.nome).localeCompare(String(b.nome))).map(e => {
     const v = val(e); let falta = 0, deOutros = 0;
     outros.forEach(o => { const x = v * parte(e, o.id); deOutros += x; cum[o.id] = (cum[o.id] || 0) + x; falta += Math.max(0, cum[o.id] - acerto[o.id].credito); });
-    const paga = (R.contasPagas || []).find(c => c.despesa === e.id && c.mes === ym && !c.anulada) || null;
+    // paga: registada com "Paga", ou já passou o dia de cobrança (débito direto / transferência feita nesse dia)
+    const dia = Math.min(28, Math.max(1, +e.dia || 1)), dataCob = `${ym}-${String(dia).padStart(2, '0')}`;
+    const paga = (R.contasPagas || []).find(c => c.despesa === e.id && c.mes === ym && !c.anulada) || (dataCob <= today() ? { data: dataCob, auto: true } : null);
     return { e, valor: r2(v), deOutros: r2(deOutros), falta: r2(falta), paga };
   });
   return { ym, linhas, acerto, outros };
@@ -958,12 +960,12 @@ function casaPessoal(v) {
       const meses = Array.from({ length: 6 }, (_, i) => SPAP.addMonths(today().slice(0, 7) + '-01', i - 4).slice(0, 7));
       const res = CP.outros.map(o => { const a = CP.acerto[o.id];
         return `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>Acerto de ${esc(nm(o.id))} · ${fmtMes(ymC)}: <b class="num">${eur(a.deve)}</b></span><span>${a.deve <= 0.004 ? '<span class="badge plain">sem acerto a receber</span>' : a.liquidado ? `<span class="badge ok">pago${a.recebido < a.deve - 0.004 ? ' (com crédito anterior)' : ''}</span>` : `${a.recebido ? `<span class="badge ok">${eur(a.recebido)} confirmado</span> ` : ''}${a.porConfirmar ? `<span class="badge info">${eur(a.porConfirmar)} enviado · por confirmar</span> ` : ''}<span class="badge warn">falta receber ${eur(a.pendente)}</span>`}</span></div>`; }).join('');
-      return `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Contas que paga</h3><span class="sub">despesas comuns em seu nome · pagam-se com o acerto confirmado de quem divide</span>
+      return `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Contas que paga</h3><span class="sub">despesas comuns em seu nome · pagam-se com o acerto confirmado de quem divide · contam como pagas no dia de cobrança</span>
         <select class="inp inp-sm" id="cmes" style="margin-left:auto">${meses.map(x => `<option value="${x}" ${x === ymC ? 'selected' : ''}>${fmtMes(x)}</option>`).join('')}</select></div>
         <div style="padding:0 16px 8px">${res}</div>
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Conta</th><th>Dia</th><th class="r">Valor total</th><th class="r">Parte dos outros</th><th>Estado</th><th></th></tr></thead><tbody>
         ${CP.linhas.map((x, i) => `<tr><td><b>${esc(x.e.nome)}</b></td><td>${x.e.dia || 1}</td><td class="r num">${eur(x.valor)}</td><td class="r num">${eur(x.deOutros)}</td>
-          <td>${x.paga ? `<span class="badge ok">paga ${date(x.paga.data)}</span>` : x.falta > 0.004 ? `<span class="badge warn">falta acerto de ${eur(x.falta)}</span>` : '<span class="badge info">pode pagar</span>'}</td>
+          <td>${x.paga ? `<span class="badge ok" ${x.paga.auto ? 'data-tip="Paga no dia de cobrança."' : ''}>paga ${date(x.paga.data)}</span>${x.falta > 0.004 ? ` <span class="badge warn">falta acerto de ${eur(x.falta)}</span>` : ''}` : x.falta > 0.004 ? `<span class="badge warn">falta acerto de ${eur(x.falta)}</span>` : '<span class="badge info">pode pagar</span>'}</td>
           <td class="r">${!x.paga && x.falta <= 0.004 && ed ? `<button class="btn sm primary" data-cp="${i}">${icon('key')} Paga</button>` : ''}</td></tr>`).join('')}</tbody>
         <tfoot><tr><td>TOTAL</td><td></td><td class="r num">${eur(sum(CP.linhas, 'valor'))}</td><td class="r num">${eur(sum(CP.linhas, 'deOutros'))}</td><td colspan="2"></td></tr></tfoot></table></div></div>`; })() : ''}
     ${COMP.map((k, ki) => { const meses = Array.from({ length: 6 }, (_, i) => SPAP.addMonths(today().slice(0, 7) + '-01', i - 4).slice(0, 7)), eu0 = k.por.find(x => x.id === eu);
