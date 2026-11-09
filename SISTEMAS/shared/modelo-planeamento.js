@@ -1561,6 +1561,14 @@ function simulador(v) {
 }
 
 /* ---------- Objetivos e compras ---------- */
+function excedentesMes(n = 120) {
+  const ds = divAtivas(), fim = ds.map(d => mesesParaLiquidar(d)), proj = {}, P = a => proj[a] || (proj[a] = projecao(a));
+  const y0 = +ymHoje().slice(0, 4), m0 = +ymHoje().slice(5, 7), out = [];
+  for (let i = 0; i < n; i++) { const t = m0 - 1 + i, y = y0 + Math.floor(t / 12), mm = t % 12 + 1, ym = ymOf(y, mm);
+    const rend = rendimentoDoMes(y, mm, P), desp = despesasMensais(ym), prest = r2(ds.reduce((a, d, k) => a + (i < fim[k] ? +d.prestacao || 0 : 0), 0));
+    out.push({ ym, rend, desp, prest, exc: r2(rend - desp - prest) }); }
+  return out;
+}
 const COLS_OBJ = () => [{ k: 'nome', label: 'Objetivo', ph: 'ex.: Entrada para casa' }, { k: 'alvo', label: 'Valor necessário', type: 'money' }, { k: 'poupado', label: 'Já poupado', type: 'money' },
   { k: 'data', label: 'Data pretendida', type: 'date' }, { k: 'prioridade', label: 'Prioridade', type: 'select', opts: [[1, '1 · Máxima'], [2, '2 · Alta'], [3, '3 · Média'], [4, '4 · Baixa'], [5, '5 · Mínima']] }, { k: 'notas', label: 'Notas' }];
 // objetivos partilhados (no livro de partilhas): cada um tem a sua parte do valor e regista as suas contribuições
@@ -1639,25 +1647,29 @@ function verObjPartilhado(x) {
       audit('PF_OBJETIVO_CONTRIBUICAO_ANULADA', `${x.o.nome} · ${eur(c.valor)}`); app.save(); app.refresh(); }) });
 }
 function objetivos(v) {
-  const m = M(), ed = podeEditar(), I = indicadores(), hoje = today(), exc = Math.max(0, I.exc);
+  const m = M(), ed = podeEditar(), I = indicadores(), hoje = today(), CF = excedentesMes();
+  // o que fica de lado acumulado até cada mês: os meses com sobra (ex.: subsídio de Natal) juntam, os negativos gastam o que havia (nunca abaixo de 0)
+  const pool = []; CF.reduce((a, c) => { const v = Math.max(0, a + c.exc); pool.push(v); return v; }, 0);
+  const idx = d => { const k = CF.findIndex(c => c.ym >= String(d).slice(0, 7)); return k < 0 ? CF.length - 1 : k; };
   const mesesAte = d => { if (!d) return null; const a = (+d.slice(0, 4) - +hoje.slice(0, 4)) * 12 + (+d.slice(5, 7) - +hoje.slice(5, 7)); return Math.max(1, a); };
   // os meus objetivos e a minha parte dos partilhados entram na mesma fila de prioridades
   const itens = [...m.objetivos.map(o => ({ tipo: 'meu', o, nome: o.nome, alvo: +o.alvo || 0, poupado: +o.poupado || 0, data: o.data, prioridade: +o.prioridade || 3 })),
     ...objPartilhados().map(x => Object.assign(x, { tipo: 'part', nome: x.o.nome, alvo: x.meuAlvo, poupado: x.meu, data: x.o.data, prioridade: +((x.o.prioridades || {})[x.L.eu] || x.o.prioridade) || 3 }))];
-  let disp = exc;
+  let A = 0;   // já reservado para objetivos mais prioritários
   const lista = itens.sort((a, b) => a.prioridade - b.prioridade || String(a.data || '9').localeCompare(String(b.data || '9'))).map(x => {
     const falta = r2(Math.max(0, x.alvo - x.poupado)), n = mesesAte(x.data), mensal = falta <= 0 ? 0 : n ? falta / n : 0;
-    const cobre = Math.min(disp, mensal); disp = Math.max(0, disp - mensal);
-    const estado = falta <= 0 ? ['ok', 'atingido'] : !n ? ['', 'sem data'] : cobre >= mensal - 0.005 ? ['ok', 'no bom caminho'] : cobre > 0 ? ['warn', 'em risco'] : ['bad', 'sem margem'];
-    const quando = falta > 0 && cobre > 0 ? SPAP.addMonths(hoje, Math.ceil(falta / cobre)) : null;
-    return Object.assign(x, { falta, n, mensal: r2(mensal), cobre: r2(cobre), estado, quando });
+    const ate = x.data ? idx(x.data) : CF.length - 1, possivel = r2(Math.max(0, pool[ate] - A)), cobre = r2(Math.min(falta, possivel));
+    const k = falta > 0 ? pool.findIndex(v => v - A >= falta - 0.005) : -1, quando = k >= 0 ? CF[k].ym : null, antes = A;
+    A += falta <= 0 ? 0 : k >= 0 ? falta : Math.max(0, pool[pool.length - 1] - A);
+    const estado = falta <= 0 ? ['ok', 'atingido'] : !n ? ['', 'sem data'] : cobre >= falta - 0.005 ? ['ok', 'no bom caminho'] : quando ? ['warn', 'atrasa para ' + fmtMes(quando)] : ['bad', 'sem margem'];
+    return Object.assign(x, { falta, n, mensal: r2(mensal), possivel, cobre, estado, quando, antes });
   });
-  const totMensal = sum(lista, 'mensal'), sobra = r2(exc - totMensal);
+  const ateMes = x => x.data ? fmtMes(String(x.data).slice(0, 7)) : '';
   const frase = x => x.falta <= 0 ? 'Objetivo atingido. Pode terminá-lo ou aumentar o valor.'
-    : !x.n ? `Faltam <b>${eur(x.falta)}</b>. Sem data pretendida não é possível dizer quanto pôr de lado por mês: indique uma data.`
-    : x.estado[1] === 'no bom caminho' ? `Faltam <b>${eur(x.falta)}</b>. Pondo de lado <b>${eur(x.mensal)}/mês</b> chega lá a ${date(x.data)}, e o excedente chega para isso.`
-    : x.cobre > 0 ? `Faltam <b>${eur(x.falta)}</b>. Precisava de <b>${eur(x.mensal)}/mês</b>, mas depois dos objetivos mais prioritários só sobram ${eur(x.cobre)}/mês: a esse ritmo chega lá em <b>${fmtMes(x.quando.slice(0, 7))}</b>.`
-    : `Faltam <b>${eur(x.falta)}</b>. Precisava de <b>${eur(x.mensal)}/mês</b>, mas o excedente já está todo comprometido${exc <= 0 ? ' (não sobra nada ao fim do mês)' : ' com objetivos mais prioritários'}.`;
+    : !x.n ? `Faltam <b>${eur(x.falta)}</b>. Indique uma data pretendida para o sistema verificar se chega.`
+    : x.estado[1] === 'no bom caminho' ? `Faltam <b>${eur(x.falta)}</b>. Até ${ateMes(x)} vão sobrar <b>${eur(x.possivel)}</b>${x.antes > 0 ? ' (já descontados os objetivos mais prioritários)' : ''}: chega.`
+    : `Faltam <b>${eur(x.falta)}</b>. Até ${ateMes(x)} ${x.cobre > 0 ? `só vão sobrar <b>${eur(x.cobre)}</b>` : 'não sobra nada'}${x.antes > 0 ? ' depois dos objetivos mais prioritários' : ''}. `
+      + (x.quando ? `Ao ritmo previsto chega lá em <b>${fmtMes(x.quando)}</b>.` : 'Ao ritmo previsto não chega lá nos próximos 10 anos.');
   const barra = (pc, cls) => `<div class="progress ${cls}"><i style="width:${Math.min(100, Math.max(0, Math.round(pc)))}%"></i></div>`;
   const cartao = x => { const cls = x.estado[0] === 'bad' ? 'bad' : x.estado[0] === 'warn' ? 'warn' : '';
     if (x.tipo === 'meu') return `<div class="card"><div class="card-h"><h3>${esc(x.nome)}</h3><span class="badge ${x.estado[0]}">${x.estado[1]}</span></div>
@@ -1676,13 +1688,17 @@ function objetivos(v) {
   const recebidos = convitesParaMim().filter(({ c }) => ehObj(c));
   v.innerHTML = `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Como funciona</h3>
       ${ed ? `<div class="row" style="margin-left:auto;gap:8px"><button class="btn" id="nj">${icon('users')} Objetivo partilhado</button><button class="btn primary" id="no">${icon('plus')} Novo objetivo</button></div>` : ''}</div>
-      <p style="margin:0 0 8px">Um objetivo é algo para que quer juntar dinheiro até uma data (uma compra, férias, a entrada de uma casa). Para cada um, o sistema calcula <b>quanto tem de pôr de lado por mês</b>
-      e verifica se o seu <b>${app.kn('pf_exc', 'excedente mensal')}</b> chega, começando pelos de prioridade mais alta. Um objetivo <b>partilhado</b> é feito a meias com outra pessoa: cada um junta a sua parte.</p>
-      <div class="kv"><div><span>Rendimento</span><b class="num">${eur(I.rend)}</b></div><div><span>− Despesas fixas</span><b class="num">${eur(I.desp)}</b></div><div><span>− Prestações</span><b class="num">${eur(I.prest)}</b></div>
-        <div><span>= Excedente por mês</span><b class="num ${I.exc < 0 ? 'neg' : ''}">${eur(I.exc)}</b></div><div><span>Comprometido com objetivos</span><b class="num">${eur(totMensal)}</b></div>
-        <div><span>${sobra >= 0 ? 'Ainda livre por mês' : 'Falta por mês'}</span><b class="num ${sobra < 0 ? 'neg' : ''}">${eur(Math.abs(sobra))}</b></div></div></div>
-    ${I.exc <= 0 ? `<div class="alert bad" style="margin-bottom:16px">${icon('alert')}<div>Neste momento não sobra dinheiro ao fim do mês (excedente ${eur(I.exc)}), por isso nenhum objetivo tem financiamento. Reveja <a href="#/despesas">Despesas fixas</a> e <a href="#/dividas">Dívidas e créditos</a>, ou o <a href="#/rendimentos">rendimento</a>.</div></div>`
-      : sobra < 0 ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div>Para cumprir todas as datas precisava de ${eur(totMensal)}/mês, mas sobram ${eur(exc)}. Os de prioridade mais baixa atrasam: adie datas, reduza valores ou mude prioridades.</div></div>` : ''}
+      <p style="margin:0 0 8px">Um objetivo é algo para que quer juntar dinheiro até uma data (uma compra, férias, a entrada de uma casa). O sistema faz a conta <b>mês a mês</b>:
+      em cada mês, rendimento desse mês (com subsídios de férias e de Natal) − despesas fixas − prestações. O que sobra até à data de cada objetivo é o que o pode pagar,
+      começando pelos de prioridade mais alta. Um objetivo <b>partilhado</b> é feito a meias com outra pessoa: cada um junta a sua parte.</p>
+      <div class="faint" style="font-size:12px;margin:8px 0 4px">Sobra prevista em cada mês</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap">${CF.slice(0, 13).map(c => `<div style="border:1px solid var(--line);border-radius:8px;padding:4px 8px;text-align:center;min-width:76px" data-tip="Rendimento ${eur(c.rend)} − despesas ${eur(c.desp)} − prestações ${eur(c.prest)}">
+        <div class="faint" style="font-size:11px">${fmtMes(c.ym)}</div><b class="num ${c.exc < 0 ? 'neg' : ''}" style="font-size:13px">${c.exc > 0 ? '+' : ''}${eur(c.exc)}</b></div>`).join('')}</div>
+      <div class="kv" style="margin-top:12px"><div><span>Sobra nos próximos 12 meses</span><b class="num ${sum(CF.slice(0, 12), 'exc') < 0 ? 'neg' : ''}">${eur(sum(CF.slice(0, 12), 'exc'))}</b></div>
+        <div><span>${app.kn('pf_exc', 'Excedente médio por mês')}</span><b class="num ${I.exc < 0 ? 'neg' : ''}">${eur(I.exc)}</b></div>
+        <div><span>Falta juntar para os objetivos</span><b class="num">${eur(sum(lista, 'falta'))}</b></div></div></div>
+    ${!pool.some(v => v > 0.005) ? `<div class="alert bad" style="margin-bottom:16px">${icon('alert')}<div>Nos próximos meses não sobra dinheiro em nenhum mês, por isso nenhum objetivo tem financiamento. Reveja <a href="#/despesas">Despesas fixas</a> e <a href="#/dividas">Dívidas e créditos</a>, ou o <a href="#/rendimentos">rendimento</a>.</div></div>`
+      : I.exc < 0 ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div>Em média o mês fecha negativo (${eur(I.exc)}): só sobra dinheiro nos meses assinalados com +, como os de subsídio. Os objetivos são pagos com essa sobra, e os meses negativos gastam-na.</div></div>` : ''}
     ${recebidos.map(({ casa, c }) => `<div class="alert info" style="margin-bottom:16px">${icon('inbox')}<div style="flex:1">${resumoConvite(casa, c)}</div>${ed ? `<button class="btn sm primary" data-rj="${c.id}" data-casa="${casa}">${icon('key')} Responder</button>` : ''}</div>`).join('')}
     ${pend.filter(c => c.deSistema === sub.key).map(c => `<div class="alert" style="margin-bottom:16px">${icon('users')}<div style="flex:1">Pedido enviado a <b>${esc(semPessoal(c.paraNome))}</b>: ${esc(c.objetivo.nome)} · ${eur(c.objetivo.alvo)} · aguarda resposta</div>${ed ? `<button class="btn sm ghost" data-cc="${c.id}">Cancelar</button>` : ''}</div>`).join('')}
     <div class="grid g2">${lista.map(cartao).join('') || `<div class="empty" style="grid-column:1/-1">Ainda não tem objetivos.<br>Crie um com <b>Novo objetivo</b> (ex.: “Portátil novo, 900 €, até junho”) ou combine um com quem partilha a casa em <b>Objetivo partilhado</b>.</div>`}</div>`;
