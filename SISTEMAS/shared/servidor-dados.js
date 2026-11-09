@@ -35,7 +35,8 @@ if (!sessao) {
 const todos = s => s.admin || (s.sistemas || []).includes('*');
 const podeVer = key => todos(sessao) || (sessao.sistemas || []).includes(key);
 const sistemaDaChave = k => { const m = /^spap:([^:]+)/.exec(k); return m ? m[1] : null; };
-const podeGravar = k => todos(sessao) || (k === 'spap:grupo' ? (sessao.sistemas || []).includes('bxb') : (sessao.sistemas || []).includes(sistemaDaChave(k)));
+// partilhas entre planos pessoais: o servidor confirma que esta conta é membro
+const podeGravar = k => todos(sessao) || sistemaDaChave(k) === 'partilha' || (k === 'spap:grupo' ? (sessao.sistemas || []).includes('bxb') : (sessao.sistemas || []).includes(sistemaDaChave(k)));
 
 let dados = pedido('GET', '/api/dados');
 if (dados.status !== 200) { alert('Não foi possível ler os dados do servidor. Tente de novo.'); return; }
@@ -121,6 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.appendChild(chip);
   chip.querySelector('#bxb-sair').onclick = e => { e.preventDefault(); pedido('POST', '/api/sair', {}); location.replace(ENTRAR); };
 });
-window.BXBServidor = { sessao, podeVer, semAcesso };
+// chaves disponíveis para esta conta (ex.: para encontrar as partilhas em que é membro)
+const chaves = () => [...mem.keys()];
+window.BXBServidor = { sessao, podeVer, semAcesso, chaves };
 if (semAcesso) { Storage.prototype.setItem = function (k, v) { if (!nossa(this, k)) real.set.call(this, k, v); }; Storage.prototype.removeItem = function (k) { if (!nossa(this, k)) real.rem.call(this, k); }; }
 })();

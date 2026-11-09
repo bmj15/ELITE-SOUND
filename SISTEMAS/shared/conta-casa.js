@@ -44,7 +44,12 @@ const valorMes = (e, ym) => { if (e.periodicidade === 'compras') { const t = tot
 const ymHoje = () => new Date().toISOString().slice(0, 7);
 const mesSeguinte = ym => { let [a, m] = ym.split('-').map(Number); m++; if (m > 12) { m = 1; a++; } return `${a}-${String(m).padStart(2, '0')}`; };
 const fimMes = ym => { const [a, m] = ym.split('-').map(Number); return new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10); };
-const ler = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+// leitura com cache (o registo é lido muitas vezes por página); só se volta a interpretar quando o texto muda
+const cacheLer = new Map();
+const ler = k => { let t; try { t = localStorage.getItem(k); } catch (e) { return null; } const c = cacheLer.get(k); if (c && c.t === t) return c.v;
+  let v = null; try { v = JSON.parse(t); } catch (e) { } cacheLer.set(k, { t, v }); return v; };
+const lerNovo = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+const chavesSpap = () => { if (window.BXBServidor && BXBServidor.chaves) return BXBServidor.chaves(); const out = []; try { for (let i = 0; i < localStorage.length; i++) out.push(localStorage.key(i)); } catch (e) { } return out; };
 
 // parte de cada membro e quanto adianta num mês; e as transferências que acertam a diferença
 function resumoMes(d, ym) {
@@ -69,12 +74,18 @@ function transferencias(saldos) {
 const estimadas = (d, ym) => (d.mod.despesas || []).filter(e => e.ativo !== false && e.variavel && vigente(e, ym) && !valorMes(e, ym).real);
 const Conta = SPAP.contaCasa = {
   resumoMes, transferencias, fimMes, ymHoje, valorMes, media, estimadas, mesSeguinte, planoCartao, ativaNoMes, comprasMes, totalCompras,
-  livro: casa => ler('spap:' + casa),
-  registo: casa => Object.assign({ pagamentos: [], dividas: [], despesas: [], compras: [] }, ler('spap:' + casa + ':conta') || {}),
+  /* Partilha entre planos pessoais: tudo vive no registo comum "spap:partilha:<id>:conta" (membros, despesas, acertos antigos,
+     convites, pagamentos, compras…). O "livro" é montado a partir dele, para o resto do motor funcionar como antes. */
+  livro: casa => { const R = ler('spap:' + casa + ':conta'); if (R && Array.isArray(R.membros)) return { mod: { membros: R.membros, despesas: [], acertos: R.acertos || [] }, partilha: true }; return ler('spap:' + casa); },
+  registo: casa => Object.assign({ pagamentos: [], dividas: [], despesas: [], compras: [], convites: [] }, ler('spap:' + casa + ':conta') || {}),
+  // partilhas a que esta conta tem acesso (ids "partilha:<x>")
+  partilhas: () => chavesSpap().map(k => /^spap:(partilha:[^:]+):conta$/.exec(k || '')).filter(Boolean).map(m => m[1]),
+  nova(dados) { const id = 'partilha:' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+    localStorage.setItem('spap:' + id + ':conta', JSON.stringify(Object.assign({ pagamentos: [], dividas: [], despesas: [], compras: [], convites: [], contasPagas: [], acertos: [], criadaEm: new Date().toISOString() }, dados))); return id; },
   // junta a uma despesa "por compras" as compras registadas pelos membros (cópia: não altera o livro)
   comCompras(casa, e, R = Conta.registo(casa)) { return e.periodicidade === 'compras' ? Object.assign({}, e, { compras: (R.compras || []).filter(c => c.despesa === e.id && !c.anulada) }) : e; },
   // lê, altera e grava logo a seguir (registo pequeno e só de acrescentar: não apaga o que outro sistema escreveu)
-  alterar(casa, fn) { const r = Conta.registo(casa); const out = fn(r); localStorage.setItem('spap:' + casa + ':conta', JSON.stringify(r)); return out; },
+  alterar(casa, fn) { const r = Object.assign({ pagamentos: [], dividas: [], despesas: [], compras: [], convites: [] }, lerNovo('spap:' + casa + ':conta') || {}); const out = fn(r); localStorage.setItem('spap:' + casa + ':conta', JSON.stringify(r)); return out; },
   membros: casa => ((Conta.livro(casa) || {}).mod || {}).membros || [],
   // despesas da casa: as do livro da casa e as acrescentadas pelos planos pessoais (ex.: uma compra no cartão que é toda da casa)
   despesasRegisto: casa => (Conta.registo(casa).despesas || []).filter(e => !e.anulada),
@@ -106,7 +117,7 @@ const Conta = SPAP.contaCasa = {
       else saldos[k] = r2((saldos[k] || 0) + s * l.valor); });
     // por membro: quanto deve a cada outro (só valores positivos)
     const deve = []; Object.entries(saldos).forEach(([k, v]) => { const [a, b] = k.split('|'); if (v > 0.004) deve.push({ de: a, para: b, valor: r2(v) }); else if (v < -0.004) deve.push({ de: b, para: a, valor: r2(-v) }); });
-    return { casa, nome: (window.Grupo && Grupo.get(casa) || {}).nome || casa, membros: ms, nomeM: nome, linhas, deve, pendentes: pend };
+    return { casa, nome: (window.Grupo && Grupo.get(casa) || {}).nome || R.nome || 'Partilha', membros: ms, nomeM: nome, linhas, deve, pendentes: pend };
   },
   // saldo de A para B até ao fim de um mês (para liquidar até uma data)
   saldoAte(casa, de, para, ym) {

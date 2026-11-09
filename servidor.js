@@ -70,8 +70,13 @@ function abrirSessao(res, c) { const t = crypto.randomBytes(32).toString('hex');
   res.setHeader('Set-Cookie', `bxb_sessao=${t}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${DURACAO_SESSAO / 1000}`); }
 // que chaves cada conta pode ler e gravar: "spap:<sistema>" e "spap:<sistema>:..." dos sistemas da conta; o registo do grupo é de leitura para todos
 const sistemaDaChave = k => { const m = /^spap:([^:]+)/.exec(k); return m ? m[1] : null; };
-const ve = (c, k) => !!c && (c.admin || (c.sistemas || []).includes('*') || k === 'spap:grupo' || (c.sistemas || []).includes(sistemaDaChave(k)));
-const grava = (c, k) => !!c && (c.admin || (c.sistemas || []).includes('*') || (k !== 'spap:grupo' && (c.sistemas || []).includes(sistemaDaChave(k))) || (k === 'spap:grupo' && (c.sistemas || []).includes('bxb')));
+// partilhas entre planos pessoais ("spap:partilha:<id>:conta"): acessíveis a quem tem acesso a um dos planos que são membros
+const membroDaPartilha = (c, valor) => { try { const v = typeof valor === 'string' ? JSON.parse(valor) : valor; return ((v && v.membros) || []).some(m => m && m.sistema && (c.sistemas || []).includes(m.sistema)); } catch (e) { return false; } };
+const partilhaGuardada = k => { const r = lerJSON(ficheiroChave(k), null); return r ? r.valor : null; };
+const ve = (c, k) => !!c && (c.admin || (c.sistemas || []).includes('*') || k === 'spap:grupo' || (c.sistemas || []).includes(sistemaDaChave(k)) || (sistemaDaChave(k) === 'partilha' && membroDaPartilha(c, partilhaGuardada(k))));
+// numa partilha nova, quem a cria tem de ser membro; numa existente, tem de já ser membro (não se entra numa partilha alheia)
+const grava = (c, k, novo) => !!c && (c.admin || (c.sistemas || []).includes('*') || (k !== 'spap:grupo' && (c.sistemas || []).includes(sistemaDaChave(k))) || (k === 'spap:grupo' && (c.sistemas || []).includes('bxb'))
+  || (sistemaDaChave(k) === 'partilha' && (() => { const g = partilhaGuardada(k); return g != null ? membroDaPartilha(c, g) : membroDaPartilha(c, novo); })()));
 
 /* ---------------- Servidor ---------------- */
 function abrirBrowser(url) {
@@ -132,8 +137,8 @@ async function api(req, res, caminho) {
   if (caminho.startsWith('/api/dados/')) {
     const k = decodeURIComponent(caminho.slice('/api/dados/'.length));
     if (!/^spap:/.test(k) || k.length > 300) return json(400, { erro: 'Chave inválida' });
-    if (!grava(c, k)) return json(403, { erro: 'Sem acesso a este sistema' });
     const atual = lerJSON(ficheiroChave(k), null), b = await lerCorpo(req), vAtual = atual ? atual.versao : 0;
+    if (!grava(c, k, b.valor)) return json(403, { erro: 'Sem acesso a este sistema' });
     // controlo de concorrência: só grava se a versão de base for a do servidor (senão outro utilizador gravou entretanto)
     if ((+b.versao || 0) !== vAtual) return json(409, { erro: 'Alterado por outro utilizador', versao: vAtual, valor: atual ? atual.valor : null });
     copiaDiaria();
