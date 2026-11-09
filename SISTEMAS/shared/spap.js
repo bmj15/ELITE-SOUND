@@ -787,7 +787,8 @@ SPAP.createApp = function (cfg) {
         <span style="flex:1;min-width:0"><b style="display:block">${esc(u.nome)}</b><span class="muted" style="font-size:12px">${ROLES[u.role]?.label || u.role}${u.pinHash ? '' : ' · sem PIN'}</span></span></button>`).join('')}</div>
       <form id="lf" class="stack"><input class="inp mono" name="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="• • • •" style="font-size:22px;letter-spacing:.5em;text-align:center;padding:14px">
       <button class="btn primary" style="justify-content:center;padding:12px">${icon('arrow')} Entrar</button></form>
-      <div class="lockline">${icon('lock')} 5 tentativas falhadas bloqueiam o utilizador durante 5 minutos.</div>`;
+      <div class="lockline">${icon('lock')} 5 tentativas falhadas bloqueiam o utilizador durante 5 minutos.</div>
+      <a class="lockline" href="/SISTEMAS/index.html" style="text-decoration:none;color:var(--accent)">← Todos os sistemas</a>`;
     const mark = () => lb.querySelectorAll('[data-u]').forEach(b => b.classList.toggle('on', sel && b.dataset.u === sel.id));
     mark();
     lb.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { const u = userById(b.dataset.u); if (!u.pinHash) return ui.toast(semPinTxt(u), 'warn'); sel = u; mark(); lb.querySelector('[name=pin]').focus(); });
