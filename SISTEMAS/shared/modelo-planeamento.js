@@ -1577,8 +1577,15 @@ function excedentesMes(n = 120) {
   const y0 = +ymHoje().slice(0, 4), m0 = +ymHoje().slice(5, 7), out = [];
   for (let i = 0; i < n; i++) { const t = m0 - 1 + i, y = y0 + Math.floor(t / 12), mm = t % 12 + 1, ym = ymOf(y, mm);
     const rend = rendimentoDoMes(y, mm, P), desp = despesasMensais(ym), prest = r2(ds.reduce((a, d, k) => a + prestDe(d, k, i), 0));
-    out.push({ ym, rend, desp, prest, exc: r2(rend - desp - prest) }); }
+    // a poupança mensal do plano (Simulador › Parâmetros) sai primeiro, como um objetivo fixo, para não usar o mesmo dinheiro duas vezes
+    const sobra = rend - desp - prest, poup = r2(Math.min(Math.max(0, sobra), Math.max(0, poupancaMes(rend, desp, prest))));
+    out.push({ ym, rend, desp, prest, poup, exc: r2(sobra - poup) }); }
   return out;
+}
+function poupancaMes(rend, desp, prest) {
+  const pl = M().plano, k = pl.poupancaTipo, pc = +pl.poupancaPct || 0;
+  return k === 'fixed' ? +pl.poupancaFixa || 0 : k === 'percentage' ? rend * pc : k === 'percentage_surplus' ? Math.max(0, rend - desp) * pc
+    : k === 'percentage_after_min_payments' ? Math.max(0, rend - desp - prest) * pc : 0;
 }
 /* Categoria: com a mesma prioridade, passa à frente o que protege (fundo de emergência) e o que poupa juros (dívidas, as mais caras primeiro);
    férias e compras ficam para o fim. O peso é sempre menor que um nível de prioridade, por isso a prioridade manda. */
@@ -1813,9 +1820,10 @@ function objetivos(v) {
   const nCurto = x => { const n = String(x.nome).replace(/\s*(DEZ|JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV)\d{4}\s*/i, ' ').trim(); return n.length > 26 ? n.slice(0, 25) + '…' : n; };
   const ultimoPag = Math.max(11, ...paga.map((p, i) => p.length ? i : -1)), mesesPlano = Math.min(CF.length, Math.min(24, ultimoPag + 1));
   let semDestino = 0; const livreCal = resto.map(v => (semDestino = r2(semDestino + v)));
+  const poup12 = r2(sum(CF.slice(0, 12), 'poup'));
   const PLANO = CF.slice(0, mesesPlano).map((c, i) => `<tr><td style="white-space:nowrap"><b>${mesCurto(c.ym)}</b></td>
       <td class="r num ${c.exc < 0 ? 'neg' : ''}">${c.exc > 0 ? '+' : ''}${eur(c.exc)}</td>
-      <td>${poe[i].map(([x, v]) => `<span class="badge plain" style="margin:2px 4px 2px 0">${esc(nCurto(x))} <b class="num">${eur(v)}</b></span>`).join('')}${reserva[i] > 0.005 ? `<span class="badge warn" style="margin:2px 4px 2px 0" data-tip="Guardar para cobrir meses seguintes que fecham negativos">reserva <b class="num">${eur(reserva[i])}</b></span>` : ''}${cobreNeg[i] > 0.005 ? `<span class="faint" style="font-size:12px">usa ${eur(cobreNeg[i])} da reserva</span>` : ''}</td>
+      <td>${c.poup > 0.005 ? `<span class="badge info" style="margin:2px 4px 2px 0" data-tip="Poupança mensal definida no Simulador › Parâmetros do plano. Sai antes dos objetivos.">Poupança mensal <b class="num">${eur(c.poup)}</b></span>` : ''}${poe[i].map(([x, v]) => `<span class="badge plain" style="margin:2px 4px 2px 0">${esc(nCurto(x))} <b class="num">${eur(v)}</b></span>`).join('')}${reserva[i] > 0.005 ? `<span class="badge warn" style="margin:2px 4px 2px 0" data-tip="Guardar para cobrir meses seguintes que fecham negativos">reserva <b class="num">${eur(reserva[i])}</b></span>` : ''}${cobreNeg[i] > 0.005 ? `<span class="faint" style="font-size:12px">usa ${eur(cobreNeg[i])} da reserva</span>` : ''}</td>
       <td>${paga[i].map(x => `<span class="badge ok" style="margin:2px 4px 2px 0">${icon('check')} ${esc(nCurto(x))}</span>`).join('')}</td>
       <td class="r num faint">${eur(livreCal[i])}</td></tr>`).join('');
   const barra = (pc, cls) => `<div class="progress ${cls}"><i style="width:${Math.min(100, Math.max(0, Math.round(pc)))}%"></i></div>`;
@@ -1836,12 +1844,12 @@ function objetivos(v) {
       ${ed ? `<div class="row" style="margin-top:14px;gap:6px"><button class="btn sm primary" data-cj="${x.o.id}">${icon('key')} Pôr de lado</button><button class="btn sm ghost" data-vj="${x.o.id}">Contribuições e alterar</button></div>` : ''}</div>`; };
   const L = ligacaoCasa(), pend = L ? (CC().registo(L.casa).convites || []).filter(c => c.estado === 'pendente' && ehObj(c)) : [];
   const recebidos = convitesParaMim().filter(({ c }) => ehObj(c));
-  const EXPLICA = 'Um objetivo é algo para que quer juntar dinheiro até uma data. O sistema faz a conta mês a mês: rendimento desse mês (com subsídios) − despesas fixas − prestações. O que sobra paga os objetivos pela ordem da fila. Um objetivo de pagamento de dívidas baixa a prestação depois de feito, e essa folga passa a contar para os seguintes. Um objetivo partilhado é feito a meias: cada um junta a sua parte.';
-  v.innerHTML = `<div class="row between" style="margin-bottom:16px;gap:12px;flex-wrap:wrap"><span class="muted">Pagos com o que sobra em cada mês, por ordem de prioridade ${dica(EXPLICA)}</span>
+  const EXPLICA = 'Um objetivo é algo para que quer juntar dinheiro até uma data. O sistema faz a conta mês a mês: rendimento desse mês (com subsídios) − despesas fixas − prestações − poupança mensal do plano. O que sobra paga os objetivos pela ordem da fila. Um objetivo de pagamento de dívidas baixa a prestação depois de feito, e essa folga passa a contar para os seguintes. Um objetivo partilhado é feito a meias: cada um junta a sua parte.';
+  v.innerHTML = `<div class="row between" style="margin-bottom:16px;gap:12px;flex-wrap:wrap"><span class="muted">Pagos com o que sobra em cada mês, por ordem de prioridade ${dica(EXPLICA)}${poup12 > 0.005 ? `<br><span style="font-size:12px">A <a href="#/simulador" data-aba="pf-sim=par">poupança mensal do plano</a> (${eur(poup12)} em 12 meses) sai primeiro, como um objetivo fixo.</span>` : ''}</span>
       ${ed ? `<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" id="na">${icon('credit')} Amortizar dívida</button><button class="btn" id="nj">${icon('users')} Partilhado</button><button class="btn primary" id="no">${icon('plus')} Novo objetivo</button></div>` : ''}</div>
     <div class="grid g4">${kpi(`${icon('target')} Livre em 12 meses ${dica('O que fica livre daqui a 12 meses, depois de pagar todos os objetivos planeados.')}`, eur(livre12), 'depois dos objetivos', livre12 < 0 ? 'neg' : 'pos', true)}
       ${kpi(`Falta juntar ${dica('Soma do que falta a cada objetivo (nos partilhados, só a sua parte).')}`, eur(sum(lista, 'falta')), `${lista.length} objetivo${lista.length === 1 ? '' : 's'}`)}
-      ${kpi(`Sobra em 12 meses ${dica('Rendimento − despesas fixas − prestações, somado nos próximos 12 meses, antes dos objetivos.')}`, eur(sum(CF.slice(0, 12), 'exc')), 'antes dos objetivos', sum(CF.slice(0, 12), 'exc') < 0 ? 'neg' : '')}
+      ${kpi(`Sobra em 12 meses ${dica('Rendimento − despesas fixas − prestações − poupança mensal do plano, somado nos próximos 12 meses, antes dos objetivos.')}`, eur(sum(CF.slice(0, 12), 'exc')), poup12 > 0.005 ? `já sem ${eur(poup12)} de poupança` : 'antes dos objetivos', sum(CF.slice(0, 12), 'exc') < 0 ? 'neg' : '')}
       ${kpi(`Média por mês ${dica('Média da sobra mensal nos próximos 12 meses. Os meses com subsídio sobem a média.')}`, eur(med), 'próximos 12 meses', med < 0 ? 'neg' : '')}</div>
     ${!pool.some(v => v > 0.005) ? `<div class="alert bad" style="margin-top:16px">${icon('alert')}<div>Não sobra dinheiro em nenhum mês ${dica('Sem sobra mensal, nenhum objetivo tem financiamento. Reveja despesas fixas, dívidas ou o rendimento.')} · <a href="#/despesas">Despesas fixas</a> · <a href="#/dividas">Dívidas</a></div></div>`
       : med < 0 ? `<div class="alert warn" style="margin-top:16px">${icon('alert')}<div>Em média o mês fecha negativo (${eur(med)}) ${dica('Só sobra dinheiro nos meses com +, como os de subsídio. Os objetivos são pagos com essa sobra e os meses negativos gastam-na.')}</div></div>` : ''}
