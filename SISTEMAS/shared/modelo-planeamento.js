@@ -1776,7 +1776,7 @@ function objetivos(v) {
     const ate = x.data ? idx(x.data) : CF.length - 1, antes = S[CF.length - 1] > 0.005, possivel = livreDesde(ate), cobre = r2(Math.min(falta, possivel));
     let k = -1; if (falta > 0) for (let t = 0; t < CF.length; t++) if (livreDesde(t) >= falta - 0.005) { k = t; break; }
     const quando = k >= 0 ? CF[k].ym : null;
-    if (falta > 0 && x.n) { if (cobre >= falta - 0.005) gastar(ate, falta); else if (k >= 0) gastar(k, falta); }
+    if (falta > 0 && n) { if (cobre >= falta - 0.005) gastar(ate, falta); else if (k >= 0) gastar(k, falta); }
     const estado = falta <= 0 ? ['ok', 'atingido'] : !n ? ['', 'sem data'] : cobre >= falta - 0.005 ? ['ok', 'no bom caminho'] : quando ? ['warn', 'atrasa para ' + fmtMes(quando)] : ['bad', 'sem margem'];
     // amortizar uma dívida baixa a prestação a partir do mês seguinte: esse dinheiro passa a contar para os objetivos que vêm depois
     let alivio = null;
@@ -1820,11 +1820,13 @@ function objetivos(v) {
       em cada mês, rendimento desse mês (com subsídios de férias e de Natal) − despesas fixas − prestações. O que sobra até à data de cada objetivo é o que o pode pagar,
       começando pelos de prioridade mais alta. Com a mesma prioridade, a <b>categoria</b> desempata: fundo de emergência, depois pagamento de dívidas (as de juro mais alto primeiro), saúde, habitação, educação, compras e, por fim, férias.
       Um objetivo de <b>pagamento de dívidas</b> baixa a prestação depois de feito, e essa folga passa a contar para os objetivos seguintes. Um objetivo <b>partilhado</b> é feito a meias com outra pessoa: cada um junta a sua parte.</p>
-      <div class="faint" style="font-size:12px;margin:8px 0 4px">Sobra prevista em cada mês</div>
-      <div class="row" style="gap:6px;flex-wrap:wrap">${CF.slice(0, 13).map(c => `<div style="border:1px solid var(--line);border-radius:8px;padding:4px 8px;text-align:center;min-width:76px" data-tip="Rendimento ${eur(c.rend)} − despesas ${eur(c.desp)} − prestações ${eur(c.prest)}${c.alivio ? ` (já com −${eur(c.alivio)} das amortizações planeadas)` : ''}">
-        <div class="faint" style="font-size:11px">${fmtMes(c.ym)}</div><b class="num ${c.exc < 0 ? 'neg' : ''}" style="font-size:13px">${c.exc > 0 ? '+' : ''}${eur(c.exc)}</b></div>`).join('')}</div>
+      <div class="faint" style="font-size:12px;margin:8px 0 4px">Cada mês: o que sobra nesse mês · o que sai para objetivos · o que fica <b>livre</b> (acumulado, depois de todos os objetivos planeados)</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap">${CF.slice(0, 13).map((c, i) => { const obj = r2(S[i] - (i ? S[i - 1] : 0)), livre = r2(pool[i] - S[i]); return `<div style="border:1px solid var(--line);border-radius:8px;padding:4px 8px;text-align:center;min-width:76px" data-tip="Rendimento ${eur(c.rend)} − despesas ${eur(c.desp)} − prestações ${eur(c.prest)}${c.alivio ? ` (já com −${eur(c.alivio)} das amortizações planeadas)` : ''}">
+        <div class="faint" style="font-size:11px">${fmtMes(c.ym)}</div><b class="num ${c.exc < 0 ? 'neg' : ''}" style="font-size:13px">${c.exc > 0 ? '+' : ''}${eur(c.exc)}</b>
+        ${obj > 0.005 ? `<div class="num" style="font-size:11px;color:var(--warn,#f59e0b)">−${eur(obj)} objetivos</div>` : ''}<div class="num faint" style="font-size:11px">livre ${eur(livre)}</div></div>`; }).join('')}</div>
       <div class="kv" style="margin-top:12px"><div><span>Sobra nos próximos 12 meses</span><b class="num ${sum(CF.slice(0, 12), 'exc') < 0 ? 'neg' : ''}">${eur(sum(CF.slice(0, 12), 'exc'))}</b></div>
-        <div><span>${app.kn('pf_exc', 'Excedente médio por mês')} · próximos 12 meses</span><b class="num ${med < 0 ? 'neg' : ''}">${eur(med)}</b></div>
+        <div><span>Livre daqui a 12 meses, depois dos objetivos</span><b class="num">${eur(r2(pool[Math.min(11, CF.length - 1)] - S[Math.min(11, CF.length - 1)]))}</b></div>
+        <div><span>${app.kn('pf_exc', 'Média por mês (12 meses)')}</span><b class="num ${med < 0 ? 'neg' : ''}">${eur(med)}</b></div>
         <div><span>Falta juntar para os objetivos</span><b class="num">${eur(sum(lista, 'falta'))}</b></div></div></div>
     ${!pool.some(v => v > 0.005) ? `<div class="alert bad" style="margin-bottom:16px">${icon('alert')}<div>Nos próximos meses não sobra dinheiro em nenhum mês, por isso nenhum objetivo tem financiamento. Reveja <a href="#/despesas">Despesas fixas</a> e <a href="#/dividas">Dívidas e créditos</a>, ou o <a href="#/rendimentos">rendimento</a>.</div></div>`
       : med < 0 ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div>Em média o mês fecha negativo (${eur(med)}): só sobra dinheiro nos meses assinalados com +, como os de subsídio. Os objetivos são pagos com essa sobra, e os meses negativos gastam-na.</div></div>` : ''}
