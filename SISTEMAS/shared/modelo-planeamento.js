@@ -205,8 +205,8 @@ function compararEstrategias() {
 /* ---------- Fundos, saúde financeira e alertas ---------- */
 const tesouraria = () => app.contasInternas().filter(c => c.categoria === 'TESOURARIA');
 const fundoAtual = () => M().plano.fundoOrigem === 'manual' ? +M().plano.fundoInicial || 0 : r2(tesouraria().reduce((s, c) => s + app.saldo(c.id), 0));
-function indicadores() {
-  const rend = rendimentoMensal(), desp = despesasMensais(), prest = prestacoesMensais(), ds = divAtivas();
+function indicadores(ym = ymHoje()) {
+  const rend = rendimentoMensal(), desp = despesasMensais(ym), prest = prestacoesMensais(), ds = divAtivas();
   const exc = r2(rend - desp - prest), divida = sum(ds, 'capital'), fundo = fundoAtual();
   const dti = rend > 0 ? prest / rend : null, poup = rend > 0 ? Math.max(0, exc) / rend : null, emerg = desp + prest > 0 ? fundo / (desp + prest) : null;
   const tanMedia = divida > 0 ? ds.reduce((s, d) => s + (+d.taxa || 0) * (+d.capital || 0), 0) / divida : 0;
@@ -337,17 +337,21 @@ const fmtMes = k => k ? `${MESES[+k.slice(5, 7) - 1]} ${k.slice(0, 4)}` : '—';
 
 /* ---------- Painel ---------- */
 function visao(v) {
-  const I = indicadores(), ano = +today().slice(0, 4), P = projecao(ano), kn = app.kn;
+  // mês do Painel: despesas próprias em vigor e parte na casa desse mês (valores reais, médias ou plano do cartão)
+  const hojeYm = ymHoje(), mesesSel = Array.from({ length: 12 }, (_, i) => SPAP.addMonths(hojeYm + '-01', i).slice(0, 7));
+  let ym = tab('pf-painel-mes', hojeYm); if (!mesesSel.includes(ym)) ym = hojeYm;
+  const nomeYm = x => `${MESES[+x.slice(5, 7) - 1]} ${x.slice(0, 4)}`;
+  const I = indicadores(ym), ano = +today().slice(0, 4), P = projecao(ano), kn = app.kn;
   const cor = I.score >= 75 ? 'var(--ok)' : I.score >= 50 ? 'var(--warn)' : 'var(--bad)';
   const R = compararEstrategias(), melhor = ESTRATEGIAS.map(e => R[e[0]]).sort((a, b) => (a.meses.length - b.meses.length) || (a.juros - b.juros))[0];
-  v.innerHTML = `${podeEditar() ? `<div class="row" style="justify-content:flex-end;margin-bottom:10px"><button class="btn sm" id="imp">${icon('download')} Importar do Planeador</button></div>` : ''}${I.alertas.map(([k, t]) => `<div class="alert ${k}" style="margin-bottom:10px">${icon('alert')}<div>${t}</div></div>`).join('')}
+  v.innerHTML = `<div class="row" style="justify-content:flex-end;gap:8px;margin-bottom:10px"><span class="muted">Mês</span><select class="inp inp-sm" id="pfm">${mesesSel.map(x => `<option value="${x}" ${x === ym ? 'selected' : ''}>${nomeYm(x)}${x === hojeYm ? ' (atual)' : ''}</option>`).join('')}</select>${podeEditar() ? `<button class="btn sm" id="imp">${icon('download')} Importar do Planeador</button>` : ''}</div>${I.alertas.map(([k, t]) => `<div class="alert ${k}" style="margin-bottom:10px">${icon('alert')}<div>${t}</div></div>`).join('')}
     <div class="grid g4" style="margin-top:${I.alertas.length ? 6 : 0}px">
       ${kpi(`${icon('wallet')} ${kn('pf_rend', 'Rendimento líquido mensal')}`, eur(I.rend), `média a 12 meses · ${P.n} ${P.n === 1 ? 'mês' : 'meses'} com recibo em ${ano}`, '', true)}
-      ${kpi(`${icon('list')} ${kn('pf_desp', 'Despesas fixas / mês')}`, eur(I.desp), (() => { const c = casaParte(), n = despAtivas().length, proprias = r2(despAtivas().reduce((t, e) => t + mensalDesp(e), 0));
+      ${kpi(`${icon('list')} ${kn('pf_desp', 'Despesas fixas / mês')}`, eur(I.desp), (() => { const c = casaParte(ym), n = despAtivas(ym).length, proprias = r2(despAtivas(ym).reduce((t, e) => t + mensalDesp(e), 0));
         const txt = `${n} ${n === 1 ? 'despesa própria' : 'despesas próprias'}${n ? ' · ' + eur(proprias) : ''}`;
         return `<a href="#/despesas">${txt}</a>${c && !c.semDados ? `<br>+ ${eur(c.valor)} parte na casa (${c.n} ${c.n === 1 ? 'despesa comum' : 'despesas comuns'})` : ''}`; })())}
       ${kpi(`${icon('credit')} ${kn('pf_prest', 'Prestações / mês')}`, eur(I.prest), `<a href="#/dividas">${divAtivas().length} dívidas · ${eur(I.divida)}</a>`)}
-      ${kpi(`${icon('coins')} ${kn('pf_exc', 'Excedente mensal')}`, eur(I.exc), I.rend > 0 ? `${pct(Math.max(0, I.exc) / I.rend)} do rendimento` : '', I.exc < 0 ? 'neg' : 'pos')}
+      ${kpi(`${icon('coins')} ${kn('pf_exc', 'Excedente mensal')}`, eur(I.exc), `${nomeYm(ym)}${I.rend > 0 ? ` · ${pct(Math.max(0, I.exc) / I.rend)} do rendimento` : ''}`, I.exc < 0 ? 'neg' : 'pos')}
     </div>
     <div class="grid g2" style="margin-top:16px">
       <div class="card"><div class="card-h"><h3>${kn('pf_saude', 'Saúde financeira')}</h3><span class="badge plain" style="background:${cor};color:#fff;font-size:14px">${I.nota} · ${I.score}/100</span></div>
@@ -361,6 +365,7 @@ function visao(v) {
     </div>
     <div class="card" style="margin-top:16px"><div class="card-h"><h3>${kn('pf_proj', 'Rendimento líquido')} ${ano}</h3><span class="sub">real ${eur(P.ytd)} · projetado ${eur(P.total)} · <a href="#/rendimentos" data-aba="pf-rend=proj">ver projeção</a></span></div><div id="chr"></div></div>`;
   const imp = v.querySelector('#imp'); if (imp) imp.onclick = importarPlaneador;
+  v.querySelector('#pfm').onchange = e => { setTab('pf-painel-mes', e.target.value); app.refresh(); };
   chart.bars(v.querySelector('#chr'), { labels: MES3, stacked: true, series: [
     { name: 'Real', values: P.linhas.map(l => l.real || 0) }, { name: 'Projetado', values: P.linhas.map(l => l.real == null ? l.proj : 0), color: 'var(--accent2)' },
     ...(M().plano.incluirRefeicao && P.refeicaoTotal ? [{ name: 'Subsídio de refeição', values: P.linhas.map(l => l.refeicao), color: 'var(--info)' }] : [])] });
