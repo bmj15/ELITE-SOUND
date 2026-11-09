@@ -1725,8 +1725,14 @@ function sugestoesObjetivos(CF, lista, idx, pool) {
   // 1b) sobra dos próximos 12 meses que nenhum objetivo usa: pô-la a amortizar a dívida mais cara (se ainda não houver objetivo para ela)
   { const k12 = Math.min(11, CF.length - 1), reservado = lista.reduce((t, x) => t + (x.falta > 0 && x.quando && x.quando <= CF[k12].ym ? x.falta : 0), 0), livre = r2(pool[k12] - reservado);
     const cara = alavancas().filter(a => !lista.some(x => x.div && x.div.id === a.d.id)).sort((a, b) => (+b.d.taxa || 0) - (+a.d.taxa || 0))[0];
-    if (livre > 50 && cara && +cara.d.taxa >= 0.05) { const v = r2(Math.min(livre, +cara.d.capital || 0));
-      out.push(['info', 'credit', `Nos próximos 12 meses sobram cerca de <b>${eur(livre)}</b> que nenhum objetivo usa. Amortizar <b>${esc(cara.d.nome)}</b> (a dívida mais cara, TAN ${pct(cara.d.taxa)}) com ${eur(v)} poupa cerca de ${eur(v * cara.d.taxa)}/ano em juros e baixa a prestação em cerca de ${eur(Math.min(+cara.d.prestacao || 0, v * cara.ratio))}/mês.
+    // primeiro: os planos de amortização que já existem e que a sobra permite fazer mais cedo
+    const antecipar = lista.filter(x => x.tipo === 'meu' && x.div && x.falta > 0 && x.estado[1] === 'no bom caminho' && x.quando && x.quando < String(x.data).slice(0, 7));
+    antecipar.forEach(x => out.push(['info', 'credit', `O seu plano <b>${esc(x.nome)}</b> já fica coberto em <b>${fmtMes(x.quando)}</b>, antes da data que escolheu (${date(x.data)}). Amortizar mais cedo faz a prestação descer mais cedo${x.alivio ? ` (cerca de ${eur(x.alivio.red)}/mês)` : ''} e poupa juros de ${pct(x.div.taxa)} nesses meses, sem tirar dinheiro aos outros objetivos.
+      ${podeEditar() ? `<button class="btn sm primary" data-ant="${x.o.id}" data-ym="${x.quando}" style="margin-left:6px">${icon('check')} Antecipar para ${fmtMes(x.quando)}</button>` : ''}`]));
+    // depois: se ainda sobrar, a dívida mais cara que ainda não tem plano
+    const comPlano = lista.filter(x => x.div && x.falta > 0);
+    if (!antecipar.length && livre > 50 && cara && +cara.d.taxa >= 0.05) { const v = r2(Math.min(livre, +cara.d.capital || 0));
+      out.push(['info', 'credit', `${comPlano.length ? `Mesmo com ${comPlano.map(x => `<b>${esc(x.nome)}</b>`).join(' e ')}, nos próximos 12 meses ainda sobram` : 'Nos próximos 12 meses sobram'} cerca de <b>${eur(livre)}</b> que nenhum objetivo usa. ${comPlano.length ? 'Pode juntar um segundo plano: amortizar' : 'Amortizar'} <b>${esc(cara.d.nome)}</b> (a dívida mais cara, TAN ${pct(cara.d.taxa)}) com ${eur(v)} poupa cerca de ${eur(v * cara.d.taxa)}/ano em juros e baixa a prestação em cerca de ${eur(Math.min(+cara.d.prestacao || 0, v * cara.ratio))}/mês.
         ${podeEditar() ? `<button class="btn sm primary" data-sa="${cara.d.id}" data-v="${v}" style="margin-left:6px">${icon('plus')} Criar objetivo de amortização</button>` : ''}`]); } }
   // 1c) categoria: um objetivo de férias/compras coberto à frente de um de emergência/dívidas que fica por cobrir
   lista.forEach(y => { if (!['emergencia', 'dividas'].includes(y.cat) || y.falta <= 0 || y.estado[0] === 'ok') return;
@@ -1761,12 +1767,16 @@ function objetivos(v) {
   // os meus objetivos e a minha parte dos partilhados entram na mesma fila de prioridades
   const itens = [...m.objetivos.filter(o => { const cv = o.partilha ? convDe(o) : null; return !(cv && cv.estado === 'aceite'); }).map(o => ({ tipo: 'meu', o, nome: o.nome, alvo: +o.alvo || 0, poupado: +o.poupado || 0, data: o.data, prioridade: +o.prioridade || 3, cat: catDe(o), peso: pesoCat(o), div: catDe(o) === 'dividas' ? dividaDe(o) : null })),
     ...objPartilhados().map(x => Object.assign(x, { tipo: 'part', nome: x.o.nome, alvo: x.meuAlvo, poupado: x.meu, data: x.o.data, prioridade: +((x.o.prioridades || {})[x.L.eu] || x.o.prioridade) || 3, cat: catDe(x.o), peso: pesoCat(x.o), div: null }))];
-  let A = 0;   // já reservado para objetivos mais prioritários
+  // gasto planeado: cada objetivo tira o seu valor no mês em que é pago, e daí para a frente; um objetivo cabe num mês t
+  // se, de t em diante, nunca faltar dinheiro para ele e para os mais prioritários (que pagam nos seus próprios meses)
+  const S = CF.map(() => 0), gastar = (t, v) => { for (let i = t; i < CF.length; i++) S[i] += v; };
+  const livreDesde = t => { let mn = Infinity; for (let i = t; i < CF.length; i++) mn = Math.min(mn, pool[i] - S[i]); return Math.max(0, r2(mn)); };
   const lista = itens.sort((a, b) => (a.prioridade + a.peso) - (b.prioridade + b.peso) || String(a.data || '9').localeCompare(String(b.data || '9'))).map((x, ordem) => {
     const falta = r2(Math.max(0, x.alvo - x.poupado)), n = mesesAte(x.data), mensal = falta <= 0 ? 0 : n ? falta / n : 0;
-    const ate = x.data ? idx(x.data) : CF.length - 1, possivel = r2(Math.max(0, pool[ate] - A)), cobre = r2(Math.min(falta, possivel));
-    const k = falta > 0 ? pool.findIndex(v => v - A >= falta - 0.005) : -1, quando = k >= 0 ? CF[k].ym : null, antes = A;
-    A += falta <= 0 ? 0 : k >= 0 ? falta : Math.max(0, pool[pool.length - 1] - A);
+    const ate = x.data ? idx(x.data) : CF.length - 1, antes = S[CF.length - 1] > 0.005, possivel = livreDesde(ate), cobre = r2(Math.min(falta, possivel));
+    let k = -1; if (falta > 0) for (let t = 0; t < CF.length; t++) if (livreDesde(t) >= falta - 0.005) { k = t; break; }
+    const quando = k >= 0 ? CF[k].ym : null;
+    if (falta > 0 && x.n) { if (cobre >= falta - 0.005) gastar(ate, falta); else if (k >= 0) gastar(k, falta); }
     const estado = falta <= 0 ? ['ok', 'atingido'] : !n ? ['', 'sem data'] : cobre >= falta - 0.005 ? ['ok', 'no bom caminho'] : quando ? ['warn', 'atrasa para ' + fmtMes(quando)] : ['bad', 'sem margem'];
     // amortizar uma dívida baixa a prestação a partir do mês seguinte: esse dinheiro passa a contar para os objetivos que vêm depois
     let alivio = null;
@@ -1848,6 +1858,8 @@ function objetivos(v) {
     ed1(null, { categoria: 'dividas', prioridade: 3, divida: d ? d.d.id : '', nome: d ? 'Amortizar ' + d.d.nome : 'Amortizar dívida', alvo: d ? r2(Math.min(+d.d.capital || 0, 500)) : 0, data: SPAP.addMonths(hoje, 3) }); };
   v.querySelectorAll('[data-am]').forEach(b => b.onclick = () => { const o = m.objetivos.find(x => x.id === b.dataset.am), d = o && dividaDe(o); if (!d) return;
     pedirAmortizacao(d, Math.min(+o.poupado || 0, +d.capital || 0)); });
+  v.querySelectorAll('[data-ant]').forEach(b => b.onclick = () => { const o = m.objetivos.find(x => x.id === b.dataset.ant); if (!o) return;
+    const ant = o.data; o.data = comDia(b.dataset.ym, 28); audit('PF_OBJETIVO', `${o.nome}: data antecipada de ${date(ant)} para ${date(o.data)}`); app.save(); ui.toast(`${o.nome}: antecipado para ${date(o.data)}`, 'ok'); app.refresh(); });
   v.querySelectorAll('[data-sa]').forEach(b => b.onclick = () => { const d = M().dividas.find(y => y.id === b.dataset.sa); if (!d) return;
     ed1(null, { categoria: 'dividas', prioridade: 3, divida: d.id, nome: 'Amortizar ' + d.nome, alvo: r2(Math.min(+d.capital || 0, +b.dataset.v || 0)), data: SPAP.addMonths(hoje, 12) }); });
   const nj = v.querySelector('#nj'); if (nj) nj.onclick = novoObjPartilhado;
