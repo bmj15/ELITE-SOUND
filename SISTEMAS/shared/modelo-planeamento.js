@@ -1255,6 +1255,11 @@ function badgePartilha(cv) {
     : cv.estado === 'aceite' ? `<span class="badge ok" data-tip="Desde ${fmtMes(cv.despesa.inicio)} conta só a sua parte, na página Partilhas.">partilhada com ${com}</span>`
     : cv.estado === 'recusado' ? `<span class="badge warn">partilha recusada por ${com}</span>` : '';
 }
+const ehObj = c => !!c && c.tipo === 'objetivo';
+const nomeConv = c => ehObj(c) ? c.objetivo.nome : c.despesa.nome, valorConv = c => ehObj(c) ? c.objetivo.alvo : c.despesa.valor;
+const textoConviteObj = (casa, c) => ['PARTILHA-OBJETIVO', casa, c.id, c.de, c.para, c.deSistema, c.paraSistema, c.objetivo.nome, (+c.objetivo.alvo || 0).toFixed(2), c.objetivo.data || '', JSON.stringify(c.objetivo.partes), (+c.objetivo.inicial || 0).toFixed(2)].join('|');
+const textoConv = (casa, c) => ehObj(c) ? textoConviteObj(casa, c) : textoConvite(casa, c);
+const textoContrib = (casa, o, c) => ['PARTILHA-CONTRIBUICAO', casa, o.id, c.id, c.membro, (+c.valor || 0).toFixed(2), c.data || '', c.descricao || ''].join('|');
 const textoConvite = (casa, c) => ['PARTILHA', casa, c.id, c.de, c.para, c.deSistema, c.paraSistema, c.despesa.nome, (+c.despesa.valor || 0).toFixed(2), c.despesa.periodicidade, c.despesa.inicio || '', c.despesa.fim || '', c.despesa.pagaPor, JSON.stringify(c.despesa.partes)].join('|');
 function partilharDespesa(e0) {
   const pessoas = pessoasGrupo(); if (!pessoas.length) { ui.toast('Não há outros planos pessoais no grupo com quem partilhar.', 'warn'); return; }
@@ -1276,6 +1281,15 @@ function partilharDespesa(e0) {
       if (!(+f.minha >= 0 && +f.minha <= 100)) { ui.toast('A sua parte tem de estar entre 0% e 100%', 'warn'); return false; } if (!f.inicio) { ui.toast('Indique desde quando', 'warn'); return false; }
       setTimeout(async () => { if (await enviarConvite(e0, f)) app.refresh(); }, 0); } }] });
 }
+function livroCom(alvo) {
+  const L = ligacaoCasa(), outroNome = semPessoal(alvo.nome); let casa, eu, outro;
+  if (L) { casa = L.casa; eu = L.eu; const mb = (CC().registo(casa).membros || []).find(x => x.sistema === alvo.key); outro = mb ? mb.id : 'M' + uid();
+    if (!mb) CC().alterar(casa, r => { r.membros = r.membros || []; r.membros.push({ id: outro, nome: outroNome, sistema: alvo.key }); }); }
+  else { eu = 'M' + uid(); outro = 'M' + uid();
+    casa = CC().nova({ nome: `${app.user.nome.split(' ')[0]} e ${outroNome.split(' ')[0]}`, membros: [{ id: eu, nome: app.user.nome, sistema: sub.key }, { id: outro, nome: outroNome, sistema: alvo.key }] });
+    M().plano.casa = casa; M().plano.membroCasa = eu; }
+  return { casa, eu, outro };
+}
 async function enviarConvite(e0, f) {
   const alvo = pessoasGrupo().find(x => x.key === f.com); if (!alvo) return false;
   const minha = r2(Math.min(100, Math.max(0, +f.minha || 0))) / 100, outroNome = semPessoal(alvo.nome);
@@ -1283,12 +1297,7 @@ async function enviarConvite(e0, f) {
   if (L && !(CC().livro(L.casa) || {}).partilha) { ui.toast('Este plano ainda está ligado a uma casa antiga. Peça a migração para partilhas.', 'bad'); return false; }
   const s = await app.assinar('Propor partilha', `<b>${esc(f.nome)}</b> · ${eur(+f.valor || 0)} (${esc(nomePer(f.periodicidade))}) com <b>${esc(outroNome)}</b><br>A sua parte: <b>${pct(minha)}</b> · paga: ${f.paga === 'eu' ? 'eu' : esc(outroNome)} · desde ${fmtMes(f.inicio)}<br><span style="font-size:12px">${esc(outroNome)} recebe o pedido na Caixa de entrada e a partilha começa quando aceitar.</span>`);
   if (!s) return false;
-  let casa, eu, outro;
-  if (L) { casa = L.casa; eu = L.eu; const mb = (CC().registo(casa).membros || []).find(x => x.sistema === alvo.key); outro = mb ? mb.id : 'M' + uid();
-    if (!mb) CC().alterar(casa, r => { r.membros = r.membros || []; r.membros.push({ id: outro, nome: outroNome, sistema: alvo.key }); }); }
-  else { eu = 'M' + uid(); outro = 'M' + uid();
-    casa = CC().nova({ nome: `${app.user.nome.split(' ')[0]} e ${outroNome.split(' ')[0]}`, membros: [{ id: eu, nome: app.user.nome, sistema: sub.key }, { id: outro, nome: outroNome, sistema: alvo.key }] });
-    M().plano.casa = casa; M().plano.membroCasa = eu; }
+  const { casa, eu, outro } = livroCom(alvo);
   const despesa = { id: 'C' + uid(), nome: f.nome.trim(), categoria: f.categoria, valor: r2(+f.valor || 0), periodicidade: f.periodicidade, dia: Math.min(28, Math.max(1, parseInt(f.dia, 10) || 1)), inicio: f.inicio, fim: f.fim || '',
     variavel: f.periodicidade !== 'compras' && !!f.variavel, ativo: true, pagaPor: f.paga === 'eu' ? eu : outro, partes: { [eu]: minha, [outro]: r2((1 - minha) * 10000) / 10000 }, ...(e0 ? { origem: { sistema: sub.key, despesa: e0.id } } : {}) };
   const c = { id: 'Cv' + uid(), tipo: 'despesa', de: eu, para: outro, deSistema: sub.key, paraSistema: alvo.key, deNome: app.user.nome, paraNome: outroNome, despesa, estado: 'pendente', criadoEm: new Date().toISOString() };
@@ -1300,7 +1309,9 @@ async function enviarConvite(e0, f) {
 }
 // pedidos de partilha dirigidos a este plano, em todas as partilhas a que tem acesso
 const convitesParaMim = () => CC() ? CC().partilhas().flatMap(casa => (CC().registo(casa).convites || []).filter(c => c.estado === 'pendente' && c.paraSistema === sub.key).map(c => ({ casa, c }))) : [];
-const resumoConvite = (casa, c) => { const d = c.despesa, parte = +((d.partes || {})[c.para]) || 0, quem = d.pagaPor === c.para ? 'paga você' : `paga ${esc(semPessoal(c.deNome).split(' ')[0])}`;
+const resumoConvite = (casa, c) => { if (ehObj(c)) { const o = c.objetivo, parte = +((o.partes || {})[c.para]) || 0;
+    return `<b>${esc(semPessoal(c.deNome))}</b> propõe um objetivo em conjunto: <b>${esc(o.nome)}</b> · ${eur(o.alvo)}${o.data ? ' até ' + date(o.data) : ''} · a sua parte <b>${pct(parte)}</b> (${eur(o.alvo * parte)})${+o.inicial > 0 ? ` · ${esc(semPessoal(c.deNome).split(' ')[0])} já tem ${eur(o.inicial)} poupados` : ''}`; }
+  const d = c.despesa, parte = +((d.partes || {})[c.para]) || 0, quem = d.pagaPor === c.para ? 'paga você' : `paga ${esc(semPessoal(c.deNome).split(' ')[0])}`;
   return `<b>${esc(semPessoal(c.deNome))}</b> propõe partilhar <b>${esc(d.nome)}</b> · ${d.periodicidade === 'compras' ? `orçamento ${eur(d.valor)}/mês, cada um regista as compras` : `${eur(d.valor)} ${esc(nomePer(d.periodicidade).toLowerCase())}`} · ${quem} · a sua parte <b>${pct(parte)}</b>${d.periodicidade !== 'compras' ? ` (${eur(d.valor * parte)})` : ''} · desde ${fmtMes(d.inicio)}${d.fim ? ' até ' + fmtMes(d.fim) : ''}`; };
 function responderConvite(casa, id) {
   const c = (CC().registo(casa).convites || []).find(x => x.id === id); if (!c) return false;
@@ -1312,19 +1323,23 @@ async function decidirConvite(casa, id, aceitar) {
   const c = (CC().registo(casa).convites || []).find(x => x.id === id); if (!c || c.estado !== 'pendente') return false;
   const pl = M().plano; if (aceitar && pl.casa && pl.casa !== casa) { ui.toast('Este plano já partilha despesas noutro registo: não é possível juntar os dois.', 'bad'); return false; }
   const s = await app.assinar(aceitar ? 'Aceitar partilha' : 'Recusar partilha', resumoConvite(casa, c)); if (!s) return false;
-  const resp = { user: app.user.id, nome: app.user.nome, em: new Date().toISOString(), assinatura: await s.signer.texto(aceitar ? 'ACEITAR_PARTILHA' : 'RECUSAR_PARTILHA', textoConvite(casa, c)) };
+  const resp = { user: app.user.id, nome: app.user.nome, em: new Date().toISOString(), assinatura: await s.signer.texto(aceitar ? 'ACEITAR_PARTILHA' : 'RECUSAR_PARTILHA', textoConv(casa, c)) };
   CC().alterar(casa, r => { const x = (r.convites || []).find(y => y.id === id); if (!x || x.estado !== 'pendente') return;
     x.estado = aceitar ? 'aceite' : 'recusado'; x.resposta = resp;
-    if (aceitar) { r.despesas.push(Object.assign({}, x.despesa, { convite: x.id })); const mb = (r.membros || []).find(m => m.id === x.para); if (mb) mb.nome = app.user.nome; } });
+    if (aceitar && ehObj(x)) { const o = x.objetivo; r.objetivos = r.objetivos || [];
+      r.objetivos.push({ id: o.id, nome: o.nome, alvo: o.alvo, data: o.data || '', prioridade: o.prioridade || 3, partes: o.partes, convite: x.id, criadoPor: x.de,
+        contribuicoes: +o.inicial > 0 ? [{ id: 'Ct' + uid(), membro: x.de, valor: r2(+o.inicial), data: String(x.criadoEm || '').slice(0, 10), descricao: 'Já poupado ao propor', inicial: true }] : [] }); }
+    else if (aceitar) r.despesas.push(Object.assign({}, x.despesa, { convite: x.id }));
+    if (aceitar) { const mb = (r.membros || []).find(m => m.id === x.para); if (mb) mb.nome = app.user.nome; } });
   if (aceitar && !pl.casa) { pl.casa = casa; pl.membroCasa = c.para; }
-  audit(aceitar ? 'PF_PARTILHA_ACEITE' : 'PF_PARTILHA_RECUSADA', `${c.despesa.nome} · proposta de ${semPessoal(c.deNome)}`); app.save();
+  audit(aceitar ? 'PF_PARTILHA_ACEITE' : 'PF_PARTILHA_RECUSADA', `${nomeConv(c)} · proposta de ${semPessoal(c.deNome)}`); app.save();
   ui.toast(aceitar ? 'Partilha aceite' : 'Partilha recusada', 'ok'); return true;
 }
 async function cancelarConvite(casa, id) {
   const c = (CC().registo(casa).convites || []).find(x => x.id === id); if (!c || c.estado !== 'pendente' || c.deSistema !== sub.key) return false;
-  if (!await ui.confirm('Cancelar pedido', `Cancelar o pedido de partilha de "${esc(c.despesa.nome)}"?`, { okLabel: 'Cancelar pedido', danger: true })) return false;
+  if (!await ui.confirm('Cancelar pedido', `Cancelar o pedido de partilha de "${esc(nomeConv(c))}"?`, { okLabel: 'Cancelar pedido', danger: true })) return false;
   CC().alterar(casa, r => { const x = (r.convites || []).find(y => y.id === id); if (x && x.estado === 'pendente') Object.assign(x, { estado: 'cancelado', canceladoEm: new Date().toISOString(), canceladoPor: app.user.nome }); });
-  audit('PF_PARTILHA_CANCELADA', c.despesa.nome); app.save(); return true;
+  audit('PF_PARTILHA_CANCELADA', nomeConv(c)); app.save(); return true;
 }
 // editar uma despesa já partilhada (fica registado quem alterou); para deixar de partilhar indica-se o último mês
 function editarPartilhada(L, id) {
@@ -1365,7 +1380,7 @@ function cartaoPartilhas(L, ex) {
     .sort((a, b) => String(a.nome).localeCompare(String(b.nome)));
   const pend = (R.convites || []).filter(c => c.estado === 'pendente');
   return `<div class="card flush" style="margin-bottom:16px"><div class="card-h"><h3>Despesas partilhadas</h3><span class="sub">clique para alterar · para deixar de partilhar indique o último mês</span>${ed ? `<button class="btn sm primary" id="nps" style="margin-left:auto">${icon('plus')} Nova despesa partilhada</button>` : ''}</div>
-    ${pend.length ? `<div style="padding:0 16px 8px">${pend.map(c => `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${c.deSistema === sub.key ? `Pedido enviado a <b>${esc(semPessoal(c.paraNome))}</b>: ${esc(c.despesa.nome)} · ${eur(c.despesa.valor)}` : resumoConvite(L.casa, c)}</span>
+    ${pend.length ? `<div style="padding:0 16px 8px">${pend.map(c => `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${c.deSistema === sub.key ? `Pedido enviado a <b>${esc(semPessoal(c.paraNome))}</b>: ${ehObj(c) ? 'objetivo ' : ''}${esc(nomeConv(c))} · ${eur(valorConv(c))}` : resumoConvite(L.casa, c)}</span>
       <span>${c.deSistema === sub.key ? `<span class="badge info">aguarda resposta</span> ${ed ? `<button class="btn sm ghost" data-cc="${c.id}">Cancelar</button>` : ''}` : c.paraSistema === sub.key && ed ? `<button class="btn sm primary" data-rc="${c.id}">${icon('key')} Responder</button>` : ''}</span></div>`).join('')}</div>` : ''}
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th>Periodicidade</th><th class="r">Valor do mês</th><th>Quem paga</th><th class="r">A minha parte</th><th>Período</th><th></th></tr></thead><tbody>
     ${ds.map(e => { const vm = CC().valorMes(e, ymHoje()), daqui = (R.despesas || []).some(x => x.id === e.id);
@@ -1548,31 +1563,146 @@ function simulador(v) {
 /* ---------- Objetivos e compras ---------- */
 const COLS_OBJ = () => [{ k: 'nome', label: 'Objetivo', ph: 'ex.: Entrada para casa' }, { k: 'alvo', label: 'Valor necessário', type: 'money' }, { k: 'poupado', label: 'Já poupado', type: 'money' },
   { k: 'data', label: 'Data pretendida', type: 'date' }, { k: 'prioridade', label: 'Prioridade', type: 'select', opts: [[1, '1 · Máxima'], [2, '2 · Alta'], [3, '3 · Média'], [4, '4 · Baixa'], [5, '5 · Mínima']] }, { k: 'notas', label: 'Notas' }];
-function objetivos(v) {
-  const m = M(), ed = podeEditar(), I = indicadores(), hoje = today();
-  const mesesAte = d => { if (!d) return null; const a = (+d.slice(0, 4) - +hoje.slice(0, 4)) * 12 + (+d.slice(5, 7) - +hoje.slice(5, 7)); return Math.max(1, a); };
-  let disp = Math.max(0, I.exc);
-  const lista = m.objetivos.slice().sort((a, b) => (+a.prioridade || 3) - (+b.prioridade || 3) || String(a.data || '9').localeCompare(String(b.data || '9'))).map(o => {
-    const falta = Math.max(0, (+o.alvo || 0) - (+o.poupado || 0)), n = mesesAte(o.data), mensal = falta <= 0 ? 0 : n ? falta / n : 0;
-    const cobre = Math.min(disp, mensal); disp = Math.max(0, disp - mensal);
-    const estado = falta <= 0 ? ['ok', 'atingido'] : !n ? ['', 'sem data'] : cobre >= mensal - 0.005 ? ['ok', 'viável'] : cobre > 0 ? ['warn', 'em risco'] : ['bad', 'sem margem'];
-    const quando = falta > 0 && mensal > 0 && cobre > 0 && cobre < mensal ? SPAP.addMonths(hoje, Math.ceil(falta / cobre)) : null;
-    return { o, falta, n, mensal: r2(mensal), cobre: r2(cobre), estado, quando };
+// objetivos partilhados (no livro de partilhas): cada um tem a sua parte do valor e regista as suas contribuições
+function objPartilhados() {
+  const L = ligacaoCasa(); if (!L) return []; const R = CC().registo(L.casa);
+  return (R.objetivos || []).filter(o => !o.arquivado && +((o.partes || {})[L.eu]) > 0).map(o => {
+    const cs = (o.contribuicoes || []).filter(c => !c.anulada), parte = +o.partes[L.eu];
+    return { o, cs, L, R, parte, total: sum(cs, 'valor'), meuAlvo: r2((+o.alvo || 0) * parte), meu: sum(cs.filter(c => c.membro === L.eu), 'valor') };
   });
-  v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">O excedente mensal (${eur(Math.max(0, I.exc))}) é distribuído pelos objetivos por ordem de prioridade.</span>${ed ? `<button class="btn primary" id="no">${icon('plus')} Novo objetivo</button>` : ''}</div>
-    <div class="grid g3">${kpi(`${icon('target')} Objetivos`, String(m.objetivos.length), `${lista.filter(x => x.estado[1] === 'viável' || x.estado[1] === 'atingido').length} viáveis ou atingidos`, '', true)}
-      ${kpi('Em falta', eur(sum(lista, 'falta')))}${kpi('Necessário por mês', eur(sum(lista, 'mensal')), `excedente ${eur(Math.max(0, I.exc))}`, sum(lista, 'mensal') > Math.max(0, I.exc) ? 'neg' : '')}</div>
-    <div class="grid g2" style="margin-top:16px">${lista.map(x => `<div class="card ${ed ? 'click' : ''}" data-o="${x.o.id}" style="cursor:${ed ? 'pointer' : 'default'}"><div class="card-h"><h3>${esc(x.o.nome)}</h3><span class="badge ${x.estado[0]}">${x.estado[1]}</span></div>
-      <div class="progress ${x.estado[0] === 'bad' ? 'bad' : x.estado[0] === 'warn' ? 'warn' : ''}"><i style="width:${Math.min(100, Math.round(100 * (+x.o.poupado || 0) / Math.max(1, +x.o.alvo || 0)))}%"></i></div>
-      <div class="kv" style="margin-top:12px"><div><span>Poupado / necessário</span><b class="num">${eur(x.o.poupado)} / ${eur(x.o.alvo)}</b></div><div><span>Data pretendida</span><b>${x.o.data ? date(x.o.data) : '—'}${x.n ? ` · ${x.n} meses` : ''}</b></div>
-        <div><span>Necessário por mês</span><b class="num">${eur(x.mensal)}</b></div><div><span>Coberto pelo excedente</span><b class="num">${eur(x.cobre)}</b></div>
-        ${x.quando ? `<div><span>Ao ritmo possível</span><b>${date(x.quando)}</b></div>` : ''}<div><span>Prioridade</span><b>${esc(String(x.o.prioridade || 3))}</b></div></div></div>`).join('') || '<div class="empty">Sem objetivos. Adicione compras ou metas de poupança.</div>'}</div>`;
+}
+function novoObjPartilhado() {
+  const pessoas = pessoasGrupo(); if (!pessoas.length) { ui.toast('Não há outros planos pessoais no grupo com quem partilhar.', 'warn'); return; }
+  const L = ligacaoCasa(); if (L && !(CC().livro(L.casa) || {}).partilha) { ui.toast('Este plano ainda está ligado a uma casa antiga. Peça a migração para partilhas.', 'bad'); return; }
+  ui.modal({ title: 'Novo objetivo partilhado', wide: true, sub: 'A outra pessoa recebe o pedido na Caixa de entrada. O objetivo começa quando ela aceitar.',
+    body: `<form class="form"><div class="fld"><label>Partilhar com</label><select class="inp" name="com">${pessoas.map(x => `<option value="${x.key}">${esc(semPessoal(x.nome))}</option>`).join('')}</select></div>
+      <div class="fld"><label>Objetivo</label><input class="inp" name="nome" placeholder="ex.: Férias, sofá novo, caução da casa"></div>
+      <div class="fld"><label>Valor total necessário (€)</label><input class="inp num" type="number" step="any" name="alvo"></div>
+      <div class="fld"><label>Data pretendida</label><input class="inp" type="date" name="data" value="${SPAP.addMonths(today(), 12)}"></div>
+      <div class="fld"><label>A minha parte (%)</label><input class="inp num" type="number" step="any" min="0" max="100" name="minha" value="50"><span class="hint">Cada um junta a sua parte do valor total.</span></div>
+      <div class="fld"><label>Eu já tenho poupado (€)</label><input class="inp num" type="number" step="any" name="inicial" value="0"><span class="hint">Opcional. Conta como a sua primeira contribuição.</span></div>
+      <div class="fld"><label>Prioridade (no meu plano)</label><select class="inp" name="prioridade">${[[1, '1 · Máxima'], [2, '2 · Alta'], [3, '3 · Média'], [4, '4 · Baixa'], [5, '5 · Mínima']].map(([k, l]) => `<option value="${k}" ${k === 3 ? 'selected' : ''}>${l}</option>`).join('')}</select></div></form>`,
+    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('key') + 'Assinar e enviar', kind: 'primary', onClick: el => { const f = ui.formData(el);
+      if (!f.nome) { ui.toast('Indique o objetivo', 'warn'); return false; } if (!(+f.alvo > 0)) { ui.toast('Indique o valor necessário', 'warn'); return false; }
+      if (!(+f.minha > 0 && +f.minha < 100)) { ui.toast('A sua parte tem de estar entre 0% e 100%', 'warn'); return false; }
+      setTimeout(async () => { if (await enviarObjPartilhado(f)) app.refresh(); }, 0); } }] });
+}
+async function enviarObjPartilhado(f) {
+  const alvo = pessoasGrupo().find(x => x.key === f.com); if (!alvo) return false;
+  const minha = r2(+f.minha) / 100, outroNome = semPessoal(alvo.nome), inicial = Math.max(0, r2(+f.inicial || 0));
+  const s = await app.assinar('Propor objetivo partilhado', `<b>${esc(f.nome)}</b> · ${eur(+f.alvo)}${f.data ? ' até ' + date(f.data) : ''} com <b>${esc(outroNome)}</b><br>A sua parte: <b>${pct(minha)}</b> (${eur(+f.alvo * minha)})${inicial ? ` · já poupado: ${eur(inicial)}` : ''}<br><span style="font-size:12px">${esc(outroNome)} recebe o pedido na Caixa de entrada.</span>`);
+  if (!s) return false;
+  const { casa, eu, outro } = livroCom(alvo);
+  const objetivo = { id: 'J' + uid(), nome: f.nome.trim(), alvo: r2(+f.alvo), data: f.data || '', prioridade: +f.prioridade || 3, inicial, partes: { [eu]: minha, [outro]: r2((1 - minha) * 10000) / 10000 } };
+  const c = { id: 'Cv' + uid(), tipo: 'objetivo', de: eu, para: outro, deSistema: sub.key, paraSistema: alvo.key, deNome: app.user.nome, paraNome: outroNome, objetivo, estado: 'pendente', criadoEm: new Date().toISOString() };
+  c.proposta = { user: app.user.id, nome: app.user.nome, assinatura: await s.signer.texto('PROPOR_PARTILHA', textoConviteObj(casa, c)) };
+  CC().alterar(casa, r => { r.convites = r.convites || []; r.convites.push(c); });
+  audit('PF_OBJETIVO_PARTILHA_PROPOSTA', `${objetivo.nome} · ${eur(objetivo.alvo)} com ${outroNome} · minha parte ${pct(minha)}`); app.save();
+  ui.toast(`Pedido enviado a ${outroNome.split(' ')[0]}`, 'ok'); return true;
+}
+function contribuirObj(x) {
+  ui.modal({ title: 'Pôr de lado · ' + esc(x.o.nome), sub: 'Registe o que juntou para este objetivo. Quem partilha consigo vê o progresso.', body: `<form class="form">
+      <div class="fld"><label>Valor (€)</label><input class="inp num" type="number" step="any" name="valor" value="${x.mensal || ''}"></div>
+      <div class="fld"><label>Data</label><input class="inp" type="date" name="data" max="${today()}" value="${today()}"></div>
+      <div class="fld full"><label>Descrição</label><input class="inp" name="descricao" placeholder="opcional"></div></form>`,
+    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('key') + 'Assinar e registar', kind: 'primary', onClick: el => { const f = ui.formData(el);
+      if (!(+f.valor > 0)) { ui.toast('Indique o valor', 'warn'); return false; }
+      setTimeout(async () => { const s = await app.assinar('Contribuição para objetivo', `<b>${esc(x.o.nome)}</b> · ${date(f.data || today())} · <b>${eur(+f.valor)}</b>`); if (!s) return;
+        const c = { id: 'Ct' + uid(), membro: x.L.eu, valor: r2(+f.valor), data: f.data || today(), descricao: f.descricao || '', sistema: sub.key, criadoEm: new Date().toISOString() };
+        c.registo = { user: app.user.id, nome: app.user.nome, assinatura: await s.signer.texto('CONTRIBUIR_OBJETIVO', textoContrib(x.L.casa, x.o, c)) };
+        CC().alterar(x.L.casa, r => { const o = (r.objetivos || []).find(y => y.id === x.o.id); if (o) { o.contribuicoes = o.contribuicoes || []; o.contribuicoes.push(c); } });
+        audit('PF_OBJETIVO_CONTRIBUICAO', `${x.o.nome} · ${eur(c.valor)}`); app.save(); ui.toast('Contribuição registada', 'ok'); app.refresh(); }, 0); } }] });
+}
+function verObjPartilhado(x) {
+  const nm = id => semPessoal(nomeMembro(x.L.casa, id)).split(' ')[0], ms = x.R.membros || [], ed = podeEditar();
+  ui.modal({ title: 'Objetivo partilhado · ' + esc(x.o.nome), wide: true, sub: 'As alterações valem para todos e ficam registadas com o seu nome.', body: `
+    <div class="tbl-wrap" style="margin-bottom:16px"><table class="tbl"><thead><tr><th>Data</th><th>Quem</th><th>Descrição</th><th class="r">Valor</th><th></th></tr></thead><tbody>
+      ${x.cs.slice().sort((a, b) => String(b.data).localeCompare(String(a.data))).map(c => `<tr><td>${date(c.data)}</td><td>${esc(nm(c.membro))}</td><td>${esc(c.descricao || '')}</td><td class="r num">${eur(c.valor)}</td>
+        <td class="r">${ed && c.membro === x.L.eu && !c.inicial ? `<button class="btn sm ghost" data-an="${c.id}">Anular</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Ainda sem contribuições.</td></tr>'}</tbody></table></div>
+    ${ed ? `<form class="form"><div class="fld"><label>Objetivo</label><input class="inp" name="nome" value="${esc(x.o.nome)}"></div>
+      <div class="fld"><label>Valor total necessário (€)</label><input class="inp num" type="number" step="any" name="alvo" value="${esc(x.o.alvo)}"></div>
+      <div class="fld"><label>Data pretendida</label><input class="inp" type="date" name="data" value="${esc(x.o.data || '')}"></div>
+      <div class="fld full"><label>Parte de cada um (%)</label><div class="row" style="gap:12px;flex-wrap:wrap">${ms.filter(m => (x.o.partes || {})[m.id] != null).map(m => `<label style="display:flex;gap:6px;align-items:center">${esc(nm(m.id))} <input class="inp inp-sm num" type="number" step="any" min="0" max="100" data-parte="${m.id}" value="${r2((+x.o.partes[m.id] || 0) * 100)}" style="width:80px"></label>`).join('')}</div></div>
+      <div class="fld"><label>&nbsp;</label><label class="check"><input type="checkbox" name="arquivar"> Terminar (atingido ou desistiram)</label></div></form>` : ''}`,
+    actions: ed ? [{ label: 'Fechar', kind: 'ghost' }, { label: 'Guardar', kind: 'primary', onClick: el => {
+      const f = ui.formData(el), partes = {}; el.querySelectorAll('[data-parte]').forEach(i => { partes[i.dataset.parte] = r2((+i.value || 0) / 100 * 10000) / 10000; });
+      const soma = Object.values(partes).reduce((a, b) => a + b, 0); if (Math.abs(soma - 1) > 0.0001) { ui.toast(`As partes somam ${pct(soma)}: devem somar 100%`, 'warn'); return false; }
+      if (!f.nome || !(+f.alvo > 0)) { ui.toast('Indique o objetivo e o valor', 'warn'); return false; }
+      CC().alterar(x.L.casa, r => { const o = (r.objetivos || []).find(y => y.id === x.o.id); if (!o) return;
+        Object.assign(o, { nome: f.nome, alvo: r2(+f.alvo), data: f.data || '', partes, alteradoPor: app.user.nome, alteradoEm: new Date().toISOString() });
+        if (f.arquivar) Object.assign(o, { arquivado: true, arquivadoPor: app.user.nome, arquivadoEm: new Date().toISOString() }); });
+      audit('PF_OBJETIVO_PARTILHA_ALTERADO', `${f.nome} · ${eur(+f.alvo)}${f.arquivar ? ' · terminado' : ''}`); app.save(); app.refresh(); } }] : [{ label: 'Fechar', kind: 'ghost' }],
+    onOpen: (el, fechar) => el.querySelectorAll('[data-an]').forEach(b => b.onclick = async () => { const c = x.cs.find(y => y.id === b.dataset.an); if (!c) return; fechar();
+      const s = await app.assinar('Anular contribuição', `${esc(x.o.nome)} · ${date(c.data)} · <b>${eur(c.valor)}</b>`); if (!s) return;
+      const an = { user: app.user.id, nome: app.user.nome, em: new Date().toISOString(), assinatura: await s.signer.texto('ANULAR_CONTRIBUICAO', textoContrib(x.L.casa, x.o, c)) };
+      CC().alterar(x.L.casa, r => { const o = (r.objetivos || []).find(y => y.id === x.o.id); const y = o && (o.contribuicoes || []).find(z => z.id === c.id); if (y && y.membro === x.L.eu) Object.assign(y, { anulada: true, anulacao: an }); });
+      audit('PF_OBJETIVO_CONTRIBUICAO_ANULADA', `${x.o.nome} · ${eur(c.valor)}`); app.save(); app.refresh(); }) });
+}
+function objetivos(v) {
+  const m = M(), ed = podeEditar(), I = indicadores(), hoje = today(), exc = Math.max(0, I.exc);
+  const mesesAte = d => { if (!d) return null; const a = (+d.slice(0, 4) - +hoje.slice(0, 4)) * 12 + (+d.slice(5, 7) - +hoje.slice(5, 7)); return Math.max(1, a); };
+  // os meus objetivos e a minha parte dos partilhados entram na mesma fila de prioridades
+  const itens = [...m.objetivos.map(o => ({ tipo: 'meu', o, nome: o.nome, alvo: +o.alvo || 0, poupado: +o.poupado || 0, data: o.data, prioridade: +o.prioridade || 3 })),
+    ...objPartilhados().map(x => Object.assign(x, { tipo: 'part', nome: x.o.nome, alvo: x.meuAlvo, poupado: x.meu, data: x.o.data, prioridade: +((x.o.prioridades || {})[x.L.eu] || x.o.prioridade) || 3 }))];
+  let disp = exc;
+  const lista = itens.sort((a, b) => a.prioridade - b.prioridade || String(a.data || '9').localeCompare(String(b.data || '9'))).map(x => {
+    const falta = r2(Math.max(0, x.alvo - x.poupado)), n = mesesAte(x.data), mensal = falta <= 0 ? 0 : n ? falta / n : 0;
+    const cobre = Math.min(disp, mensal); disp = Math.max(0, disp - mensal);
+    const estado = falta <= 0 ? ['ok', 'atingido'] : !n ? ['', 'sem data'] : cobre >= mensal - 0.005 ? ['ok', 'no bom caminho'] : cobre > 0 ? ['warn', 'em risco'] : ['bad', 'sem margem'];
+    const quando = falta > 0 && cobre > 0 ? SPAP.addMonths(hoje, Math.ceil(falta / cobre)) : null;
+    return Object.assign(x, { falta, n, mensal: r2(mensal), cobre: r2(cobre), estado, quando });
+  });
+  const totMensal = sum(lista, 'mensal'), sobra = r2(exc - totMensal);
+  const frase = x => x.falta <= 0 ? 'Objetivo atingido. Pode terminá-lo ou aumentar o valor.'
+    : !x.n ? `Faltam <b>${eur(x.falta)}</b>. Sem data pretendida não é possível dizer quanto pôr de lado por mês: indique uma data.`
+    : x.estado[1] === 'no bom caminho' ? `Faltam <b>${eur(x.falta)}</b>. Pondo de lado <b>${eur(x.mensal)}/mês</b> chega lá a ${date(x.data)}, e o excedente chega para isso.`
+    : x.cobre > 0 ? `Faltam <b>${eur(x.falta)}</b>. Precisava de <b>${eur(x.mensal)}/mês</b>, mas depois dos objetivos mais prioritários só sobram ${eur(x.cobre)}/mês: a esse ritmo chega lá em <b>${fmtMes(x.quando.slice(0, 7))}</b>.`
+    : `Faltam <b>${eur(x.falta)}</b>. Precisava de <b>${eur(x.mensal)}/mês</b>, mas o excedente já está todo comprometido${exc <= 0 ? ' (não sobra nada ao fim do mês)' : ' com objetivos mais prioritários'}.`;
+  const barra = (pc, cls) => `<div class="progress ${cls}"><i style="width:${Math.min(100, Math.max(0, Math.round(pc)))}%"></i></div>`;
+  const cartao = x => { const cls = x.estado[0] === 'bad' ? 'bad' : x.estado[0] === 'warn' ? 'warn' : '';
+    if (x.tipo === 'meu') return `<div class="card"><div class="card-h"><h3>${esc(x.nome)}</h3><span class="badge ${x.estado[0]}">${x.estado[1]}</span></div>
+      ${barra(100 * x.poupado / Math.max(1, x.alvo), cls)}<p style="margin:12px 0">${frase(x)}</p>
+      <div class="kv"><div><span>Poupado / necessário</span><b class="num">${eur(x.poupado)} / ${eur(x.alvo)}</b></div><div><span>Data pretendida</span><b>${x.data ? date(x.data) : '—'}${x.n ? ` · ${x.n === 1 ? '1 mês' : x.n + ' meses'}` : ''}</b></div>
+        <div><span>Prioridade</span><b>${x.prioridade}</b></div></div>
+      ${ed ? `<div class="row" style="margin-top:12px;gap:8px"><button class="btn sm primary" data-pp="${x.o.id}">${icon('plus')} Pôr de lado</button><button class="btn sm ghost" data-o="${x.o.id}">Alterar</button></div>` : ''}</div>`;
+    const nm = id => semPessoal(nomeMembro(x.L.casa, id)).split(' ')[0];
+    const porMembro = Object.keys(x.o.partes || {}).map(id => ({ id, alvo: r2((+x.o.alvo || 0) * (+x.o.partes[id] || 0)), juntou: sum(x.cs.filter(c => c.membro === id), 'valor') }));
+    return `<div class="card"><div class="card-h"><h3>${esc(x.nome)}</h3><span class="badge info">${icon('users')} partilhado</span><span class="badge ${x.estado[0]}">${x.estado[1]}</span></div>
+      ${barra(100 * x.total / Math.max(1, +x.o.alvo || 0), '')}<div class="faint" style="font-size:12px;margin-top:4px">Juntos: ${eur(x.total)} de ${eur(x.o.alvo)}${x.o.data ? ' até ' + date(x.o.data) : ''}</div>
+      <p style="margin:12px 0">A sua parte é ${pct(x.parte)} (${eur(x.meuAlvo)}). ${frase(x)}</p>
+      <div class="kv">${porMembro.map(p => `<div><span>${p.id === x.L.eu ? 'Eu' : esc(nm(p.id))} · parte ${eur(p.alvo)}</span><b class="num">${eur(p.juntou)} ${p.juntou >= p.alvo - 0.005 ? '✓' : `<span class="faint" style="font-size:11px">faltam ${eur(p.alvo - p.juntou)}</span>`}</b></div>`).join('')}</div>
+      ${ed ? `<div class="row" style="margin-top:12px;gap:8px"><button class="btn sm primary" data-cj="${x.o.id}">${icon('key')} Pôr de lado</button><button class="btn sm ghost" data-vj="${x.o.id}">Contribuições e alterar</button></div>` : ''}</div>`; };
+  const L = ligacaoCasa(), pend = L ? (CC().registo(L.casa).convites || []).filter(c => c.estado === 'pendente' && ehObj(c)) : [];
+  const recebidos = convitesParaMim().filter(({ c }) => ehObj(c));
+  v.innerHTML = `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Como funciona</h3>
+      ${ed ? `<div class="row" style="margin-left:auto;gap:8px"><button class="btn" id="nj">${icon('users')} Objetivo partilhado</button><button class="btn primary" id="no">${icon('plus')} Novo objetivo</button></div>` : ''}</div>
+      <p style="margin:0 0 8px">Um objetivo é algo para que quer juntar dinheiro até uma data (uma compra, férias, a entrada de uma casa). Para cada um, o sistema calcula <b>quanto tem de pôr de lado por mês</b>
+      e verifica se o seu <b>${app.kn('pf_exc', 'excedente mensal')}</b> chega, começando pelos de prioridade mais alta. Um objetivo <b>partilhado</b> é feito a meias com outra pessoa: cada um junta a sua parte.</p>
+      <div class="kv"><div><span>Rendimento</span><b class="num">${eur(I.rend)}</b></div><div><span>− Despesas fixas</span><b class="num">${eur(I.desp)}</b></div><div><span>− Prestações</span><b class="num">${eur(I.prest)}</b></div>
+        <div><span>= Excedente por mês</span><b class="num ${I.exc < 0 ? 'neg' : ''}">${eur(I.exc)}</b></div><div><span>Comprometido com objetivos</span><b class="num">${eur(totMensal)}</b></div>
+        <div><span>${sobra >= 0 ? 'Ainda livre por mês' : 'Falta por mês'}</span><b class="num ${sobra < 0 ? 'neg' : ''}">${eur(Math.abs(sobra))}</b></div></div></div>
+    ${I.exc <= 0 ? `<div class="alert bad" style="margin-bottom:16px">${icon('alert')}<div>Neste momento não sobra dinheiro ao fim do mês (excedente ${eur(I.exc)}), por isso nenhum objetivo tem financiamento. Reveja <a href="#/despesas">Despesas fixas</a> e <a href="#/dividas">Dívidas e créditos</a>, ou o <a href="#/rendimentos">rendimento</a>.</div></div>`
+      : sobra < 0 ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div>Para cumprir todas as datas precisava de ${eur(totMensal)}/mês, mas sobram ${eur(exc)}. Os de prioridade mais baixa atrasam: adie datas, reduza valores ou mude prioridades.</div></div>` : ''}
+    ${recebidos.map(({ casa, c }) => `<div class="alert info" style="margin-bottom:16px">${icon('inbox')}<div style="flex:1">${resumoConvite(casa, c)}</div>${ed ? `<button class="btn sm primary" data-rj="${c.id}" data-casa="${casa}">${icon('key')} Responder</button>` : ''}</div>`).join('')}
+    ${pend.filter(c => c.deSistema === sub.key).map(c => `<div class="alert" style="margin-bottom:16px">${icon('users')}<div style="flex:1">Pedido enviado a <b>${esc(semPessoal(c.paraNome))}</b>: ${esc(c.objetivo.nome)} · ${eur(c.objetivo.alvo)} · aguarda resposta</div>${ed ? `<button class="btn sm ghost" data-cc="${c.id}">Cancelar</button>` : ''}</div>`).join('')}
+    <div class="grid g2">${lista.map(cartao).join('') || `<div class="empty" style="grid-column:1/-1">Ainda não tem objetivos.<br>Crie um com <b>Novo objetivo</b> (ex.: “Portátil novo, 900 €, até junho”) ou combine um com quem partilha a casa em <b>Objetivo partilhado</b>.</div>`}</div>`;
   const ed1 = o0 => { const novo = !o0, x = o0 || { alvo: 0, poupado: 0, prioridade: 3, data: SPAP.addMonths(hoje, 12) };
     editar({ titulo: 'Objetivo', cols: COLS_OBJ(), x, novo, validar: f => !f.nome ? 'Indique o objetivo' : !(f.alvo > 0) ? 'Indique o valor necessário' : null,
       onSave: f => { f.prioridade = +f.prioridade; Object.assign(x, f); if (novo) { x.id = 'O' + uid(); m.objetivos.push(x); } audit('PF_OBJETIVO', `${x.nome} · ${eur(x.alvo)}`); },
       onDelete: y => { m.objetivos = m.objetivos.filter(z => z !== y); audit('PF_OBJETIVO_REMOVIDO', y.nome); } }); };
-  if (ed) v.querySelectorAll('[data-o]').forEach(c => c.onclick = () => ed1(m.objetivos.find(x => x.id === c.dataset.o)));
+  const porParte = id => lista.find(x => x.tipo === 'part' && x.o.id === id);
+  v.querySelectorAll('[data-o]').forEach(b => b.onclick = () => ed1(m.objetivos.find(x => x.id === b.dataset.o)));
+  v.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => { const o = m.objetivos.find(x => x.id === b.dataset.pp); if (!o) return;
+    ui.modal({ title: 'Pôr de lado · ' + esc(o.nome), body: `<form class="form"><div class="fld"><label>Valor (€)</label><input class="inp num" type="number" step="any" name="valor"></div><div class="fld"><label>Data</label><input class="inp" type="date" name="data" max="${today()}" value="${today()}"></div></form>`,
+      actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: 'Registar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!(+f.valor > 0)) { ui.toast('Indique o valor', 'warn'); return false; }
+        o.poupado = r2((+o.poupado || 0) + +f.valor); (o.movimentos = o.movimentos || []).push({ data: f.data || today(), valor: r2(+f.valor) });
+        audit('PF_OBJETIVO_POUPANCA', `${o.nome} · ${eur(+f.valor)}`); app.save(); app.refresh(); } }] }); });
+  v.querySelectorAll('[data-cj]').forEach(b => b.onclick = () => { const x = porParte(b.dataset.cj); if (x) contribuirObj(x); });
+  v.querySelectorAll('[data-vj]').forEach(b => b.onclick = () => { const x = porParte(b.dataset.vj); if (x) verObjPartilhado(x); });
+  v.querySelectorAll('[data-rj]').forEach(b => b.onclick = async () => { if (await responderConvite(b.dataset.casa, b.dataset.rj)) app.refresh(); });
+  v.querySelectorAll('[data-cc]').forEach(b => b.onclick = async () => { if (L && await cancelarConvite(L.casa, b.dataset.cc)) app.refresh(); });
   const no = v.querySelector('#no'); if (no) no.onclick = () => ed1();
+  const nj = v.querySelector('#nj'); if (nj) nj.onclick = novoObjPartilhado;
 }
 
 /* ---------- Dados iniciais ---------- */
@@ -1635,8 +1765,8 @@ return {
     { id: 'casa', label: 'Partilhas', title: 'Despesas partilhadas · conta corrente', icon: 'users', render: casaPessoal },
   ],
   // pedidos de partilha dirigidos a este plano e pagamentos registados por quem partilha, à espera da minha confirmação
-  caixa: () => { const out = convitesParaMim().map(({ casa, c }) => ({ titulo: 'Pedido de partilha', data: String(c.criadoEm || '').slice(0, 10), descricao: resumoConvite(casa, c),
-      valor: c.despesa.periodicidade === 'compras' ? null : c.despesa.valor, botao: 'Responder', ver: '#/casa', acao: () => responderConvite(casa, c.id) }));
+  caixa: () => { const out = convitesParaMim().map(({ casa, c }) => ({ titulo: ehObj(c) ? 'Objetivo partilhado' : 'Pedido de partilha', data: String(c.criadoEm || '').slice(0, 10), descricao: resumoConvite(casa, c),
+      valor: ehObj(c) ? c.objetivo.alvo : c.despesa.periodicidade === 'compras' ? null : c.despesa.valor, botao: 'Responder', ver: ehObj(c) ? '#/objetivos' : '#/casa', acao: () => responderConvite(casa, c.id) }));
     const L = ligacaoCasa(); if (!L) return out; const ex = CC().extrato(L.casa); if (!ex) return out;
     return out.concat(ex.linhas.filter(l => l.tipo === 'pagamento' && l.estado === 'registado' && l.para === L.eu).map(l => ({ titulo: 'Confirmar recebimento', data: l.data,
       descricao: `<b>${esc(ex.nomeM(l.de))}</b> registou que lhe pagou: ${esc(l.descricao)}`, valor: l.valor, botao: 'Confirmar recebimento', ver: '#/casa',
