@@ -34,9 +34,10 @@ const nomeEstr = k => k === 'baseline' ? 'Só prestações' : (ESTRATEGIAS.find(
 const BENCH = { dtiAviso: 0.35, dtiCritico: 0.50, poupMin: 0.10, poupBoa: 0.20, tanAlta: 0.15, tanCartao: 0.18, emergMin: 1, emergSeguro: 3 };
 const PLANO_PADRAO = () => ({ salarioBase: 0, outrosRendimentos: 0, incluirRefeicao: true, extraFixo: 0, emergMeses: 3, emergProgressivo: 0,
   fundoOrigem: 'tesouraria', fundoInicial: 0, poupancaTipo: 'none', poupancaFixa: 0, poupancaPct: 0, horizonte: 240, diaSalario: 1,
-  atualizarSMN: true, brutoBase: 0, smnTabela: '', smnAumento: 50, pagoMesSeguinte: false, aumentoSalarial: 0, aumentoTipo: 'fixo' });
+  atualizarSMN: true, brutoBase: 0, smnTabela: '', smnAumento: 50, pagoMesSeguinte: false, aumentoSalarial: 0, aumentoTipo: 'fixo',
+  irsRegras: '', irsDespesas: '', irsNascimento: '', irsInicioAtividade: 0, irsQualificacao: 0, irsMunicipio: 0.05, irsCoefB: 0 });
 
-const M = () => { const m = app.db.mod; ['recibos', 'despesas', 'dividas', 'objetivos', 'extratos'].forEach(k => { if (!Array.isArray(m[k])) m[k] = []; });
+const M = () => { const m = app.db.mod; ['recibos', 'recibosB', 'despesas', 'dividas', 'objetivos', 'extratos'].forEach(k => { if (!Array.isArray(m[k])) m[k] = []; });
   m.plano = Object.assign(PLANO_PADRAO(), m.plano || {}); return m; };
 
 /* ---------- Motor: taxas, comissões e prestações ---------- */
@@ -511,8 +512,160 @@ function reverRecibos(lidos) {
       // logo a seguir, uma só assinatura regista a entrada dos vencimentos na tesouraria (pode cancelar e fazê-lo depois)
       if (app.can('criar')) setTimeout(() => registarEntradas(novos), 0); } }] });
 }
+/* ---------- IRS: liquidação anual (Cat. A + Cat. B), configurada numa linha por ano ----------
+   Porta o motor do Planeador antigo: IRS Jovem sobre o bruto (Cat. B primeiro, limite partilhado), coeficiente do regime
+   simplificado na Cat. B, dedução específica (ou SS se maior), taxa sobre o rendimento coletável + isentos englobados,
+   solidariedade, deduções à coleta, benefício municipal, mínimo de existência e acerto com as retenções. */
+const IRS_PADRAO = [
+  '=IRS(2024; ESC(7703:13,25%; 11623:18%; 16472:23%; 21321:26%; 27146:32,75%; 39791:37%; 51997:43,5%; 81199:45%; 48%); ESPECIFICA(4350,24); MINIMO(11480); JOVEM(100%,75%,50%,50%,25%; 20370,4; 35; 4); CATB(75%); SOLID(80000:2,5%; 250000:5%); GERAIS(35%; 250); SAUDE(15%; 1000); EDUCACAO(30%; 800); JUROS(15%; 296); RENDAS(15%; 600); LARES(25%; 403,75); PPR(20%; 400); IVA(250; RESTAURACAO 15%, OFICINAS 15%, CABELEIREIROS 15%, VETERINARIOS 15%, GINASIOS 30%, PASSES 100%, PUBLICACOES 100%, MEDICVET 35%))',
+  '=IRS(2025; ESC(8059:12,5%; 12160:16%; 17233:21,5%; 22306:24,4%; 28400:31,4%; 41629:34,9%; 44987:43,1%; 83696:44,6%; 48%); ESPECIFICA(4462,15); MINIMO(12180); JOVEM(100%,75%,75%,75%,50%,50%,50%,25%,25%,25%; 28737,5; 35); CATB(75%); SOLID(80000:2,5%; 250000:5%); GERAIS(35%; 250); SAUDE(15%; 1000); EDUCACAO(30%; 800); JUROS(15%; 296); RENDAS(15%; 600); LARES(25%; 403,75); PPR(20%; 400); IVA(250; RESTAURACAO 15%, OFICINAS 15%, CABELEIREIROS 15%, VETERINARIOS 15%, GINASIOS 30%, PASSES 100%, PUBLICACOES 100%, MEDICVET 35%))',
+  '=IRS(2026; ESC(8059:12,5%; 12160:16%; 17233:21,5%; 22306:24,4%; 28400:31,4%; 41629:34,9%; 44987:43,1%; 83696:44,6%; 48%); ESPECIFICA(4462,15); MINIMO(12180); JOVEM(100%,75%,75%,75%,50%,50%,50%,25%,25%,25%; 28737,5; 35); CATB(75%); SOLID(80000:2,5%; 250000:5%); GERAIS(35%; 250); SAUDE(15%; 1000); EDUCACAO(30%; 800); JUROS(15%; 296); RENDAS(15%; 600); LARES(25%; 403,75); PPR(20%; 400); IVA(250; RESTAURACAO 15%, OFICINAS 15%, CABELEIREIROS 15%, VETERINARIOS 15%, GINASIOS 30%, PASSES 100%, PUBLICACOES 100%, MEDICVET 35%))'].join('\n');
+const NOMES_DED = { GERAIS: 'Despesas gerais familiares', SAUDE: 'Saúde', EDUCACAO: 'Educação', JUROS: 'Juros de habitação', RENDAS: 'Rendas de habitação', LARES: 'Lares', PPR: 'PPR', DONATIVOS: 'Donativos', PENSAO: 'Pensão de alimentos',
+  RESTAURACAO: 'IVA · restauração e alojamento', OFICINAS: 'IVA · oficinas', CABELEIREIROS: 'IVA · cabeleireiros', VETERINARIOS: 'IVA · veterinários', GINASIOS: 'IVA · ginásios', PASSES: 'IVA · passes de transportes', PUBLICACOES: 'IVA · jornais e revistas', MEDICVET: 'IVA · medicamentos veterinários' };
+const numPT = x => { let t = String(x == null ? '' : x).trim(); const pc = t.endsWith('%'); t = t.replace('%', '').replace(/\s/g, ''); if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.'); const v = parseFloat(t); return isFinite(v) ? (pc ? v / 100 : v) : null; };
+const semAcento = t => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+function partirTopo(t) { const out = []; let d = 0, cur = ''; for (const ch of String(t)) { if (ch === '(') d++; if (ch === ')') d--; if (ch === ';' && d === 0) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out.map(x => x.trim()).filter(Boolean); }
+function lerFormula(t) { const m = String(t).trim().replace(/^=/, '').match(/^([A-Za-zÀ-ú_]+)\s*\(([\s\S]*)\)\s*$/); return m ? { nome: semAcento(m[1]), args: partirTopo(m[2]) } : null; }
+function lerRegraIRS(l) {
+  const f = lerFormula(l); if (!f || f.nome !== 'IRS') throw new Error('deve ser =IRS(ano; …)');
+  const ano = parseInt(f.args[0], 10); if (!(ano > 2000)) throw new Error('falta o ano');
+  const r = { ano, esc: [], especifica: 0, minimo: 0, jovem: [], jovemLimite: Infinity, jovemIdade: 35, jovemQNQ: null, coefB: 0.75, solid: [], ded: {}, ivaLimite: 250, iva: {} };
+  f.args.slice(1).forEach(a => { const g = lerFormula(a); if (!g) throw new Error(`não percebo «${a}»`); const A = g.args;
+    if (g.nome === 'ESC') r.esc = A.map(x => { const [lim, tx] = x.includes(':') ? x.split(':') : [null, x]; const e = { ate: lim == null ? Infinity : numPT(lim), taxa: numPT(tx) }; if (e.taxa == null || e.ate == null) throw new Error(`escalão inválido «${x}»`); return e; });
+    else if (g.nome === 'ESPECIFICA') r.especifica = numPT(A[0]) || 0;
+    else if (g.nome === 'MINIMO') r.minimo = numPT(A[0]) || 0;
+    else if (g.nome === 'JOVEM') { r.jovem = String(A[0] || '').split(',').map(numPT).filter(v => v != null); if (A[1]) r.jovemLimite = numPT(A[1]); if (A[2]) r.jovemIdade = numPT(A[2]); if (A[3]) r.jovemQNQ = numPT(A[3]); }
+    else if (g.nome === 'CATB') r.coefB = numPT(A[0]);
+    else if (g.nome === 'SOLID') r.solid = A.map(x => { const [de, tx] = x.split(':'); return { de: numPT(de), taxa: numPT(tx) }; });
+    else if (g.nome === 'IVA') { r.ivaLimite = numPT(A[0]); String(A[1] || '').split(',').forEach(x => { const m = x.trim().match(/^(\S+)\s+(.+)$/); if (m) r.iva[semAcento(m[1])] = numPT(m[2]); }); }
+    else r.ded[g.nome] = { taxa: numPT(A[0]) || 0, limite: A[1] != null && String(A[1]).trim() !== '' ? numPT(A[1]) : Infinity }; });
+  if (!r.esc.length) throw new Error('faltam os escalões ESC(…)');
+  // parcela a abater de cada escalão (método AT), calculada a partir dos limites e taxas
+  let parc = 0; r.esc.forEach((e, i) => { if (i) parc += r.esc[i - 1].ate * (e.taxa - r.esc[i - 1].taxa); e.parcela = r2(parc); });
+  return r;
+}
+function linhasIRS(texto, ler) { const out = {}, erros = []; String(texto || '').split(/\r?\n/).map(l => l.trim()).forEach((l, i) => { if (!l || l.startsWith('#')) return; try { const r = ler(l); out[r.ano] = r; } catch (e) { erros.push(`linha ${i + 1}: ${e.message}`); } }); return { out, erros }; }
+const regrasIRS = () => linhasIRS(M().plano.irsRegras || IRS_PADRAO, lerRegraIRS);
+function lerDespesasIRS(l) { const f = lerFormula(l); if (!f || f.nome !== 'DESPESAS') throw new Error('deve ser =DESPESAS(ano; …)'); const ano = parseInt(f.args[0], 10); if (!(ano > 2000)) throw new Error('falta o ano');
+  const v = {}; f.args.slice(1).forEach(a => { const m = a.match(/^(\S+)\s+(.+)$/); if (!m || numPT(m[2]) == null) throw new Error(`não percebo «${a}»`); v[semAcento(m[1])] = numPT(m[2]); }); return { ano, v }; }
+const despesasIRS = () => linhasIRS(M().plano.irsDespesas, lerDespesasIRS);
+const escalaoIRS = (x, r) => { const i = r.esc.findIndex(e => x <= e.ate); return { i: i < 0 ? r.esc.length - 1 : i, ...r.esc[i < 0 ? r.esc.length - 1 : i] }; };
+// Cat. A do ano: recibos reais + (ano atual ou futuro) meses em falta projetados pela média sem subsídios
+function catAIRS(ano) {
+  const m = M(), rs = m.recibos.filter(p => +p.ano === ano), y0 = +today().slice(0, 4), soma = (xs, k) => xs.reduce((t, p) => t + (+p[k] || 0), 0);
+  const o = { bruto: soma(rs, 'bruto'), irs: soma(rs, 'irs'), ss: soma(rs, 'ss'), real: rs.length, proj: 0, fonte: null };
+  if (ano < y0) return o;
+  let base = rs; for (let y = ano - 1; !base.length && y >= ano - 3; y--) { base = m.recibos.filter(p => +p.ano === y); o.fonte = y; }
+  if (!base.length) return o;
+  const so = base.filter(p => !p.subFerias && !p.subNatal), med = (so.length ? soma(so, 'bruto') / so.length : soma(base, 'bruto') / base.length) * (o.fonte ? salarioAno(ano).fator / salarioAno(o.fonte).fator : 1);
+  const taxa = soma(base, 'bruto') > 0 ? soma(base, 'irs') / soma(base, 'bruto') : 0, meses = new Set(rs.map(p => +p.mes));
+  let temF = rs.some(p => p.subFerias), temN = rs.some(p => p.subNatal);
+  for (let mm = 1; mm <= 12; mm++) { if (meses.has(mm)) continue; let g = med; if (mm === MES_FERIAS && !temF) { g += med; temF = true; } if (mm === MES_NATAL && !temN) { g += med; temN = true; }
+    o.bruto += g; o.irs += g * taxa; o.ss += g * 0.11; o.proj++; }
+  return o;
+}
+// Cat. B do ano: faturas-recibo (FR) e recibos (RG); uma fatura (FT) sozinha não é rendimento recebido
+const contaCatB = x => ['FR', 'RG'].includes(String(x.tipo || '').toUpperCase());
+const catBIRS = ano => { const rs = M().recibosB.filter(x => +String(x.data).slice(0, 4) === ano && contaCatB(x)); return { bruto: r2(sum(rs, 'bruto')), irs: r2(sum(rs, 'irs')), iva: r2(sum(rs, 'iva')), n: rs.length }; };
+function calcIRS(ano) {
+  const pl = M().plano, { out: regras, erros } = regrasIRS(), avisos = [];
+  let r = regras[ano]; if (!r) { const ys = Object.keys(regras).map(Number).filter(y => y <= ano).sort((a, b) => b - a); if (!ys.length) return { erro: 'Não há regra de IRS para este ano.', erros }; r = regras[ys[0]]; avisos.push(`Sem regra para ${ano}: usa-se a de ${ys[0]}.`); }
+  const A = catAIRS(ano), B = catBIRS(ano), especifica = Math.max(r.especifica, A.ss);
+  const nasc = pl.irsNascimento ? +String(pl.irsNascimento).slice(0, 4) : null, idade = nasc ? ano - nasc : null, idx = +pl.irsInicioAtividade ? ano - +pl.irsInicioAtividade + 1 : null;
+  let pj = 0;
+  if (idade != null && idx >= 1 && idx <= r.jovem.length && idade <= r.jovemIdade) {
+    if (r.jovemQNQ && !(+pl.irsQualificacao >= r.jovemQNQ)) avisos.push(`IRS Jovem não aplicado: em ${r.ano} exigia qualificação de nível ${r.jovemQNQ} (QNQ).`); else pj = r.jovem[idx - 1] || 0;
+  } else if (!nasc || !+pl.irsInicioAtividade) avisos.push('Indique a data de nascimento e o ano de início de atividade para calcular o IRS Jovem.');
+  let cap = r.jovemLimite; const isB = Math.min(B.bruto * pj, cap); cap = Math.max(0, cap - isB); const isA = Math.min(A.bruto * pj, cap);
+  const coefB = +pl.irsCoefB || r.coefB, tribB = (B.bruto - isB) * coefB;
+  const global = A.bruto - isA + tribB, coletavel = Math.max(0, global - especifica), isentos = isA + isB, paraTaxa = coletavel + isentos;
+  const E = escalaoIRS(paraTaxa, r), coleta = paraTaxa > 0 ? Math.max(0, paraTaxa * E.taxa - E.parcela) : 0, redJ = paraTaxa > 0 ? coleta * isentos / paraTaxa : 0, coletaJ = coleta - redJ;
+  const solid = r.solid.reduce((t, x, i) => { const ate = r.solid[i + 1] ? r.solid[i + 1].de : Infinity; return t + (paraTaxa > x.de ? (Math.min(paraTaxa, ate) - x.de) * x.taxa : 0); }, 0);
+  const dp = (despesasIRS().out[ano] || { v: {} }).v, det = []; let ded = 0, iva = 0;
+  Object.entries(dp).forEach(([k, val]) => { if (r.ded[k]) { const d = Math.min(val * r.ded[k].taxa, r.ded[k].limite); ded += d; det.push({ k, val, d, regra: `${pct(r.ded[k].taxa)}${isFinite(r.ded[k].limite) ? ', máx. ' + eur(r.ded[k].limite) : ''}` }); }
+    else if (r.iva[k] != null) { const d = val * r.iva[k]; iva += d; det.push({ k, val, d, regra: `${pct(r.iva[k])} do IVA`, iva: true }); } else avisos.push(`Despesa ${k} sem regra no ano ${r.ano}: não conta.`); });
+  const ivaAplic = Math.min(iva, r.ivaLimite); ded += ivaAplic;
+  const aposDed = Math.max(0, coletaJ + solid - ded), mun = pl.irsMunicipio == null || pl.irsMunicipio === '' ? 0.05 : +pl.irsMunicipio, benef = aposDed * Math.max(0, 0.05 - mun);
+  const preJovem = A.bruto + B.bruto * coefB - especifica, minimo = r.minimo > 0 && preJovem <= r.minimo, devido = minimo ? 0 : aposDed - benef, retido = A.irs + B.irs;
+  return { ano, r, avisos, erros, A, B, pj, idx, idade, isA, isB, coefB, tribB, especifica, global, coletavel, isentos, paraTaxa, E, coleta, redJ, coletaJ, solid, det, ded, iva, ivaAplic, aposDed, mun, benef, minimo, preJovem, devido: r2(devido), retido: r2(retido), acerto: r2(retido - devido) };
+}
+function rendCatB(v, T) {
+  const m = M(), ed = podeEditar(), y0 = +today().slice(0, 4), anos = [...new Set([y0, ...m.recibosB.map(x => +String(x.data).slice(0, 4))])].sort((a, b) => b - a);
+  let ano = +tab('pf-anob', y0); if (!anos.includes(ano)) ano = y0;
+  const rs = m.recibosB.filter(x => +String(x.data).slice(0, 4) === ano).sort((a, b) => String(b.data).localeCompare(String(a.data))), B = catBIRS(ano), lim = 15000;
+  v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano</span><select class="inp inp-sm" id="pfb">${anos.map(y => `<option ${y === ano ? 'selected' : ''}>${y}</option>`).join('')}</select></div>${ed ? `<button class="btn primary" id="nb">${icon('plus')} Novo recibo verde</button>` : ''}</div>
+    <div class="grid g4">${kpi(`${icon('wallet')} Recebido em ${ano} (Cat. B)`, eur(B.bruto), `${B.n} faturas-recibo / recibos`, '', true)}${kpi('IRS retido', eur(B.irs))}${kpi('IVA liquidado', eur(B.iva))}
+      ${kpi('Limite de isenção de IVA (art. 53.º)', pct(B.bruto / lim), `${eur(B.bruto)} de ${eur(lim)}`, B.bruto >= lim ? 'neg' : B.bruto >= lim * 0.8 ? 'neg' : '')}</div>
+    <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Recibos verdes ${ano}</h3><span class="sub">FR e RG contam como rendimento; uma FT sozinha é só informativa · clique para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Documento</th><th>Cliente</th><th class="r">Valor</th><th class="r">IVA</th><th class="r">Retenção IRS</th><th class="r">Total</th><th></th></tr></thead><tbody>
+    ${rs.map(x => `<tr class="${ed ? 'click' : ''}" data-b="${x.id}" style="${contaCatB(x) ? '' : 'opacity:.6'}"><td>${date(x.data)}</td><td><span class="badge ${contaCatB(x) ? 'ok' : ''}">${esc(x.tipo || '—')}</span> ${esc(x.numero || '')}</td><td>${esc(x.cliente || '—')}${x.nif ? `<div class="faint" style="font-size:11px">NIF ${esc(x.nif)}</div>` : ''}</td><td class="r num">${eur(x.bruto)}</td><td class="r num">${eur(x.iva)}</td><td class="r num">${eur(x.irs)}</td><td class="r num">${eur((+x.bruto || 0) + (+x.iva || 0) - (+x.irs || 0))}</td><td>${contaCatB(x) ? '' : '<span class="faint" style="font-size:11px">não conta</span>'}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">Sem recibos verdes neste ano.</td></tr>'}</tbody></table></div></div>`;
+  bindTabs(v); const s = v.querySelector('#pfb'); if (s) s.onchange = () => { setTab('pf-anob', s.value); app.refresh(); };
+  const editarB = x0 => { const x = x0 || { data: today(), tipo: 'FR', bruto: 0, iva: 0, irs: 0 };
+    ui.modal({ title: x0 ? 'Recibo verde' : 'Novo recibo verde', sub: 'Categoria B · fatura-recibo emitida no Portal das Finanças',
+      body: `<form class="form"><div class="fld"><label>Data</label><input class="inp" type="date" name="data" value="${esc(x.data)}"></div><div class="fld"><label>Tipo</label><select class="inp" name="tipo">${[['FR', 'FR · Fatura-recibo'], ['RG', 'RG · Recibo (de uma FT)'], ['FT', 'FT · Fatura (ainda não paga)']].map(([k, l]) => `<option value="${k}" ${k === x.tipo ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="fld"><label>N.º do documento</label><input class="inp" name="numero" value="${esc(x.numero || '')}" placeholder="FR ATSIRE01FR/1"></div><div class="fld"><label>Cliente</label><input class="inp" name="cliente" value="${esc(x.cliente || '')}"></div><div class="fld"><label>NIF do cliente</label><input class="inp" name="nif" value="${esc(x.nif || '')}"></div>
+        <div class="fld"><label>Valor (sem IVA) (€)</label><input class="inp num" type="number" step="any" name="bruto" value="${esc(x.bruto)}"></div><div class="fld"><label>IVA (€)</label><input class="inp num" type="number" step="any" name="iva" value="${esc(x.iva || 0)}"></div><div class="fld"><label>Retenção de IRS (€)</label><input class="inp num" type="number" step="any" name="irs" value="${esc(x.irs || 0)}"></div></form>`,
+      actions: [...(x0 ? [{ label: icon('trash') + 'Remover', kind: 'bad', onClick: async () => { if (!await ui.confirm('Remover', 'Remover este recibo verde?', { danger: true, okLabel: 'Remover' })) return false; m.recibosB = m.recibosB.filter(y => y !== x0); audit('PF_CATB_REMOVIDO', `${x0.numero || ''} ${eur(x0.bruto)}`); app.save(); app.refresh(); } }] : []),
+        { label: 'Cancelar', kind: 'ghost' }, { label: 'Guardar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!f.data || !(+f.bruto > 0)) { ui.toast('Indique a data e o valor', 'warn'); return false; }
+          const y = x0 || { id: 'B' + uid(), criadoEm: new Date().toISOString() }; Object.assign(y, { data: f.data, tipo: f.tipo, numero: f.numero.trim(), cliente: f.cliente.trim(), nif: f.nif.trim(), bruto: r2(+f.bruto), iva: r2(+f.iva || 0), irs: r2(+f.irs || 0) });
+          if (!x0) m.recibosB.push(y); audit('PF_CATB', `${y.tipo} ${y.numero} · ${y.data} · ${eur(y.bruto)}`); app.save(); app.refresh(); } }] }); };
+  const nb = v.querySelector('#nb'); if (nb) nb.onclick = () => editarB();
+  v.querySelectorAll('[data-b]').forEach(tr => tr.onclick = () => { if (ed) editarB(m.recibosB.find(x => x.id === tr.dataset.b)); });
+}
+function rendIRS(v, T) {
+  const m = M(), pl = m.plano, ed = podeEditar(), y0 = +today().slice(0, 4), { out: regras, erros } = regrasIRS();
+  const anos = [...new Set([y0, y0 + 1, ...Object.keys(regras).map(Number), ...m.recibos.map(r => +r.ano)])].sort((a, b) => b - a);
+  let ano = +tab('pf-anoirs', y0); if (!anos.includes(ano)) ano = y0;
+  const X = calcIRS(ano), linha = (rot, val, nota = '', forte = false) => `<tr><td>${forte ? `<b>${rot}</b>` : rot}${nota ? `<div class="faint" style="font-size:11px">${nota}</div>` : ''}</td><td class="r num">${forte ? `<b>${val}</b>` : val}</td></tr>`;
+  const dErr = despesasIRS().erros;
+  v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano fiscal</span><select class="inp inp-sm" id="pfi">${anos.map(y => `<option ${y === ano ? 'selected' : ''}>${y}</option>`).join('')}</select></div><span class="faint" style="font-size:12px">Liquidação estimada · a declaração entrega-se no ano seguinte</span></div>
+    ${[...erros, ...dErr].length ? `<div class="alert bad" style="margin-bottom:12px">${icon('alert')}<div>Erros na configuração: ${[...erros, ...dErr].map(esc).join(' · ')}</div></div>` : ''}
+    ${X.erro ? `<div class="empty">${esc(X.erro)}</div>` : `
+    ${X.avisos.length ? `<div class="alert warn" style="margin-bottom:12px">${icon('info')}<div>${X.avisos.map(esc).join('<br>')}</div></div>` : ''}
+    <div class="grid g4">${kpi(`${icon('wallet')} ${X.acerto >= 0 ? 'Reembolso estimado' : 'IRS a pagar (estimado)'}`, eur(Math.abs(X.acerto)), `retido ${eur(X.retido)} · devido ${eur(X.devido)}`, X.acerto >= 0 ? 'pos' : 'neg', true)}
+      ${kpi('Rendimento bruto', eur(X.A.bruto + X.B.bruto), `Cat. A ${eur(X.A.bruto)} · Cat. B ${eur(X.B.bruto)}`)}${kpi('IRS devido', eur(X.devido), X.minimo ? 'mínimo de existência' : `taxa efetiva ${pct(X.A.bruto + X.B.bruto > 0 ? X.devido / (X.A.bruto + X.B.bruto) : 0)}`)}
+      ${kpi('IRS Jovem', X.pj ? pct(X.pj) : '—', X.pj ? `${X.idx}.º ano · isento ${eur(X.isA + X.isB)}` : 'não se aplica')}</div>
+    <div class="grid g2" style="margin-top:16px;align-items:start">
+      <div class="card flush"><div class="card-h"><h3>Como se chega lá</h3><span class="sub">regras de ${X.r.ano}</span></div><div class="tbl-wrap"><table class="tbl"><tbody>
+        ${linha('Cat. A · trabalho dependente (bruto)', eur(X.A.bruto), `${X.A.real} recibos${X.A.proj ? ` + ${X.A.proj} meses projetados${X.A.fonte ? ' (base ' + X.A.fonte + ')' : ''}` : ''} · retido ${eur(X.A.irs)} · SS ${eur(X.A.ss)}`)}
+        ${linha('Cat. B · recibos verdes (bruto)', eur(X.B.bruto), `${X.B.n} documentos · retido ${eur(X.B.irs)} · coeficiente ${pct(X.coefB)}`)}
+        ${X.pj ? linha('− Isento por IRS Jovem', eur(X.isA + X.isB), `${pct(X.pj)} do bruto (${X.idx}.º ano, ${X.idade} anos)${isFinite(X.r.jovemLimite) ? `, máx. ${eur(X.r.jovemLimite)}` : ''} · Cat. B ${eur(X.isB)} · Cat. A ${eur(X.isA)}`) : ''}
+        ${linha('Rendimento global (não isento)', eur(X.global), X.B.bruto ? `Cat. B tributável: ${eur(X.tribB)}` : '')}
+        ${linha('− Dedução específica', eur(X.especifica), X.especifica > X.r.especifica ? 'a Segurança Social paga é maior do que a dedução fixa' : `fixa de ${X.r.ano}`)}
+        ${linha('Rendimento coletável', eur(X.coletavel), '', true)}
+        ${X.isentos ? linha('Rendimento para a taxa', eur(X.paraTaxa), 'coletável + isentos englobados (a taxa calcula-se sobre o total)') : ''}
+        ${linha(`Coleta · ${X.E.i + 1}.º escalão`, eur(X.coleta), `${eur(X.paraTaxa)} × ${pct(X.E.taxa)} − ${eur(X.E.parcela)}`)}
+        ${X.redJ ? linha('− Imposto sobre os rendimentos isentos', eur(X.redJ)) : ''}
+        ${X.solid ? linha('+ Taxa de solidariedade', eur(X.solid)) : ''}
+        ${linha('− Deduções à coleta', eur(X.ded), X.det.length ? X.det.map(d => `${esc(NOMES_DED[d.k] || d.k)} ${eur(d.d)}`).join(' · ') + (X.iva > X.ivaAplic ? ` · IVA limitado a ${eur(X.r.ivaLimite)}` : '') : 'sem despesas indicadas')}
+        ${X.benef ? linha('− Benefício municipal', eur(X.benef), `o município fica com ${pct(X.mun)} em vez de 5%`) : ''}
+        ${X.minimo ? linha('Mínimo de existência', eur(0), `rendimento ${eur(X.preJovem)} ≤ ${eur(X.r.minimo)}: não paga IRS`) : ''}
+        ${linha('IRS devido', eur(X.devido), '', true)}${linha('− Retenções na fonte', eur(X.retido))}
+        ${linha(X.acerto >= 0 ? 'Reembolso' : 'A pagar', eur(Math.abs(X.acerto)), '', true)}</tbody></table></div></div>
+      <div class="card"><div class="card-h"><h3>Escalões de ${X.r.ano}</h3><span class="sub">parcela a abater calculada</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Até</th><th class="r">Taxa</th><th class="r">Parcela</th></tr></thead><tbody>
+        ${X.r.esc.map((e, i) => `<tr style="${i === X.E.i ? 'background:var(--panel3)' : ''}"><td>${isFinite(e.ate) ? eur(e.ate) : 'acima'}</td><td class="r num">${pct(e.taxa)}</td><td class="r num">${eur(e.parcela)}</td></tr>`).join('')}</tbody></table></div></div></div>`}
+    <div class="card" style="margin-top:16px"><div class="card-h"><h3>Configuração</h3><span class="sub">uma linha por ano, como uma fórmula</span></div>
+      <form class="form" id="firs"><div class="fld full"><label>Regras de IRS</label><textarea class="inp mono" name="irsRegras" rows="4" style="font-size:12px;white-space:pre;overflow-x:auto" ${ed ? '' : 'disabled'}>${esc(pl.irsRegras || IRS_PADRAO)}</textarea>
+        <span class="hint">=IRS(ano; ESC(limite:taxa; …; taxa do último); ESPECIFICA(€); MINIMO(€); JOVEM(% por ano de atividade; limite €; idade máx.; nível QNQ exigido); CATB(coeficiente); SOLID(de:taxa; …); GERAIS(taxa; máx.); SAUDE(…); … ; IVA(limite global; NOME taxa, …)). Linhas começadas por # são ignoradas.</span></div>
+        <div class="fld full"><label>Despesas do e-Fatura</label><textarea class="inp mono" name="irsDespesas" rows="3" style="font-size:12px" placeholder="=DESPESAS(2026; GERAIS 2047,84; SAUDE 33,85; EDUCACAO 3,99; RESTAURACAO 247,30)" ${ed ? '' : 'disabled'}>${esc(pl.irsDespesas || '')}</textarea>
+          <span class="hint">=DESPESAS(ano; NOME valor; …) · nomes: ${Object.keys(NOMES_DED).join(', ')}. Nos IVA indique o IVA suportado.</span></div>
+        <div class="fld"><label>Data de nascimento</label><input class="inp" type="date" name="irsNascimento" value="${esc(pl.irsNascimento || '')}" ${ed ? '' : 'disabled'}></div>
+        <div class="fld"><label>Ano de início de atividade</label><input class="inp num" type="number" name="irsInicioAtividade" value="${esc(pl.irsInicioAtividade || '')}" ${ed ? '' : 'disabled'}><span class="hint">1.º ano de rendimentos de trabalho (IRS Jovem).</span></div>
+        <div class="fld"><label>Nível de qualificação (QNQ)</label><input class="inp num" type="number" min="1" max="8" name="irsQualificacao" value="${esc(pl.irsQualificacao || '')}" ${ed ? '' : 'disabled'}></div>
+        <div class="fld"><label>Participação do município (%)</label><input class="inp num" type="number" step="any" name="irsMunicipio" value="${r2((pl.irsMunicipio ?? 0.05) * 100)}" ${ed ? '' : 'disabled'}><span class="hint">Faro: 4,5% → devolve 0,5% da coleta.</span></div>
+        <div class="fld"><label>Coeficiente da Cat. B (%)</label><input class="inp num" type="number" step="any" name="irsCoefB" value="${+pl.irsCoefB ? r2(pl.irsCoefB * 100) : ''}" placeholder="da regra do ano" ${ed ? '' : 'disabled'}><span class="hint">Anexo B: campo 403 → 75%; 404 (serviços genéricos) → 35%; vendas → 15%.</span></div>
+        ${ed ? `<div class="fld full"><div class="row"><button type="button" class="btn primary" id="girs">${icon('check')} Guardar</button>${pl.irsRegras ? '<button type="button" class="btn ghost" id="rirs">Repor regras de origem</button>' : ''}</div></div>` : ''}</form></div>`;
+  bindTabs(v); const s = v.querySelector('#pfi'); if (s) s.onchange = () => { setTab('pf-anoirs', s.value); app.refresh(); };
+  const g = v.querySelector('#girs'); if (g) g.onclick = () => { const f = ui.formData(v.querySelector('#firs'));
+    const e1 = linhasIRS(f.irsRegras, lerRegraIRS).erros, e2 = linhasIRS(f.irsDespesas, lerDespesasIRS).erros; if (e1.length || e2.length) { ui.toast('Corrija: ' + [...e1, ...e2].join(' · '), 'bad'); return; }
+    Object.assign(pl, { irsRegras: f.irsRegras.trim() === IRS_PADRAO ? '' : f.irsRegras.trim(), irsDespesas: f.irsDespesas.trim(), irsNascimento: f.irsNascimento, irsInicioAtividade: parseInt(f.irsInicioAtividade, 10) || 0, irsQualificacao: parseInt(f.irsQualificacao, 10) || 0,
+      irsMunicipio: f.irsMunicipio === '' ? 0.05 : (+f.irsMunicipio || 0) / 100, irsCoefB: f.irsCoefB === '' ? 0 : (+f.irsCoefB || 0) / 100 });
+    audit('PF_IRS_CONFIG', 'Configuração de IRS atualizada'); app.save(); ui.toast('Configuração de IRS guardada', 'ok'); app.refresh(); };
+  const rr = v.querySelector('#rirs'); if (rr) rr.onclick = () => { pl.irsRegras = ''; app.save(); app.refresh(); };
+}
 function rendimentos(v) {
-  const T = tabs('pf-rend', 'rec', [['rec', 'Recibos de vencimento'], ['proj', 'Projeção anual']]), m = M(), kn = app.kn, ed = podeEditar();
+  const T = tabs('pf-rend', 'rec', [['rec', 'Recibos de vencimento'], ['catb', 'Recibos verdes (Cat. B)'], ['proj', 'Projeção anual'], ['irs', 'IRS']]), m = M(), kn = app.kn, ed = podeEditar();
+  if (T.t === 'catb') return rendCatB(v, T);
+  if (T.t === 'irs') return rendIRS(v, T);
   const anoAtual = +today().slice(0, 4), futuros = T.t === 'proj' ? [1, 2, 3, 4, 5].map(i => anoAtual + i) : [];
   const anos = [...new Set([anoAtual, ...futuros, ...m.recibos.map(r => +r.ano)])].sort((a, b) => b - a);
   let ano = +tab('pf-ano', anoAtual); if (!anos.includes(ano)) ano = anoAtual;
