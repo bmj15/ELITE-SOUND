@@ -1563,9 +1563,14 @@ function simulador(v) {
 /* ---------- Objetivos e compras ---------- */
 function excedentesMes(n = 120) {
   const ds = divAtivas(), fim = ds.map(d => mesesParaLiquidar(d)), proj = {}, P = a => proj[a] || (proj[a] = projecao(a));
+  // cartões: a prestação é uma % do saldo (com mínimo), por isso desce à medida que se paga; a deste mês é a do último extrato
+  const cart = ds.map(d => { if (d.tipo !== 'cartao' || d.cartaoDe) return null; const pc = pctCartao(d).pct;
+    return pc > 0 && pc <= 1 ? { pct: pc, r: taxaMensal(d), min: d.minimoCartao == null ? 25 : +d.minimoCartao, saldo: +d.capital || 0 } : null; });
+  const prestDe = (d, k, i) => { const c = cart[k]; if (!c) return i < fim[k] ? +d.prestacao || 0 : 0;
+    if (c.saldo <= 0.005) return 0; const sj = c.saldo * (1 + c.r), p = i === 0 ? Math.min(sj, +d.prestacao || 0) : Math.min(sj, Math.max(c.min, c.pct * c.saldo)); c.saldo = Math.max(0, sj - p); return p; };
   const y0 = +ymHoje().slice(0, 4), m0 = +ymHoje().slice(5, 7), out = [];
   for (let i = 0; i < n; i++) { const t = m0 - 1 + i, y = y0 + Math.floor(t / 12), mm = t % 12 + 1, ym = ymOf(y, mm);
-    const rend = rendimentoDoMes(y, mm, P), desp = despesasMensais(ym), prest = r2(ds.reduce((a, d, k) => a + (i < fim[k] ? +d.prestacao || 0 : 0), 0));
+    const rend = rendimentoDoMes(y, mm, P), desp = despesasMensais(ym), prest = r2(ds.reduce((a, d, k) => a + prestDe(d, k, i), 0));
     out.push({ ym, rend, desp, prest, exc: r2(rend - desp - prest) }); }
   return out;
 }
@@ -1647,6 +1652,74 @@ function verObjPartilhado(x) {
       CC().alterar(x.L.casa, r => { const o = (r.objetivos || []).find(y => y.id === x.o.id); const y = o && (o.contribuicoes || []).find(z => z.id === c.id); if (y && y.membro === x.L.eu) Object.assign(y, { anulada: true, anulacao: an }); });
       audit('PF_OBJETIVO_CONTRIBUICAO_ANULADA', `${x.o.nome} · ${eur(c.valor)}`); app.save(); app.refresh(); }) });
 }
+/* Sugestões da página Objetivos:
+   1) meses negativos: guardar parte da sobra dos meses anteriores e/ou amortizar a dívida cuja prestação mais desce por cada euro;
+   2) objetivo que só tem dinheiro depois da data: pagar com o cartão mais barato com disponível, comprando depois do fecho do extrato
+      e devolvendo o valor ao cartão antes do extrato seguinte (ou pagando esse extrato por inteiro). */
+const dias = (a, b) => Math.max(0, Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 864e5));
+const comDia = (ym, d) => `${ym}-${String(Math.min(28, Math.max(1, d || 1))).padStart(2, '0')}`;
+function cartoesDisponiveis() {
+  return divAtivas().filter(d => d.tipo === 'cartao' && !d.cartaoDe && d.contaCartao).map(d => {
+    const ux = M().extratos.filter(e => e.conta === d.contaCartao).sort((a, b) => String(b.data).localeCompare(String(a.data)))[0];
+    if (!ux || !(+ux.limite > 0)) return null;
+    const decl = ux.declarado ? +ux.declarado.valor || 0 : 0, porPagar = !decl && ux.dataLimite && ux.dataLimite < today() ? +ux.pagar || 0 : 0;
+    const base = (+ux.limite || 0) - (+ux.saldo || 0) + decl;
+    return { d, ux, disp: r2(Math.max(0, base)), dispSePago: r2(Math.max(0, base + porPagar)), porPagar, diaExt: +String(ux.data).slice(8, 10), diaLim: +String(ux.dataLimite || '').slice(8, 10) || +d.dia || 5, taxa: +d.taxa || +ux.tan || 0 };
+  }).filter(Boolean).sort((a, b) => a.taxa - b.taxa);
+}
+// dívidas por ordem de "quanto desce a prestação por cada euro amortizado"
+function alavancas() {
+  return divAtivas().filter(d => !d.cartaoDe && +d.prestacao > 0).map(d => { const cartao = d.tipo === 'cartao', pc = cartao ? pctCartao(d).pct : null;
+    return { d, cartao, ratio: cartao && pc > 0 && pc <= 1 ? pc : Math.min(1, +d.prestacao / +d.capital) }; })
+    .sort((a, b) => b.ratio - a.ratio || (+b.d.taxa || 0) - (+a.d.taxa || 0));
+}
+function sugestoesObjetivos(CF, lista, idx) {
+  const out = [], H = Math.min(13, CF.length), gasto = CF.map(() => 0);
+  lista.forEach(x => { if (x.falta <= 0 || !x.n) return; const k = x.estado[1] === 'no bom caminho' ? idx(x.data) : x.quando ? CF.findIndex(c => c.ym === x.quando) : -1; if (k >= 0) gasto[k] += x.falta; });
+  const AL = alavancas(), periodo = (a, b) => a === b ? fmtMes(a) : `${fmtMes(a)} a ${fmtMes(b)}`;
+  const notaAmort = (al, A) => al.cartao ? `Faça-o logo que o dinheiro entre e antes do fecho do extrato, para a prestação seguinte já descer.`
+    : `Peça ao credor para <b>reduzir a prestação</b> (e não o prazo)${+al.d.comissao > 0 ? `; a comissão de amortização ronda ${eur(A * al.d.comissao)}` : ''}.`;
+  // 1) períodos de meses negativos (a partir do próximo mês)
+  for (let i = 1, ini = 1; i < H;) {
+    if (CF[i].exc >= 0) { i++; continue; }
+    let j = i; while (j + 1 < H && CF[j + 1].exc < 0) j++;
+    const run = CF.slice(i, j + 1), defs = run.map(c => -c.exc), def = r2(defs.reduce((a, b) => a + b, 0));
+    const fontes = CF.slice(ini, i).filter(c => c.exc > 0), livre = r2(CF.slice(ini, j + 1).reduce((a, c, t) => a + c.exc - gasto[ini + t], 0) + def);
+    const nomeF = fontes.length ? periodo(fontes[0].ym, fontes[fontes.length - 1].ym) : '', per = periodo(run[0].ym, run[run.length - 1].ym);
+    const lista1 = run.map(c => `${MESES[+c.ym.slice(5, 7) - 1].toLowerCase()} ${eur(c.exc)}`).join(', ');
+    if (!fontes.length || livre <= 0.5) out.push(['bad', 'alert', `<b>${per}</b> fecham negativos (${lista1}; ${eur(def)} no total) e antes disso não sobra nada${fontes.length ? ' depois dos objetivos' : ''}. Considere adiar objetivos ou rever despesas fixas.`]);
+    else if (livre >= def - 0.005) {
+      const resto = r2(livre - def), al = AL[0];
+      out.push(['ok', 'shield', `<b>Guarde ${eur(def)}</b> do que sobra em ${nomeF} para cobrir <b>${per}</b> (${lista1}).`
+        + (resto > 5 && al ? ` Sobram ainda ${eur(resto)} depois dos objetivos: amortizar <b>${esc(al.d.nome)}</b>${al.cartao ? ` (a prestação é ${pct(al.ratio)} do saldo)` : ''} baixa a prestação em cerca de <b>${eur(resto * al.ratio)}/mês</b>${+al.d.taxa ? ` e poupa juros a ${pct(al.d.taxa)}` : ''}. ${notaAmort(al, resto)}` : '')]);
+    } else {
+      const al = AL[0], g = A => defs.reduce((t, x) => t + Math.max(0, x - (al ? al.ratio : 0) * A), 0) - (livre - A);
+      let best = 0, gb = g(0); const max = al ? Math.min(livre, +al.d.capital) : 0;
+      for (let t = 1; t <= 200; t++) { const A = max * t / 200, v = g(A); if (v < gb - 0.005) { gb = v; best = A; } }
+      out.push(best > 1 ? ['warn', 'shield', `<b>${per}</b> fecham negativos (${lista1}) e em ${nomeF} só sobram ${eur(livre)} depois dos objetivos. Melhor combinação:
+          amortizar <b>${eur(best)}</b> em <b>${esc(al.d.nome)}</b> (a prestação desce cerca de ${eur(best * al.ratio)}/mês) e guardar <b>${eur(livre - best)}</b>. ${notaAmort(al, best)}${gb > 0.5 ? ` Ainda ficam a faltar ${eur(gb)}.` : ''}`]
+        : ['warn', 'shield', `<b>${per}</b> fecham negativos (${lista1}; ${eur(def)}). Guarde os ${eur(livre)} que sobram em ${nomeF}: ainda ficam a faltar ${eur(def - livre)}.`]);
+    }
+    ini = j + 1; i = j + 1;
+  }
+  // 2) objetivos com data antes de haver dinheiro: cartão de crédito como ponte
+  const CT = cartoesDisponiveis();
+  lista.filter(x => x.estado[0] === 'warn' && x.quando && x.data && x.falta > 0 && x.quando > String(x.data).slice(0, 7)).forEach(x => {
+    const c = CT.find(k => k.dispSePago >= x.falta - 0.005), g = String(x.data).slice(0, 10);
+    if (!CT.length) return;
+    if (!c) { out.push(['warn', 'credit', `<b>${esc(x.nome)}</b> (${eur(x.falta)} até ${date(g)}): só há dinheiro em ${fmtMes(x.quando)} e nenhum cartão tem disponível suficiente (${CT.map(k => `${esc(k.d.nome)} ≈ ${eur(k.dispSePago)}`).join(', ')}). Pense em mudar a data.`]); return; }
+    let ext = comDia(g.slice(0, 7), c.diaExt); if (ext <= g) ext = comDia(SPAP.addMonths(g.slice(0, 7) + '-01', 1).slice(0, 7), c.diaExt);
+    const lim = comDia(SPAP.addMonths(ext.slice(0, 7) + '-01', 1).slice(0, 7), c.diaLim);
+    const antesExt = x.quando <= ext.slice(0, 7), pagaLim = x.quando <= lim.slice(0, 7);
+    const ate = antesExt ? ext : pagaLim ? lim : comDia(x.quando, 1), juros = r2(x.falta * c.taxa * dias(g, ate) / 365);
+    const disp = c.disp >= x.falta ? `disponível ≈ ${eur(c.disp)}` : `disponível ≈ ${eur(c.dispSePago)}, contando que já pagou os ${eur(c.porPagar)} do extrato de ${date(c.ux.data)}`;
+    const como = antesExt ? `Pagando a ${date(g)}, depois do fecho do extrato, a compra só entraria no extrato de <b>${date(ext)}</b>. Em ${fmtMes(x.quando)}, logo que o dinheiro entre, transfira ${eur(x.falta)} para o cartão <b>antes de ${date(ext)}</b>: o saldo volta ao que era e a compra não pesa na prestação.`
+      : pagaLim ? `A compra entra no extrato de ${date(ext)}; pague esse extrato por inteiro até <b>${date(lim)}</b>, com o dinheiro de ${fmtMes(x.quando)}.`
+      : `Só há dinheiro em ${fmtMes(x.quando)}: o valor ficaria a crédito até lá.`;
+    out.push(['info', 'credit', `<b>${esc(x.nome)}</b> (${eur(x.falta)} até ${date(g)}): só há dinheiro em ${fmtMes(x.quando)}. Sugestão: pagar com o <b>${esc(c.d.nome)}</b>, o cartão mais barato com disponível (TAN ${pct(c.taxa)}; ${disp}). ${como} Juros, no pior caso: cerca de <b>${eur(juros)}</b>.${CT.some(k => k !== c && k.taxa < c.taxa) ? ` (${CT.filter(k => k !== c && k.taxa < c.taxa).map(k => `${esc(k.d.nome)} é mais barato mas tem ≈ ${eur(k.dispSePago)} disponíveis`).join('; ')}.)` : ''}`]);
+  });
+  return out;
+}
 function objetivos(v) {
   const m = M(), ed = podeEditar(), I = indicadores(), hoje = today(), CF = excedentesMes();
   // o que fica de lado acumulado até cada mês: os meses com sobra (ex.: subsídio de Natal) juntam, os negativos gastam o que havia (nunca abaixo de 0)
@@ -1671,6 +1744,7 @@ function objetivos(v) {
     : x.estado[1] === 'no bom caminho' ? `Faltam <b>${eur(x.falta)}</b>. Até ${ateMes(x)} vão sobrar <b>${eur(x.possivel)}</b>${x.antes > 0 ? ' (já descontados os objetivos mais prioritários)' : ''}: chega.`
     : `Faltam <b>${eur(x.falta)}</b>. Até ${ateMes(x)} ${x.cobre > 0 ? `só vão sobrar <b>${eur(x.cobre)}</b>` : 'não sobra nada'}${x.antes > 0 ? ' depois dos objetivos mais prioritários' : ''}. `
       + (x.quando ? `Ao ritmo previsto chega lá em <b>${fmtMes(x.quando)}</b>.` : 'Ao ritmo previsto não chega lá nos próximos 10 anos.');
+  const SUG = sugestoesObjetivos(CF, lista, idx), med = r2(sum(CF.slice(0, 12), 'exc') / 12);
   const barra = (pc, cls) => `<div class="progress ${cls}"><i style="width:${Math.min(100, Math.max(0, Math.round(pc)))}%"></i></div>`;
   const cartao = x => { const cls = x.estado[0] === 'bad' ? 'bad' : x.estado[0] === 'warn' ? 'warn' : '';
     const cv = x.tipo === 'meu' && x.o.partilha ? convDe(x.o) : null, propostoA = cv && cv.estado === 'pendente' ? semPessoal(cv.paraNome).split(' ')[0] : null;
@@ -1697,10 +1771,12 @@ function objetivos(v) {
       <div class="row" style="gap:6px;flex-wrap:wrap">${CF.slice(0, 13).map(c => `<div style="border:1px solid var(--line);border-radius:8px;padding:4px 8px;text-align:center;min-width:76px" data-tip="Rendimento ${eur(c.rend)} − despesas ${eur(c.desp)} − prestações ${eur(c.prest)}">
         <div class="faint" style="font-size:11px">${fmtMes(c.ym)}</div><b class="num ${c.exc < 0 ? 'neg' : ''}" style="font-size:13px">${c.exc > 0 ? '+' : ''}${eur(c.exc)}</b></div>`).join('')}</div>
       <div class="kv" style="margin-top:12px"><div><span>Sobra nos próximos 12 meses</span><b class="num ${sum(CF.slice(0, 12), 'exc') < 0 ? 'neg' : ''}">${eur(sum(CF.slice(0, 12), 'exc'))}</b></div>
-        <div><span>${app.kn('pf_exc', 'Excedente médio por mês')}</span><b class="num ${I.exc < 0 ? 'neg' : ''}">${eur(I.exc)}</b></div>
+        <div><span>${app.kn('pf_exc', 'Excedente médio por mês')} · próximos 12 meses</span><b class="num ${med < 0 ? 'neg' : ''}">${eur(med)}</b></div>
         <div><span>Falta juntar para os objetivos</span><b class="num">${eur(sum(lista, 'falta'))}</b></div></div></div>
     ${!pool.some(v => v > 0.005) ? `<div class="alert bad" style="margin-bottom:16px">${icon('alert')}<div>Nos próximos meses não sobra dinheiro em nenhum mês, por isso nenhum objetivo tem financiamento. Reveja <a href="#/despesas">Despesas fixas</a> e <a href="#/dividas">Dívidas e créditos</a>, ou o <a href="#/rendimentos">rendimento</a>.</div></div>`
-      : I.exc < 0 ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div>Em média o mês fecha negativo (${eur(I.exc)}): só sobra dinheiro nos meses assinalados com +, como os de subsídio. Os objetivos são pagos com essa sobra, e os meses negativos gastam-na.</div></div>` : ''}
+      : med < 0 ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div>Em média o mês fecha negativo (${eur(med)}): só sobra dinheiro nos meses assinalados com +, como os de subsídio. Os objetivos são pagos com essa sobra, e os meses negativos gastam-na.</div></div>` : ''}
+    ${SUG.length ? `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>${icon('info')} Sugestões</h3><span class="sub">calculadas com o excedente de cada mês, as prestações e os extratos dos cartões · confirme valores e datas com o banco</span></div>
+      ${SUG.map(([t, ic, txt]) => `<div class="alert ${t === 'ok' ? 'ok' : t}" style="margin-top:8px">${icon(ic)}<div>${txt}</div></div>`).join('')}</div>` : ''}
     ${recebidos.map(({ casa, c }) => `<div class="alert info" style="margin-bottom:16px">${icon('inbox')}<div style="flex:1">${resumoConvite(casa, c)}</div>${ed ? `<button class="btn sm primary" data-rj="${c.id}" data-casa="${casa}">${icon('key')} Responder</button>` : ''}</div>`).join('')}
     ${pend.filter(c => c.deSistema === sub.key).map(c => `<div class="alert" style="margin-bottom:16px">${icon('users')}<div style="flex:1">Pedido enviado a <b>${esc(semPessoal(c.paraNome))}</b>: ${esc(c.objetivo.nome)} · ${eur(c.objetivo.alvo)} · aguarda resposta</div>${ed ? `<button class="btn sm ghost" data-cc="${c.id}">Cancelar</button>` : ''}</div>`).join('')}
     <div class="grid g2">${lista.map(cartao).join('') || `<div class="empty" style="grid-column:1/-1">Ainda não tem objetivos.<br>Crie um com <b>Novo objetivo</b> (ex.: “Portátil novo, 900 €, até junho”) ou combine um com quem partilha a casa em <b>Objetivo partilhado</b>.</div>`}</div>`;
