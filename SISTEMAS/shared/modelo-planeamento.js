@@ -517,9 +517,9 @@ function reverRecibos(lidos) {
    simplificado na Cat. B, dedução específica (ou SS se maior), taxa sobre o rendimento coletável + isentos englobados,
    solidariedade, deduções à coleta, benefício municipal, mínimo de existência e acerto com as retenções. */
 const IRS_PADRAO = [
-  '=IRS(2024; ESC(7703:13,25%; 11623:18%; 16472:23%; 21321:26%; 27146:32,75%; 39791:37%; 51997:43,5%; 81199:45%; 48%); ESPECIFICA(4350,24); MINIMO(11480); JOVEM(100%,75%,50%,50%,25%; 20370,4; 35; 4); CATB(75%); SOLID(80000:2,5%; 250000:5%); GERAIS(35%; 250); SAUDE(15%; 1000); EDUCACAO(30%; 800); JUROS(15%; 296); RENDAS(15%; 600); LARES(25%; 403,75); PPR(20%; 400); IVA(250; RESTAURACAO 15%, OFICINAS 15%, CABELEIREIROS 15%, VETERINARIOS 15%, GINASIOS 30%, PASSES 100%, PUBLICACOES 100%, MEDICVET 35%))',
-  '=IRS(2025; ESC(8059:12,5%; 12160:16%; 17233:21,5%; 22306:24,4%; 28400:31,4%; 41629:34,9%; 44987:43,1%; 83696:44,6%; 48%); ESPECIFICA(4462,15); MINIMO(12180); JOVEM(100%,75%,75%,75%,50%,50%,50%,25%,25%,25%; 28737,5; 35); CATB(75%); SOLID(80000:2,5%; 250000:5%); GERAIS(35%; 250); SAUDE(15%; 1000); EDUCACAO(30%; 800); JUROS(15%; 296); RENDAS(15%; 600); LARES(25%; 403,75); PPR(20%; 400); IVA(250; RESTAURACAO 15%, OFICINAS 15%, CABELEIREIROS 15%, VETERINARIOS 15%, GINASIOS 30%, PASSES 100%, PUBLICACOES 100%, MEDICVET 35%))',
-  '=IRS(2026; ESC(8059:12,5%; 12160:16%; 17233:21,5%; 22306:24,4%; 28400:31,4%; 41629:34,9%; 44987:43,1%; 83696:44,6%; 48%); ESPECIFICA(4462,15); MINIMO(12180); JOVEM(100%,75%,75%,75%,50%,50%,50%,25%,25%,25%; 28737,5; 35); CATB(75%); SOLID(80000:2,5%; 250000:5%); GERAIS(35%; 250); SAUDE(15%; 1000); EDUCACAO(30%; 800); JUROS(15%; 296); RENDAS(15%; 600); LARES(25%; 403,75); PPR(20%; 400); IVA(250; RESTAURACAO 15%, OFICINAS 15%, CABELEIREIROS 15%, VETERINARIOS 15%, GINASIOS 30%, PASSES 100%, PUBLICACOES 100%, MEDICVET 35%))'].join('\n');
+  '=IRS(2024; ESC(7703:13,25%:0; 11623:18%:365,89; 16472:23%:947,04; 21321:26%:1441,40; 27146:32,75%:2880,47; 39791:37%:4034,17; 51997:43,5%:6620,43; 81199:45%:7400,21; 48%:9836,45); ESPECIFICA(4350,24); MINIMO(11480); JOVEM(100%,75%,50%,50%,25%; 20370,4; 35; 4); CATB(75%); SOLID(80000:2,5%; 250000:5%); GERAIS(35%; 250); SAUDE(15%; 1000); EDUCACAO(30%; 800); JUROS(15%; 296); RENDAS(15%; 600); LARES(25%; 403,75); PPR(20%; 400); IVA(250; RESTAURACAO 15%, OFICINAS 15%, CABELEIREIROS 15%, VETERINARIOS 15%, GINASIOS 30%, PASSES 100%, PUBLICACOES 100%, MEDICVET 35%))',
+  '=IRS(2025; ESC(8059:12,5%:0; 12160:16%:282,07; 17233:21,5%:950,87; 22306:24,4%:1450,67; 28400:31,4%:3012,09; 41629:34,9%:4006,09; 44987:43,1%:7419,67; 83696:44,6%:8094,47; 48%:10940,13); ESPECIFICA(4462,15); MINIMO(12180); JOVEM(100%,75%,75%,75%,50%,50%,50%,25%,25%,25%; 28737,5; 35); CATB(75%); SOLID(80000:2,5%; 250000:5%); GERAIS(35%; 250); SAUDE(15%; 1000); EDUCACAO(30%; 800); JUROS(15%; 296); RENDAS(15%; 600); LARES(25%; 403,75); PPR(20%; 400); IVA(250; RESTAURACAO 15%, OFICINAS 15%, CABELEIREIROS 15%, VETERINARIOS 15%, GINASIOS 30%, PASSES 100%, PUBLICACOES 100%, MEDICVET 35%))',
+  '=IRS(2026; ESC(8059:12,5%:0; 12160:16%:282,07; 17233:21,5%:950,87; 22306:24,4%:1450,67; 28400:31,4%:3012,09; 41629:34,9%:4006,09; 44987:43,1%:7419,67; 83696:44,6%:8094,47; 48%:10940,13); ESPECIFICA(4462,15); MINIMO(12180); JOVEM(100%,75%,75%,75%,50%,50%,50%,25%,25%,25%; 28737,5; 35); CATB(75%); SOLID(80000:2,5%; 250000:5%); GERAIS(35%; 250); SAUDE(15%; 1000); EDUCACAO(30%; 800); JUROS(15%; 296); RENDAS(15%; 600); LARES(25%; 403,75); PPR(20%; 400); IVA(250; RESTAURACAO 15%, OFICINAS 15%, CABELEIREIROS 15%, VETERINARIOS 15%, GINASIOS 30%, PASSES 100%, PUBLICACOES 100%, MEDICVET 35%))'].join('\n');
 const NOMES_DED = { GERAIS: 'Despesas gerais familiares', SAUDE: 'Saúde', EDUCACAO: 'Educação', JUROS: 'Juros de habitação', RENDAS: 'Rendas de habitação', LARES: 'Lares', PPR: 'PPR', DONATIVOS: 'Donativos', PENSAO: 'Pensão de alimentos',
   RESTAURACAO: 'IVA · restauração e alojamento', OFICINAS: 'IVA · oficinas', CABELEIREIROS: 'IVA · cabeleireiros', VETERINARIOS: 'IVA · veterinários', GINASIOS: 'IVA · ginásios', PASSES: 'IVA · passes de transportes', PUBLICACOES: 'IVA · jornais e revistas', MEDICVET: 'IVA · medicamentos veterinários' };
 const numPT = x => { let t = String(x == null ? '' : x).trim(); const pc = t.endsWith('%'); t = t.replace('%', '').replace(/\s/g, ''); if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.'); const v = parseFloat(t); return isFinite(v) ? (pc ? v / 100 : v) : null; };
@@ -531,7 +531,10 @@ function lerRegraIRS(l) {
   const ano = parseInt(f.args[0], 10); if (!(ano > 2000)) throw new Error('falta o ano');
   const r = { ano, esc: [], especifica: 0, minimo: 0, jovem: [], jovemLimite: Infinity, jovemIdade: 35, jovemQNQ: null, coefB: 0.75, solid: [], ded: {}, ivaLimite: 250, iva: {} };
   f.args.slice(1).forEach(a => { const g = lerFormula(a); if (!g) throw new Error(`não percebo «${a}»`); const A = g.args;
-    if (g.nome === 'ESC') r.esc = A.map(x => { const [lim, tx] = x.includes(':') ? x.split(':') : [null, x]; const e = { ate: lim == null ? Infinity : numPT(lim), taxa: numPT(tx) }; if (e.taxa == null || e.ate == null) throw new Error(`escalão inválido «${x}»`); return e; });
+    if (g.nome === 'ESC') r.esc = A.map((x, i) => { const p = x.split(':').map(t => t.trim()), ult = i === A.length - 1 && !/^[\d.,]+$/.test(p[0]) || p[0] === '';
+      // limite:taxa[:parcela] · o último escalão é só taxa[:parcela]
+      const [lim, tx, pa] = ult ? [null, p[0], p[1]] : p, e = { ate: lim == null ? Infinity : numPT(lim), taxa: numPT(tx), parcelaFix: pa != null && pa !== '' ? numPT(pa) : null };
+      if (e.taxa == null || e.ate == null) throw new Error(`escalão inválido «${x}»`); return e; });
     else if (g.nome === 'ESPECIFICA') r.especifica = numPT(A[0]) || 0;
     else if (g.nome === 'MINIMO') r.minimo = numPT(A[0]) || 0;
     else if (g.nome === 'JOVEM') { r.jovem = String(A[0] || '').split(',').map(numPT).filter(v => v != null); if (A[1]) r.jovemLimite = numPT(A[1]); if (A[2]) r.jovemIdade = numPT(A[2]); if (A[3]) r.jovemQNQ = numPT(A[3]); }
@@ -541,7 +544,8 @@ function lerRegraIRS(l) {
     else r.ded[g.nome] = { taxa: numPT(A[0]) || 0, limite: A[1] != null && String(A[1]).trim() !== '' ? numPT(A[1]) : Infinity }; });
   if (!r.esc.length) throw new Error('faltam os escalões ESC(…)');
   // parcela a abater de cada escalão (método AT), calculada a partir dos limites e taxas
-  let parc = 0; r.esc.forEach((e, i) => { if (i) parc += r.esc[i - 1].ate * (e.taxa - r.esc[i - 1].taxa); e.parcela = r2(parc); });
+  // parcela a abater: a oficial, se indicada (limite:taxa:parcela); senão calculada a partir dos limites e taxas
+  let parc = 0; r.esc.forEach((e, i) => { if (i) parc += r.esc[i - 1].ate * (e.taxa - r.esc[i - 1].taxa); e.parcela = e.parcelaFix != null ? e.parcelaFix : r2(parc); });
   return r;
 }
 function linhasIRS(texto, ler) { const out = {}, erros = []; String(texto || '').split(/\r?\n/).map(l => l.trim()).forEach((l, i) => { if (!l || l.startsWith('#')) return; try { const r = ler(l); out[r.ano] = r; } catch (e) { erros.push(`linha ${i + 1}: ${e.message}`); } }); return { out, erros }; }
@@ -576,16 +580,17 @@ function calcIRS(ano) {
   if (idade != null && idx >= 1 && idx <= r.jovem.length && idade <= r.jovemIdade) {
     if (r.jovemQNQ && !(+pl.irsQualificacao >= r.jovemQNQ)) avisos.push(`IRS Jovem não aplicado: em ${r.ano} exigia qualificação de nível ${r.jovemQNQ} (QNQ).`); else pj = r.jovem[idx - 1] || 0;
   } else if (!nasc || !+pl.irsInicioAtividade) avisos.push('Indique a data de nascimento e o ano de início de atividade para calcular o IRS Jovem.');
-  let cap = r.jovemLimite; const isB = Math.min(B.bruto * pj, cap); cap = Math.max(0, cap - isB); const isA = Math.min(A.bruto * pj, cap);
-  const coefB = +pl.irsCoefB || r.coefB, tribB = (B.bruto - isB) * coefB;
-  const global = A.bruto - isA + tribB, coletavel = Math.max(0, global - especifica), isentos = isA + isB, paraTaxa = coletavel + isentos;
-  const E = escalaoIRS(paraTaxa, r), coleta = paraTaxa > 0 ? Math.max(0, paraTaxa * E.taxa - E.parcela) : 0, redJ = paraTaxa > 0 ? coleta * isentos / paraTaxa : 0, coletaJ = coleta - redJ;
-  const solid = r.solid.reduce((t, x, i) => { const ate = r.solid[i + 1] ? r.solid[i + 1].de : Infinity; return t + (paraTaxa > x.de ? (Math.min(paraTaxa, ate) - x.de) * x.taxa : 0); }, 0);
+  let cap = r.jovemLimite; const isB = r2(Math.min(B.bruto * pj, cap)); cap = Math.max(0, cap - isB); const isA = r2(Math.min(r2(A.bruto) * pj, cap));
+  const coefB = +pl.irsCoefB || r.coefB, tribB = r2(r2(B.bruto - isB) * coefB);
+  A.bruto = r2(A.bruto); A.irs = r2(A.irs); A.ss = r2(A.ss);
+  const global = r2(r2(A.bruto - isA) + tribB), coletavel = r2(Math.max(0, global - especifica)), isentos = r2(isA + isB), paraTaxa = r2(coletavel + isentos);
+  const E = escalaoIRS(paraTaxa, r), coleta = paraTaxa > 0 ? r2(Math.max(0, paraTaxa * E.taxa - E.parcela)) : 0, redJ = paraTaxa > 0 ? r2(coleta * isentos / paraTaxa) : 0, coletaJ = r2(coleta - redJ);
+  const solid = r2(r.solid.reduce((t, x, i) => { const ate = r.solid[i + 1] ? r.solid[i + 1].de : Infinity; return t + (paraTaxa > x.de ? (Math.min(paraTaxa, ate) - x.de) * x.taxa : 0); }, 0));
   const dp = (despesasIRS().out[ano] || { v: {} }).v, det = []; let ded = 0, iva = 0;
   Object.entries(dp).forEach(([k, val]) => { if (r.ded[k]) { const d = Math.min(val * r.ded[k].taxa, r.ded[k].limite); ded += d; det.push({ k, val, d, regra: `${pct(r.ded[k].taxa)}${isFinite(r.ded[k].limite) ? ', máx. ' + eur(r.ded[k].limite) : ''}` }); }
     else if (r.iva[k] != null) { const d = val * r.iva[k]; iva += d; det.push({ k, val, d, regra: `${pct(r.iva[k])} do IVA`, iva: true }); } else avisos.push(`Despesa ${k} sem regra no ano ${r.ano}: não conta.`); });
   const ivaAplic = Math.min(iva, r.ivaLimite); ded += ivaAplic;
-  const aposDed = Math.max(0, coletaJ + solid - ded), mun = pl.irsMunicipio == null || pl.irsMunicipio === '' ? 0.05 : +pl.irsMunicipio, benef = aposDed * Math.max(0, 0.05 - mun);
+  ded = r2(ded); const aposDed = Math.max(0, coletaJ + solid - ded), mun = pl.irsMunicipio == null || pl.irsMunicipio === '' ? 0.05 : +pl.irsMunicipio, benef = r2(aposDed * Math.max(0, 0.05 - mun));
   const preJovem = A.bruto + B.bruto * coefB - especifica, minimo = r.minimo > 0 && preJovem <= r.minimo, devido = minimo ? 0 : aposDed - benef, retido = A.irs + B.irs;
   return { ano, r, avisos, erros, A, B, pj, idx, idade, isA, isB, coefB, tribB, especifica, global, coletavel, isentos, paraTaxa, E, coleta, redJ, coletaJ, solid, det, ded, iva, ivaAplic, aposDed, mun, benef, minimo, preJovem, devido: r2(devido), retido: r2(retido), acerto: r2(retido - devido) };
 }
@@ -672,7 +677,7 @@ function rendIRS(v, T) {
         ${X.r.esc.map((e, i) => `<tr style="${i === X.E.i ? 'background:var(--panel3)' : ''}"><td>${isFinite(e.ate) ? eur(e.ate) : 'acima'}</td><td class="r num">${pct(e.taxa)}</td><td class="r num">${eur(e.parcela)}</td></tr>`).join('')}</tbody></table></div></div></div>`}
     <div class="card" style="margin-top:16px"><div class="card-h"><h3>Configuração</h3><span class="sub">uma linha por ano, como uma fórmula</span></div>
       <form class="form" id="firs"><div class="fld full"><label>Regras de IRS</label><textarea class="inp mono" name="irsRegras" rows="4" style="font-size:12px;white-space:pre;overflow-x:auto" ${ed ? '' : 'disabled'}>${esc(pl.irsRegras || IRS_PADRAO)}</textarea>
-        <span class="hint">=IRS(ano; ESC(limite:taxa; …; taxa do último); ESPECIFICA(€); MINIMO(€); JOVEM(% por ano de atividade; limite €; idade máx.; nível QNQ exigido); CATB(coeficiente); SOLID(de:taxa; …); GERAIS(taxa; máx.); SAUDE(…); … ; IVA(limite global; NOME taxa, …)). Linhas começadas por # são ignoradas.</span></div>
+        <span class="hint">=IRS(ano; ESC(limite:taxa:parcela a abater; …; taxa:parcela do último) — sem parcela, é calculada; ESPECIFICA(€); MINIMO(€); JOVEM(% por ano de atividade; limite €; idade máx.; nível QNQ exigido); CATB(coeficiente); SOLID(de:taxa; …); GERAIS(taxa; máx.); SAUDE(…); … ; IVA(limite global; NOME taxa, …)). Linhas começadas por # são ignoradas.</span></div>
         <div class="fld full"><label>Despesas do e-Fatura</label><textarea class="inp mono" name="irsDespesas" rows="3" style="font-size:12px" placeholder="=DESPESAS(2026; GERAIS 2047,84; SAUDE 33,85; EDUCACAO 3,99; RESTAURACAO 247,30)" ${ed ? '' : 'disabled'}>${esc(pl.irsDespesas || '')}</textarea>
           <span class="hint">=DESPESAS(ano; NOME valor; …) · nomes: ${Object.keys(NOMES_DED).join(', ')}. Nos IVA indique o IVA suportado.</span></div>
         <div class="fld"><label>Data de nascimento</label><input class="inp" type="date" name="irsNascimento" value="${esc(pl.irsNascimento || '')}" ${ed ? '' : 'disabled'}></div>
