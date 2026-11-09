@@ -119,6 +119,14 @@ function rendimentoMensal(ano = +today().slice(0, 4)) {
   return r2((p.total + (pl.incluirRefeicao ? p.refeicaoTotal : 0)) / 12 + (+pl.outrosRendimentos || 0));
 }
 
+// rendimento de um mês concreto: recibo real (ou projeção) deste ano; nos anos seguintes a média + subsídios em junho e novembro
+function rendimentoDoMes(y, m, P = projecao) {
+  const pl = M().plano, y0 = +today().slice(0, 4); let inc;
+  if (y === y0) { const l = P(y).linhas[m - 1]; inc = l.proj + (pl.incluirRefeicao ? l.refeicao : 0); }
+  else { const p = P(y0), base = salarioBase() || p.media; inc = p.media + (m === MES_FERIAS || m === MES_NATAL ? base : 0) + (pl.incluirRefeicao ? p.mediaRef : 0); }
+  return r2(inc + (+pl.outrosRendimentos || 0));
+}
+
 /* ---------- Motor: simulador mês a mês (porta direta de simulator.py) ---------- */
 function construirCashflow(horizonte) {
   const pl = M().plano, hoje = today(), y0 = +hoje.slice(0, 4), m0 = +hoje.slice(5, 7);
@@ -126,10 +134,7 @@ function construirCashflow(horizonte) {
   const out = [];
   for (let i = 0; i < horizonte; i++) {
     const t = (m0 - 1) + i, y = y0 + Math.floor(t / 12), m = (t % 12) + 1;
-    let inc;
-    if (y === y0) { const l = P(y).linhas[m - 1]; inc = l.proj + (pl.incluirRefeicao ? l.refeicao : 0); }
-    else { const p = P(y0), base = salarioBase() || p.media; inc = p.media + (m === MES_FERIAS || m === MES_NATAL ? base : 0) + (pl.incluirRefeicao ? p.mediaRef : 0); }
-    out.push({ y, m, rendimento: inc + (+pl.outrosRendimentos || 0), despesas: despesasMensais(ymOf(y, m)) });
+    out.push({ y, m, rendimento: rendimentoDoMes(y, m, P), despesas: despesasMensais(ymOf(y, m)) });
   }
   return out;
 }
@@ -205,8 +210,9 @@ function compararEstrategias() {
 /* ---------- Fundos, saúde financeira e alertas ---------- */
 const tesouraria = () => app.contasInternas().filter(c => c.categoria === 'TESOURARIA');
 const fundoAtual = () => M().plano.fundoOrigem === 'manual' ? +M().plano.fundoInicial || 0 : r2(tesouraria().reduce((s, c) => s + app.saldo(c.id), 0));
-function indicadores(ym = ymHoje()) {
-  const rend = rendimentoMensal(), desp = despesasMensais(ym), prest = prestacoesMensais(), ds = divAtivas();
+// porMes: rendimento real/projetado desse mês (Painel); sem porMes, a média a 12 meses
+function indicadores(ym = ymHoje(), porMes = false) {
+  const rend = porMes ? rendimentoDoMes(+ym.slice(0, 4), +ym.slice(5, 7)) : rendimentoMensal(), desp = despesasMensais(ym), prest = prestacoesMensais(), ds = divAtivas();
   const exc = r2(rend - desp - prest), divida = sum(ds, 'capital'), fundo = fundoAtual();
   const dti = rend > 0 ? prest / rend : null, poup = rend > 0 ? Math.max(0, exc) / rend : null, emerg = desp + prest > 0 ? fundo / (desp + prest) : null;
   const tanMedia = divida > 0 ? ds.reduce((s, d) => s + (+d.taxa || 0) * (+d.capital || 0), 0) / divida : 0;
@@ -341,12 +347,13 @@ function visao(v) {
   const hojeYm = ymHoje(), mesesSel = Array.from({ length: 12 }, (_, i) => SPAP.addMonths(hojeYm + '-01', i).slice(0, 7));
   let ym = tab('pf-painel-mes', hojeYm); if (!mesesSel.includes(ym)) ym = hojeYm;
   const nomeYm = x => `${MESES[+x.slice(5, 7) - 1]} ${x.slice(0, 4)}`;
-  const I = indicadores(ym), ano = +today().slice(0, 4), P = projecao(ano), kn = app.kn;
+  const I = indicadores(ym, true), ano = +today().slice(0, 4), P = projecao(ano), kn = app.kn;
+  const linhaYm = +ym.slice(0, 4) === ano ? P.linhas[+ym.slice(5, 7) - 1] : null, subYm = linhaYm ? linhaYm.sub : [MES_FERIAS, MES_NATAL].includes(+ym.slice(5, 7));
   const cor = I.score >= 75 ? 'var(--ok)' : I.score >= 50 ? 'var(--warn)' : 'var(--bad)';
   const R = compararEstrategias(), melhor = ESTRATEGIAS.map(e => R[e[0]]).sort((a, b) => (a.meses.length - b.meses.length) || (a.juros - b.juros))[0];
   v.innerHTML = `<div class="row" style="justify-content:flex-end;gap:8px;margin-bottom:10px"><span class="muted">Mês</span><select class="inp inp-sm" id="pfm">${mesesSel.map(x => `<option value="${x}" ${x === ym ? 'selected' : ''}>${nomeYm(x)}${x === hojeYm ? ' (atual)' : ''}</option>`).join('')}</select>${podeEditar() ? `<button class="btn sm" id="imp">${icon('download')} Importar do Planeador</button>` : ''}</div>${I.alertas.map(([k, t]) => `<div class="alert ${k}" style="margin-bottom:10px">${icon('alert')}<div>${t}</div></div>`).join('')}
     <div class="grid g4" style="margin-top:${I.alertas.length ? 6 : 0}px">
-      ${kpi(`${icon('wallet')} ${kn('pf_rend', 'Rendimento líquido mensal')}`, eur(I.rend), `média a 12 meses · ${P.n} ${P.n === 1 ? 'mês' : 'meses'} com recibo em ${ano}`, '', true)}
+      ${kpi(`${icon('wallet')} ${kn('pf_rend', 'Rendimento líquido do mês')}`, eur(I.rend), `${linhaYm && linhaYm.real != null ? 'recibo de ' : 'previsto para '}${nomeYm(ym)}${subYm ? ' · com subsídio' : ''}${M().plano.incluirRefeicao ? ' · inclui refeição' : ''}<br>média a 12 meses ${eur(rendimentoMensal())}`, '', true)}
       ${kpi(`${icon('list')} ${kn('pf_desp', 'Despesas fixas / mês')}`, eur(I.desp), (() => { const c = casaParte(ym), n = despAtivas(ym).length, proprias = r2(despAtivas(ym).reduce((t, e) => t + mensalDesp(e), 0));
         const txt = `${n} ${n === 1 ? 'despesa própria' : 'despesas próprias'}${n ? ' · ' + eur(proprias) : ''}`;
         return `<a href="#/despesas">${txt}</a>${c && !c.semDados ? `<br>+ ${eur(c.valor)} parte na casa (${c.n} ${c.n === 1 ? 'despesa comum' : 'despesas comuns'})` : ''}`; })())}
@@ -975,7 +982,7 @@ function seed(db, a) {
 }
 
 const GLOSS = {
-  pf_rend: { n: 'Rendimento líquido mensal', d: 'Média a 12 meses do que entra: recibos reais, meses projetados, subsídios de férias e Natal, refeição (se configurado) e outros rendimentos.' },
+  pf_rend: { n: 'Rendimento líquido mensal', d: 'No Painel: o que entra no mês escolhido (recibo real, ou projeção com subsídios em junho e novembro), com refeição (se configurado) e outros rendimentos. A média a 12 meses aparece por baixo.' },
   pf_desp: { n: 'Despesas fixas', d: 'Encargos que se repetem, convertidos em valor mensal (uma despesa trimestral conta 1/3 por mês, uma anual 1/12).' },
   pf_prest: { n: 'Prestações', d: 'Soma das prestações mensais contratadas de todas as dívidas ativas.' },
   pf_exc: { n: 'Excedente mensal', d: 'O que sobra todos os meses depois das despesas fixas e das prestações. É o dinheiro disponível para poupar, reforçar o fundo de emergência e amortizar dívida.', f: 'Rendimento − despesas fixas − prestações' },
