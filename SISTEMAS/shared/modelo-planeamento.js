@@ -953,6 +953,9 @@ function casaPessoal(v) {
     ${porConfirmar.length ? `<div class="alert warn" style="margin-bottom:16px">${icon('inbox')}<div>${porConfirmar.length === 1 ? 'Há 1 pagamento' : `Há ${porConfirmar.length} pagamentos`} registados a aguardar a sua confirmação. <a href="#/aprovacoes">Abrir a Caixa de entrada</a></div></div>` : ''}
     <div class="grid g3">
       ${outros.map(o => { const r = aReceber.find(x => x.de === o.id), pg = aPagar.find(x => x.para === o.id);
+        // pagou a mais (ex.: acerto adiantado): não é dívida, é crédito dele que desconta no próximo acerto que ele me envia
+        const prox = CC().mesSeguinte(today().slice(0, 7)), lp = pg && CC().extrato(L.casa, prox).linhas.find(l => l.tipo === 'acerto' && l.mes === prox && l.de === o.id && l.para === eu);
+        if (lp) return kpi(`${icon('users')} Conta com ${esc(nm(o.id))}`, eur(pg.valor), `crédito de ${esc(nm(o.id))} (pagou a mais) · desconta no acerto de ${fmtMes(prox)}: em vez de ${eur(lp.valor)} envia ${eur(Math.max(0, lp.valor - pg.valor))}`, '', true);
         return kpi(`${icon('users')} Conta com ${esc(nm(o.id))}`, r ? eur(r.valor) : pg ? eur(pg.valor) : eur(0), r ? `${esc(nm(o.id))} deve-lhe` : pg ? `deve a ${esc(nm(o.id))}` : 'contas acertadas', r ? 'pos' : pg ? 'neg' : '', true); }).join('')}
       ${kpi('Pagamentos por confirmar', String(meus.filter(l => l.tipo === 'pagamento' && l.estado === 'registado').length), 'registados e à espera de quem recebe')}
       ${kpi('Acerto deste mês', (() => { const t = meus.find(l => l.tipo === 'acerto' && l.mes === today().slice(0, 7)); return t ? eur(t.valor) : eur(0); })(), (() => { const t = meus.find(l => l.tipo === 'acerto' && l.mes === today().slice(0, 7)); return t ? (t.de === eu ? `a pagar a ${esc(nm(t.para))}` : `a receber de ${esc(nm(t.de))}`) : 'sem acerto'; })())}</div>
