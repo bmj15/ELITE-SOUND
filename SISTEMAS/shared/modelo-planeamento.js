@@ -1731,13 +1731,15 @@ function sugestoesObjetivos(CF, lista, idx, pool) {
     // primeiro: os planos de amortização que já existem e que a sobra permite fazer mais cedo
     const antecipar = lista.filter(x => x.tipo === 'meu' && x.div && x.falta > 0 && x.estado[1] === 'no bom caminho' && x.quando && x.quando < String(x.data).slice(0, 7));
     antecipar.forEach(x => out.push(['info', 'credit', `O seu plano <b>${esc(x.nome)}</b> já fica coberto em <b>${fmtMes(x.quando)}</b>, antes da data que escolheu (${date(x.data)}). Amortizar mais cedo faz a prestação descer mais cedo${x.alivio ? ` (cerca de ${eur(x.alivio.red)}/mês)` : ''} e poupa juros de ${pct(x.div.taxa)} nesses meses, sem tirar dinheiro aos outros objetivos.`, `Pode antecipar ${esc(x.nome)} para ${fmtMes(x.quando)}`,
-      podeEditar() ? `<button class="btn sm primary" data-ant="${x.o.id}" data-ym="${x.quando}">${icon('check')} Antecipar</button>` : '']));
+      podeEditar() ? `<button class="btn sm primary" data-ant="${x.o.id}" data-ym="${x.quando}">${icon('check')} Antecipar</button>` : '', `ant:${x.o.id}:${x.quando}`]));
     // depois: se ainda sobrar, a dívida mais cara que ainda não tem plano
     const comPlano = lista.filter(x => x.div && x.falta > 0);
     if (!antecipar.length && livre > 50 && cara && +cara.d.taxa >= 0.05) { const v = r2(Math.min(livre, +cara.d.capital || 0));
-      out.push(['info', 'credit', `${comPlano.length ? `Mesmo com ${comPlano.map(x => `<b>${esc(x.nome)}</b>`).join(' e ')}, nos próximos 12 meses ainda sobram` : 'Nos próximos 12 meses sobram'} cerca de <b>${eur(livre)}</b> que nenhum objetivo usa. ${comPlano.length ? 'Pode juntar um segundo plano: amortizar' : 'Amortizar'} <b>${esc(cara.d.nome)}</b> (a dívida mais cara, TAN ${pct(cara.d.taxa)}) com ${eur(v)} poupa cerca de ${eur(v * cara.d.taxa)}/ano em juros e baixa a prestação em cerca de ${eur(Math.min(+cara.d.prestacao || 0, v * cara.ratio))}/mês.
-`, `${comPlano.length ? 'Ainda sobram' : 'Sobram'} ${eur(livre)} em 12 meses: amortize ${esc(cara.d.nome)}`,
-        podeEditar() ? `<button class="btn sm primary" data-sa="${cara.d.id}" data-v="${v}">${icon('plus')} Criar plano</button>` : '']); } }
+      const resAte = i => lista.reduce((t, x) => t + (x.falta > 0 && x.quando && x.quando <= CF[i].ym ? x.falta : 0), 0);
+      let t0 = k12; while (t0 > 0 && pool[t0 - 1] - resAte(t0 - 1) >= v - 0.005) t0--; const desde = CF[t0].ym;
+      out.push(['info', 'credit', `${comPlano.length ? `Mesmo com ${comPlano.map(x => `<b>${esc(x.nome)}</b>`).join(' e ')}, nos próximos 12 meses ainda sobram` : 'Nos próximos 12 meses sobram'} cerca de <b>${eur(livre)}</b> que nenhum objetivo usa. ${comPlano.length ? 'Pode juntar um segundo plano: amortizar' : 'Amortizar'} <b>${esc(cara.d.nome)}</b> (a dívida mais cara, TAN ${pct(cara.d.taxa)}) com ${eur(v)} poupa cerca de ${eur(v * cara.d.taxa)}/ano em juros e baixa a prestação em cerca de ${eur(Math.min(+cara.d.prestacao || 0, v * cara.ratio))}/mês.${comPlano.length ? ` Este seria um plano novo, além de ${comPlano.map(x => esc(x.nome)).join(' e ')}, que fica como está.` : ''} O dinheiro só está livre a partir de ${fmtMes(desde)}.`,
+        comPlano.length ? `Além do plano atual, pode criar um 2.º plano: ${esc(cara.d.nome)} (${eur(v)} a partir de ${mesCurto(desde)})` : `Sobram ${eur(livre)} em 12 meses: amortize ${esc(cara.d.nome)} a partir de ${mesCurto(desde)}`,
+        podeEditar() ? `<button class="btn sm primary" data-sa="${cara.d.id}" data-v="${v}" data-ym="${desde}">${icon('plus')} Criar plano</button>` : '', `sa:${cara.d.id}`]); } }
   // 1c) categoria: um objetivo de férias/compras coberto à frente de um de emergência/dívidas que fica por cobrir
   lista.forEach(y => { if (!['emergencia', 'dividas'].includes(y.cat) || y.falta <= 0 || y.estado[0] === 'ok') return;
     const x = lista.find(z => ['ferias', 'compras'].includes(z.cat) && z.ordem < y.ordem && z.falta > 0 && z.estado[0] === 'ok' && z.prioridade < y.prioridade);
@@ -1800,7 +1802,7 @@ function objetivos(v) {
   const linhaDiv = x => !x.div ? (x.cat === 'dividas' && x.tipo === 'meu' ? `<div class="faint" style="font-size:12px;margin-top:8px">Escolha a dívida em Alterar</div>` : '')
     : `<div style="font-size:12px;margin-top:8px" class="muted">${icon('credit')} ${esc(x.div.nome)}${x.alivio ? ` · <b class="pos">−${eur(x.alivio.red)}/mês</b> desde ${mesCurto(x.alivio.desde)} · −${eur(x.alivio.juros)}/ano em juros` : ''}
       ${dica(`Amortiza ${x.div.nome} (TAN ${pct(x.div.taxa)}, em dívida ${eur(x.div.capital)}). Depois de feito, a prestação desce e essa folga passa a contar para os objetivos seguintes.${x.alivio && !x.alivio.cartao ? ' Peça ao credor para reduzir a prestação (e não o prazo).' : ''}`)}</div>`;
-  const SUG = sugestoesObjetivos(CF, lista, idx, pool), med = r2(sum(CF.slice(0, 12), 'exc') / 12), k12 = Math.min(11, CF.length - 1), livre12 = r2(pool[k12] - S[k12]);
+  const disp0 = M().plano.sugDispensadas || [], SUG = sugestoesObjetivos(CF, lista, idx, pool).filter(x => !x[5] || !disp0.includes(x[5])), med = r2(sum(CF.slice(0, 12), 'exc') / 12), k12 = Math.min(11, CF.length - 1), livre12 = r2(pool[k12] - S[k12]);
   const resto = CF.map(c => Math.max(0, c.exc)), poe = CF.map(() => []), paga = CF.map(() => []), reserva = CF.map(() => 0), cobreNeg = CF.map(() => 0);
   CF.forEach((c, i) => { let f = -c.exc; for (let j = i - 1; j >= 0 && f > 0.005; j--) { const v = Math.min(resto[j], f); if (v > 0.005) { resto[j] -= v; reserva[j] += v; cobreNeg[i] += v; f -= v; } } });
   // calendário: junta-se primeiro para o que se paga mais cedo (quem cabe já foi decidido pela fila de prioridades)
@@ -1844,8 +1846,8 @@ function objetivos(v) {
     ${!pool.some(v => v > 0.005) ? `<div class="alert bad" style="margin-top:16px">${icon('alert')}<div>Não sobra dinheiro em nenhum mês ${dica('Sem sobra mensal, nenhum objetivo tem financiamento. Reveja despesas fixas, dívidas ou o rendimento.')} · <a href="#/despesas">Despesas fixas</a> · <a href="#/dividas">Dívidas</a></div></div>`
       : med < 0 ? `<div class="alert warn" style="margin-top:16px">${icon('alert')}<div>Em média o mês fecha negativo (${eur(med)}) ${dica('Só sobra dinheiro nos meses com +, como os de subsídio. Os objetivos são pagos com essa sobra e os meses negativos gastam-na.')}</div></div>` : ''}
     ${SUG.length ? `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>${icon('info')} Sugestões ${dica('Calculadas com a sobra de cada mês, as prestações e os extratos dos cartões. Confirme valores e datas com o banco. Passe o rato no (i) de cada sugestão para ver o detalhe.')}</h3></div>
-      ${SUG.map(([t, ic, det, curto, btn]) => `<div class="row" style="gap:10px;padding:10px 16px;border-top:1px solid var(--line);align-items:center"><span class="badge ${t === 'ok' ? 'ok' : t === 'bad' ? 'bad' : t === 'warn' ? 'warn' : 'info'}" style="padding:4px 6px">${icon(ic)}</span>
-        <span style="flex:1;min-width:0">${curto || semTags(det)} ${curto ? dica(det) : ''}</span>${btn || ''}</div>`).join('')}</div>` : ''}
+      ${SUG.map(([t, ic, det, curto, btn, chave]) => `<div class="row" style="gap:10px;padding:10px 16px;border-top:1px solid var(--line);align-items:center"><span class="badge ${t === 'ok' ? 'ok' : t === 'bad' ? 'bad' : t === 'warn' ? 'warn' : 'info'}" style="padding:4px 6px">${icon(ic)}</span>
+        <span style="flex:1;min-width:0">${curto || semTags(det)} ${curto ? dica(det) : ''}</span>${btn || ''}${chave && ed ? `<button class="btn sm ghost" data-dis="${esc(chave)}" data-tip="Esconder esta sugestão">Dispensar</button>` : ''}</div>`).join('')}</div>` : ''}
     ${recebidos.map(({ casa, c }) => `<div class="alert info" style="margin-top:16px">${icon('inbox')}<div style="flex:1">${resumoConvite(casa, c)}</div>${ed ? `<button class="btn sm primary" data-rj="${c.id}" data-casa="${casa}">${icon('key')} Responder</button>` : ''}</div>`).join('')}
     ${pend.filter(c => c.deSistema === sub.key).map(c => `<div class="alert" style="margin-top:16px">${icon('users')}<div style="flex:1">Pedido enviado a <b>${esc(semPessoal(c.paraNome))}</b>: ${esc(c.objetivo.nome)} · ${eur(c.objetivo.alvo)} · aguarda resposta</div>${ed ? `<button class="btn sm ghost" data-cc="${c.id}">Cancelar</button>` : ''}</div>`).join('')}
     <div class="grid g2" style="margin-top:16px">${lista.map(cartao).join('') || `<div class="empty" style="grid-column:1/-1">Ainda não tem objetivos. Crie um com <b>Novo objetivo</b> (ex.: portátil novo, 900 €, até junho).</div>`}</div>
@@ -1879,7 +1881,9 @@ function objetivos(v) {
   v.querySelectorAll('[data-ant]').forEach(b => b.onclick = () => { const o = m.objetivos.find(x => x.id === b.dataset.ant); if (!o) return;
     const ant = o.data; o.data = comDia(b.dataset.ym, 28); audit('PF_OBJETIVO', `${o.nome}: data antecipada de ${date(ant)} para ${date(o.data)}`); app.save(); ui.toast(`${o.nome}: antecipado para ${date(o.data)}`, 'ok'); app.refresh(); });
   v.querySelectorAll('[data-sa]').forEach(b => b.onclick = () => { const d = M().dividas.find(y => y.id === b.dataset.sa); if (!d) return;
-    ed1(null, { categoria: 'dividas', prioridade: 3, divida: d.id, nome: 'Amortizar ' + d.nome, alvo: r2(Math.min(+d.capital || 0, +b.dataset.v || 0)), data: SPAP.addMonths(hoje, 12) }); });
+    ed1(null, { categoria: 'dividas', prioridade: 3, divida: d.id, nome: 'Amortizar ' + d.nome, alvo: r2(Math.min(+d.capital || 0, +b.dataset.v || 0)), data: b.dataset.ym ? comDia(b.dataset.ym, 28) : SPAP.addMonths(hoje, 12) }); });
+  v.querySelectorAll('[data-dis]').forEach(b => b.onclick = () => { const p = M().plano; p.sugDispensadas = [...new Set([...(p.sugDispensadas || []), b.dataset.dis])].slice(-50);
+    audit('PF_OBJETIVO', 'Sugestão dispensada'); app.save(); ui.toast('Sugestão escondida', 'ok'); app.refresh(); });
   const nj = v.querySelector('#nj'); if (nj) nj.onclick = novoObjPartilhado;
 }
 
