@@ -150,7 +150,11 @@ function escolherAlvo(ds, estrategia) {
   return at.reduce((a, b) => b.r > a.r ? b : a);
 }
 function simular(dividas, cf, o) {
-  const ds = dividas.map(d => ({ id: d.id, nome: d.nome, capital: +d.capital || 0, r: taxaMensal(d), prest: +d.prestacao || 0, fee: Math.max(0, +d.comissao || 0) }));
+  // cartões de crédito: a prestação é uma % do saldo (com um mínimo), por isso desce quando se amortiza;
+  // a % vem do extrato (opção de pagamento) ou, sem ela, da prestação atual ÷ saldo atual
+  const ds = dividas.map(d => { const cap = +d.capital || 0, prest = +d.prestacao || 0, cartao = d.tipo === 'cartao' && !d.cartaoDe;
+    const pct = cartao ? (+d.opcaoPct > 0 && +d.opcaoPct <= 1 ? +d.opcaoPct : cap > 0 ? Math.min(1, prest / cap) : 0) : 0;
+    return { id: d.id, nome: d.nome, capital: cap, r: taxaMensal(d), prest, fee: Math.max(0, +d.comissao || 0), cartao, pct, minimo: d.minimoCartao == null ? 25 : +d.minimoCartao }; });
   const fim = {}; ds.forEach(d => fim[d.id] = null);
   let livre = null, jurosT = 0, comT = 0, minT = 0, extraT = 0, emerg = +o.fundoInicial || 0, poup = 0;
   const meses = [];
@@ -161,7 +165,8 @@ function simular(dividas, cf, o) {
     // 1) prestações contratadas (sem comissão); se não cobrirem o juro, o défice capitaliza
     ds.forEach(d => {
       if (d.capital <= 0) return;
-      const j = d.capital * d.r, pg = Math.min(d.prest, cash, d.capital + j);
+      const j = d.capital * d.r, devido = d.cartao && d.pct > 0 ? Math.max(d.pct * d.capital, Math.min(d.minimo, d.capital + j)) : d.prest;
+      const pg = Math.min(devido, cash, d.capital + j);
       if (pg <= 0) { d.capital += j; return; }
       if (pg < j) { d.capital += j - pg; minPago += pg; cash -= pg; return; }
       d.capital -= Math.min(d.capital, pg - j); minPago += pg; cash -= pg;
@@ -595,7 +600,7 @@ function aplicarExtrato(x, ov = {}) {
     const nome = ov.nome || c.nome || `Cartão ${x.produto || ''} ····${x.fimCartao || conta.slice(-4)}`.replace(/\s+/g, ' ');
     Object.assign(c, { nome, credor: x.emissor || c.credor || '', produto: x.produto || c.produto, fimCartao: x.fimCartao || c.fimCartao, limite: x.limite ?? c.limite,
       capital: r2(ov.rotativo ?? x.rotativo ?? x.saldo ?? c.capital), taxa: ov.taxa ?? x.tan ?? c.taxa, prestacao: r2(ov.prestacao ?? x.prestacaoCartao ?? c.prestacao),
-      dia: diaDe(x.dataLimite) || c.dia, ultimoExtrato: { numero: x.numero, data: x.data, pagar: x.pagar, minimo: x.minimo, dataLimite: x.dataLimite }, incumprimento: x.incumprimento || null });
+      dia: diaDe(x.dataLimite) || c.dia, opcaoPct: x.opcaoPct ?? c.opcaoPct ?? null, ultimoExtrato: { numero: x.numero, data: x.data, pagar: x.pagar, minimo: x.minimo, dataLimite: x.dataLimite }, incumprimento: x.incumprimento || null });
     if (ov.titular !== undefined) c.titular = ov.titular;
     const chaves = new Set();
     (x.planos || []).forEach(p => {
