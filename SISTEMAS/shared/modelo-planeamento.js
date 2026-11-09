@@ -1579,23 +1579,23 @@ function objPartilhados() {
     return { o, cs, L, R, parte, total: sum(cs, 'valor'), meuAlvo: r2((+o.alvo || 0) * parte), meu: sum(cs.filter(c => c.membro === L.eu), 'valor') };
   });
 }
-function novoObjPartilhado() {
+function novoObjPartilhado(o0) {
   const pessoas = pessoasGrupo(); if (!pessoas.length) { ui.toast('Não há outros planos pessoais no grupo com quem partilhar.', 'warn'); return; }
   const L = ligacaoCasa(); if (L && !(CC().livro(L.casa) || {}).partilha) { ui.toast('Este plano ainda está ligado a uma casa antiga. Peça a migração para partilhas.', 'bad'); return; }
-  ui.modal({ title: 'Novo objetivo partilhado', wide: true, sub: 'A outra pessoa recebe o pedido na Caixa de entrada. O objetivo começa quando ela aceitar.',
+  const v0 = o0 || {}; ui.modal({ title: o0 ? 'Partilhar · ' + esc(o0.nome) : 'Novo objetivo partilhado', wide: true, sub: 'A outra pessoa recebe o pedido na Caixa de entrada. O objetivo começa quando ela aceitar.',
     body: `<form class="form"><div class="fld"><label>Partilhar com</label><select class="inp" name="com">${pessoas.map(x => `<option value="${x.key}">${esc(semPessoal(x.nome))}</option>`).join('')}</select></div>
-      <div class="fld"><label>Objetivo</label><input class="inp" name="nome" placeholder="ex.: Férias, sofá novo, caução da casa"></div>
-      <div class="fld"><label>Valor total necessário (€)</label><input class="inp num" type="number" step="any" name="alvo"></div>
-      <div class="fld"><label>Data pretendida</label><input class="inp" type="date" name="data" value="${SPAP.addMonths(today(), 12)}"></div>
+      <div class="fld"><label>Objetivo</label><input class="inp" name="nome" value="${esc(v0.nome || '')}" placeholder="ex.: Férias, sofá novo, caução da casa"></div>
+      <div class="fld"><label>Valor total necessário (€)</label><input class="inp num" type="number" step="any" name="alvo" value="${esc(v0.alvo || '')}"><span class="hint">O valor total, dos dois.</span></div>
+      <div class="fld"><label>Data pretendida</label><input class="inp" type="date" name="data" value="${esc(v0.data || SPAP.addMonths(today(), 12))}"></div>
       <div class="fld"><label>A minha parte (%)</label><input class="inp num" type="number" step="any" min="0" max="100" name="minha" value="50"><span class="hint">Cada um junta a sua parte do valor total.</span></div>
-      <div class="fld"><label>Eu já tenho poupado (€)</label><input class="inp num" type="number" step="any" name="inicial" value="0"><span class="hint">Opcional. Conta como a sua primeira contribuição.</span></div>
-      <div class="fld"><label>Prioridade (no meu plano)</label><select class="inp" name="prioridade">${[[1, '1 · Máxima'], [2, '2 · Alta'], [3, '3 · Média'], [4, '4 · Baixa'], [5, '5 · Mínima']].map(([k, l]) => `<option value="${k}" ${k === 3 ? 'selected' : ''}>${l}</option>`).join('')}</select></div></form>`,
+      <div class="fld"><label>Eu já tenho poupado (€)</label><input class="inp num" type="number" step="any" name="inicial" value="${esc(+v0.poupado || 0)}"><span class="hint">Opcional. Conta como a sua primeira contribuição.</span></div>
+      <div class="fld"><label>Prioridade (no meu plano)</label><select class="inp" name="prioridade">${[[1, '1 · Máxima'], [2, '2 · Alta'], [3, '3 · Média'], [4, '4 · Baixa'], [5, '5 · Mínima']].map(([k, l]) => `<option value="${k}" ${k === (+v0.prioridade || 3) ? 'selected' : ''}>${l}</option>`).join('')}</select></div></form>`,
     actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('key') + 'Assinar e enviar', kind: 'primary', onClick: el => { const f = ui.formData(el);
       if (!f.nome) { ui.toast('Indique o objetivo', 'warn'); return false; } if (!(+f.alvo > 0)) { ui.toast('Indique o valor necessário', 'warn'); return false; }
       if (!(+f.minha > 0 && +f.minha < 100)) { ui.toast('A sua parte tem de estar entre 0% e 100%', 'warn'); return false; }
-      setTimeout(async () => { if (await enviarObjPartilhado(f)) app.refresh(); }, 0); } }] });
+      setTimeout(async () => { if (await enviarObjPartilhado(f, o0)) app.refresh(); }, 0); } }] });
 }
-async function enviarObjPartilhado(f) {
+async function enviarObjPartilhado(f, o0) {
   const alvo = pessoasGrupo().find(x => x.key === f.com); if (!alvo) return false;
   const minha = r2(+f.minha) / 100, outroNome = semPessoal(alvo.nome), inicial = Math.max(0, r2(+f.inicial || 0));
   const s = await app.assinar('Propor objetivo partilhado', `<b>${esc(f.nome)}</b> · ${eur(+f.alvo)}${f.data ? ' até ' + date(f.data) : ''} com <b>${esc(outroNome)}</b><br>A sua parte: <b>${pct(minha)}</b> (${eur(+f.alvo * minha)})${inicial ? ` · já poupado: ${eur(inicial)}` : ''}<br><span style="font-size:12px">${esc(outroNome)} recebe o pedido na Caixa de entrada.</span>`);
@@ -1605,6 +1605,7 @@ async function enviarObjPartilhado(f) {
   const c = { id: 'Cv' + uid(), tipo: 'objetivo', de: eu, para: outro, deSistema: sub.key, paraSistema: alvo.key, deNome: app.user.nome, paraNome: outroNome, objetivo, estado: 'pendente', criadoEm: new Date().toISOString() };
   c.proposta = { user: app.user.id, nome: app.user.nome, assinatura: await s.signer.texto('PROPOR_PARTILHA', textoConviteObj(casa, c)) };
   CC().alterar(casa, r => { r.convites = r.convites || []; r.convites.push(c); });
+  if (o0) o0.partilha = { casa, convite: c.id };   // depois de aceite, passa a contar só a versão partilhada
   audit('PF_OBJETIVO_PARTILHA_PROPOSTA', `${objetivo.nome} · ${eur(objetivo.alvo)} com ${outroNome} · minha parte ${pct(minha)}`); app.save();
   ui.toast(`Pedido enviado a ${outroNome.split(' ')[0]}`, 'ok'); return true;
 }
@@ -1653,7 +1654,7 @@ function objetivos(v) {
   const idx = d => { const k = CF.findIndex(c => c.ym >= String(d).slice(0, 7)); return k < 0 ? CF.length - 1 : k; };
   const mesesAte = d => { if (!d) return null; const a = (+d.slice(0, 4) - +hoje.slice(0, 4)) * 12 + (+d.slice(5, 7) - +hoje.slice(5, 7)); return Math.max(1, a); };
   // os meus objetivos e a minha parte dos partilhados entram na mesma fila de prioridades
-  const itens = [...m.objetivos.map(o => ({ tipo: 'meu', o, nome: o.nome, alvo: +o.alvo || 0, poupado: +o.poupado || 0, data: o.data, prioridade: +o.prioridade || 3 })),
+  const itens = [...m.objetivos.filter(o => { const cv = o.partilha ? convDe(o) : null; return !(cv && cv.estado === 'aceite'); }).map(o => ({ tipo: 'meu', o, nome: o.nome, alvo: +o.alvo || 0, poupado: +o.poupado || 0, data: o.data, prioridade: +o.prioridade || 3 })),
     ...objPartilhados().map(x => Object.assign(x, { tipo: 'part', nome: x.o.nome, alvo: x.meuAlvo, poupado: x.meu, data: x.o.data, prioridade: +((x.o.prioridades || {})[x.L.eu] || x.o.prioridade) || 3 }))];
   let A = 0;   // já reservado para objetivos mais prioritários
   const lista = itens.sort((a, b) => a.prioridade - b.prioridade || String(a.data || '9').localeCompare(String(b.data || '9'))).map(x => {
@@ -1672,11 +1673,12 @@ function objetivos(v) {
       + (x.quando ? `Ao ritmo previsto chega lá em <b>${fmtMes(x.quando)}</b>.` : 'Ao ritmo previsto não chega lá nos próximos 10 anos.');
   const barra = (pc, cls) => `<div class="progress ${cls}"><i style="width:${Math.min(100, Math.max(0, Math.round(pc)))}%"></i></div>`;
   const cartao = x => { const cls = x.estado[0] === 'bad' ? 'bad' : x.estado[0] === 'warn' ? 'warn' : '';
-    if (x.tipo === 'meu') return `<div class="card"><div class="card-h"><h3>${esc(x.nome)}</h3><span class="badge ${x.estado[0]}">${x.estado[1]}</span></div>
+    const cv = x.tipo === 'meu' && x.o.partilha ? convDe(x.o) : null, propostoA = cv && cv.estado === 'pendente' ? semPessoal(cv.paraNome).split(' ')[0] : null;
+    if (x.tipo === 'meu') return `<div class="card"><div class="card-h"><h3>${esc(x.nome)}</h3>${propostoA ? `<span class="badge info" data-tip="Quando ${esc(propostoA)} aceitar, passa a objetivo partilhado.">partilha proposta · aguarda ${esc(propostoA)}</span>` : cv && cv.estado === 'recusado' ? '<span class="badge warn">partilha recusada</span>' : ''}<span class="badge ${x.estado[0]}">${x.estado[1]}</span></div>
       ${barra(100 * x.poupado / Math.max(1, x.alvo), cls)}<p style="margin:12px 0">${frase(x)}</p>
       <div class="kv"><div><span>Poupado / necessário</span><b class="num">${eur(x.poupado)} / ${eur(x.alvo)}</b></div><div><span>Data pretendida</span><b>${x.data ? date(x.data) : '—'}${x.n ? ` · ${x.n === 1 ? '1 mês' : x.n + ' meses'}` : ''}</b></div>
         <div><span>Prioridade</span><b>${x.prioridade}</b></div></div>
-      ${ed ? `<div class="row" style="margin-top:12px;gap:8px"><button class="btn sm primary" data-pp="${x.o.id}">${icon('plus')} Pôr de lado</button><button class="btn sm ghost" data-o="${x.o.id}">Alterar</button></div>` : ''}</div>`;
+      ${ed ? `<div class="row" style="margin-top:12px;gap:8px"><button class="btn sm primary" data-pp="${x.o.id}">${icon('plus')} Pôr de lado</button><button class="btn sm ghost" data-o="${x.o.id}">Alterar</button>${!propostoA && pessoasGrupo().length ? `<button class="btn sm ghost" data-sj="${x.o.id}">${icon('users')} Partilhar</button>` : ''}</div>` : ''}</div>`;
     const nm = id => semPessoal(nomeMembro(x.L.casa, id)).split(' ')[0];
     const porMembro = Object.keys(x.o.partes || {}).map(id => ({ id, alvo: r2((+x.o.alvo || 0) * (+x.o.partes[id] || 0)), juntou: sum(x.cs.filter(c => c.membro === id), 'valor') }));
     return `<div class="card"><div class="card-h"><h3>${esc(x.nome)}</h3><span class="badge info">${icon('users')} partilhado</span><span class="badge ${x.estado[0]}">${x.estado[1]}</span></div>
@@ -1713,6 +1715,7 @@ function objetivos(v) {
       actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: 'Registar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!(+f.valor > 0)) { ui.toast('Indique o valor', 'warn'); return false; }
         o.poupado = r2((+o.poupado || 0) + +f.valor); (o.movimentos = o.movimentos || []).push({ data: f.data || today(), valor: r2(+f.valor) });
         audit('PF_OBJETIVO_POUPANCA', `${o.nome} · ${eur(+f.valor)}`); app.save(); app.refresh(); } }] }); });
+  v.querySelectorAll('[data-sj]').forEach(b => b.onclick = () => novoObjPartilhado(m.objetivos.find(x => x.id === b.dataset.sj)));
   v.querySelectorAll('[data-cj]').forEach(b => b.onclick = () => { const x = porParte(b.dataset.cj); if (x) contribuirObj(x); });
   v.querySelectorAll('[data-vj]').forEach(b => b.onclick = () => { const x = porParte(b.dataset.vj); if (x) verObjPartilhado(x); });
   v.querySelectorAll('[data-rj]').forEach(b => b.onclick = async () => { if (await responderConvite(b.dataset.casa, b.dataset.rj)) app.refresh(); });
