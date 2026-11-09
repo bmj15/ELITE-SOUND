@@ -34,7 +34,7 @@ const nomeEstr = k => k === 'baseline' ? 'Só prestações' : (ESTRATEGIAS.find(
 const BENCH = { dtiAviso: 0.35, dtiCritico: 0.50, poupMin: 0.10, poupBoa: 0.20, tanAlta: 0.15, tanCartao: 0.18, emergMin: 1, emergSeguro: 3 };
 const PLANO_PADRAO = () => ({ salarioBase: 0, outrosRendimentos: 0, incluirRefeicao: true, extraFixo: 0, emergMeses: 3, emergProgressivo: 0,
   fundoOrigem: 'tesouraria', fundoInicial: 0, poupancaTipo: 'none', poupancaFixa: 0, poupancaPct: 0, horizonte: 240, diaSalario: 1,
-  atualizarSMN: true, brutoBase: 0, smnTabela: '', smnAumento: 50 });
+  atualizarSMN: true, brutoBase: 0, smnTabela: '', smnAumento: 50, pagoMesSeguinte: false });
 
 const M = () => { const m = app.db.mod; ['recibos', 'despesas', 'dividas', 'objetivos', 'extratos'].forEach(k => { if (!Array.isArray(m[k])) m[k] = []; });
   m.plano = Object.assign(PLANO_PADRAO(), m.plano || {}); return m; };
@@ -156,11 +156,13 @@ function rendimentoMensal(ano = +today().slice(0, 4)) {
 }
 
 // rendimento de um mês concreto: recibo real ou projeção desse ano (anos futuros atualizados pelo salário mínimo, se ativo)
+// recibo cujo ordenado entra no mês (y, m): o do próprio mês ou, se é pago no mês seguinte, o do mês anterior
+const mesDoRecibo = (y, m) => M().plano.pagoMesSeguinte ? (m === 1 ? [y - 1, 12] : [y, m - 1]) : [y, m];
+// mês em que entra o ordenado de um recibo (y, m)
+const mesDaEntrada = (y, m) => M().plano.pagoMesSeguinte ? (m === 12 ? [y + 1, 1] : [y, m + 1]) : [y, m];
 function rendimentoDoMes(y, m, P = projecao) {
-  const pl = M().plano, y0 = +today().slice(0, 4); let inc;
-  if (y >= y0) { const l = P(y).linhas[m - 1]; inc = l.proj + (pl.incluirRefeicao ? l.refeicao : 0); }
-  else { const p = P(y0), base = salarioBase() || p.media; inc = p.media + (m === MES_FERIAS || m === MES_NATAL ? base : 0) + (pl.incluirRefeicao ? p.mediaRef : 0); }
-  return r2(inc + (+pl.outrosRendimentos || 0));
+  const pl = M().plano, [ry, rm] = mesDoRecibo(y, m), l = P(ry).linhas[rm - 1];
+  return r2(l.proj + (pl.incluirRefeicao ? l.refeicao : 0) + (+pl.outrosRendimentos || 0));
 }
 
 /* ---------- Motor: simulador mês a mês (porta direta de simulator.py) ---------- */
@@ -335,7 +337,8 @@ function pedirAmortizacao(x, valor) {
     descricao: `Amortização antecipada ${x.nome}${+x.comissao ? ` (comissão ${pct(x.comissao)} incluída)` : ''}`, dataPrevista: today(), origem: { mod: 'dividas', key: `pf:amort:${x.id}:${uid()}` } });
 }
 // entrada do vencimento na tesouraria: data = fim do mês do recibo (ou hoje, se ainda não acabou)
-const entradaRecibo = r => { const fim = new Date(+r.ano, +r.mes, 0), d = `${fim.getFullYear()}-${String(fim.getMonth() + 1).padStart(2, '0')}-${String(fim.getDate()).padStart(2, '0')}`;
+const entradaRecibo = r => { const pl = M().plano, [ey, em] = mesDaEntrada(+r.ano, +r.mes), fim = new Date(ey, em, 0);
+  const dia = pl.pagoMesSeguinte ? Math.min(Math.max(1, +pl.diaSalario || 1), fim.getDate()) : fim.getDate(), d = `${ey}-${String(em).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
   return { contaDestino: CAIXA, valor: +r.liquido || 0, metodo: 'CAPITALIZAÇÃO', dataPrevista: d < today() ? d : today(),
     descricao: `Vencimento ${MESES[+r.mes - 1]} ${r.ano}${r.entidade ? ' · ' + r.entidade : ''}`, origem: { mod: 'rendimentos', key: chaveRec(r) } }; };
 // rendimentos não passam pelo circuito de aprovação: uma assinatura regista e executa a entrada
@@ -389,12 +392,12 @@ function visao(v) {
   let ym = tab('pf-painel-mes', hojeYm); if (!mesesSel.includes(ym)) ym = hojeYm;
   const nomeYm = x => `${MESES[+x.slice(5, 7) - 1]} ${x.slice(0, 4)}`;
   const I = indicadores(ym, true), ano = +today().slice(0, 4), P = projecao(ano), kn = app.kn;
-  const linhaYm = +ym.slice(0, 4) === ano ? P.linhas[+ym.slice(5, 7) - 1] : null, subYm = linhaYm ? linhaYm.sub : [MES_FERIAS, MES_NATAL].includes(+ym.slice(5, 7));
+  const [ryY, rmY] = mesDoRecibo(+ym.slice(0, 4), +ym.slice(5, 7)), linhaYm = projecao(ryY).linhas[rmY - 1], subYm = linhaYm.sub, ymRec = ymOf(ryY, rmY);
   const cor = I.score >= 75 ? 'var(--ok)' : I.score >= 50 ? 'var(--warn)' : 'var(--bad)';
   const R = compararEstrategias(), melhor = ESTRATEGIAS.map(e => R[e[0]]).sort((a, b) => (a.meses.length - b.meses.length) || (a.juros - b.juros))[0];
   v.innerHTML = `<div class="row" style="justify-content:flex-end;gap:8px;margin-bottom:10px"><span class="muted">Mês</span><select class="inp inp-sm" id="pfm">${mesesSel.map(x => `<option value="${x}" ${x === ym ? 'selected' : ''}>${nomeYm(x)}${x === hojeYm ? ' (atual)' : ''}</option>`).join('')}</select>${podeEditar() ? `<button class="btn sm" id="imp">${icon('download')} Importar do Planeador</button>` : ''}</div>${I.alertas.map(([k, t]) => `<div class="alert ${k}" style="margin-bottom:10px">${icon('alert')}<div>${t}</div></div>`).join('')}
     <div class="grid g4" style="margin-top:${I.alertas.length ? 6 : 0}px">
-      ${kpi(`${icon('wallet')} ${kn('pf_rend', 'Rendimento líquido do mês')}`, eur(I.rend), `${linhaYm && linhaYm.real != null ? 'recibo de ' : 'previsto para '}${nomeYm(ym)}${subYm ? ' · com subsídio' : ''}${M().plano.incluirRefeicao ? ' · inclui refeição' : ''}<br>média a 12 meses ${eur(rendimentoMensal())}`, '', true)}
+      ${kpi(`${icon('wallet')} ${kn('pf_rend', 'Rendimento líquido do mês')}`, eur(I.rend), `${linhaYm.real != null ? 'recibo de ' : 'previsto: '}${nomeYm(ymRec)}${ymRec !== ym ? ` (pago em ${MESES[+ym.slice(5, 7) - 1]})` : ''}${subYm ? ' · com subsídio' : ''}${M().plano.incluirRefeicao ? ' · inclui refeição' : ''}<br>média a 12 meses ${eur(rendimentoMensal())}`, '', true)}
       ${kpi(`${icon('list')} ${kn('pf_desp', 'Despesas fixas / mês')}`, eur(I.desp), (() => { const c = casaParte(ym), n = despAtivas(ym).length, proprias = r2(despAtivas(ym).reduce((t, e) => t + mensalDesp(e), 0));
         const txt = `${n} ${n === 1 ? 'despesa própria' : 'despesas próprias'}${n ? ' · ' + eur(proprias) : ''}`;
         return `<a href="#/despesas">${txt}</a>${c && !c.semDados ? `<br>+ ${eur(c.valor)} parte na casa (${c.n} ${c.n === 1 ? 'despesa comum' : 'despesas comuns'})` : ''}`; })())}
@@ -927,6 +930,8 @@ const COLS_PLANO = () => [
   { k: 'brutoBase', label: 'Vencimento base bruto mensal', type: 'money', hint: `Para comparar com o salário mínimo. Deixe 0 para estimar (${(b => b.valor ? eur(b.valor) + ', ' + b.origem : 'sem recibos')(brutoBase())}).` },
   { k: 'smnAumento', label: 'Aumento anual do mínimo depois do último ano da tabela', type: 'money' },
   { k: 'smnTabela', label: 'Corrigir salário mínimo por ano', full: true, ph: 'ex.: 2027: 980; 2030: 1150', hint: `Tabela usada: ${Object.entries(SMN_PADRAO).map(([a, v]) => a + ': ' + v).join(' · ')} €. Escreva só os anos a corrigir ou a acrescentar.` },
+  { k: 'pagoMesSeguinte', label: 'O ordenado de cada mês é pago no início do mês seguinte', type: 'check', full: true, hint: 'Ex.: o recibo de novembro entra a 1 de dezembro. Muda o mês em que cada recibo conta no Painel, no simulador e na previsão de liquidez.' },
+  { k: 'diaSalario', label: 'Dia em que o ordenado entra', type: 'int', min: 1, max: 28 },
   { k: 'outrosRendimentos', label: 'Outros rendimentos mensais', type: 'money', hint: 'Rendas, recibos verdes, pensões…' },
   { k: 'incluirRefeicao', label: 'Contar o subsídio de refeição como rendimento', type: 'check' },
   { k: 'extraFixo', label: 'Amortização extra fixa por mês', type: 'money', hint: 'Somada ao excedente do mês.' },
@@ -1062,10 +1067,10 @@ return {
     M().despesas.filter(e => e.ativo !== false).forEach(e => ocorrencias(e, e.periodicidade, de, ate).forEach(d => { if (vigente(e, d.slice(0, 7)) && !vivos(chaveDesp(e, d)).length) out.push({ conta: e.contaOrigem || CAIXA, data: d, valor: -(+e.valor || 0), tipo: 'Despesa fixa', descricao: e.nome }); }));
     divAtivas().forEach(x => ocorrencias(x, 'mensal', de, ate).forEach(d => { if (!vivos(chaveDiv(x, d)).length) out.push({ conta: x.contaOrigem || CAIXA, data: d, valor: -(+x.prestacao || 0), tipo: 'Prestação', descricao: x.nome }); }));
     ocorrencias({ dia: pl.diaSalario || 1 }, 'mensal', de, ate).forEach(d => {
-      const y = +d.slice(0, 4), m = +d.slice(5, 7), rs = M().recibos.filter(r => +r.ano === y && +r.mes === m);
+      const y = +d.slice(0, 4), m = +d.slice(5, 7), [ry, rm] = mesDoRecibo(y, m), rs = M().recibos.filter(r => +r.ano === ry && +r.mes === rm);
       if (rs.some(r => vivos(chaveRec(r)).length)) return;
-      const l = projecao(y).linhas[m - 1], val = r2(l.proj + (pl.incluirRefeicao ? l.refeicao : 0) + (+pl.outrosRendimentos || 0));
-      if (val > 0) out.push({ conta: CAIXA, data: d, valor: val, tipo: 'Rendimento previsto', descricao: `Rendimento ${MESES[m - 1]} ${y}` });
+      const val = rendimentoDoMes(y, m);
+      if (val > 0) out.push({ conta: CAIXA, data: d, valor: val, tipo: 'Rendimento previsto', descricao: `Rendimento ${MESES[rm - 1]} ${ry}${ry !== y || rm !== m ? ' (recebido em ' + MESES[m - 1] + ')' : ''}` });
     });
     return out;
   },
