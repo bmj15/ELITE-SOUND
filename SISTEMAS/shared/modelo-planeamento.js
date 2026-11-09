@@ -741,7 +741,7 @@ function rendimentos(v) {
   const T = tabs('pf-rend', 'rec', [['rec', 'Recibos de vencimento'], ['catb', 'Recibos verdes (Cat. B)'], ['proj', 'Projeção anual'], ['irs', 'IRS']]), m = M(), kn = app.kn, ed = podeEditar();
   if (T.t === 'catb') return rendCatB(v, T);
   if (T.t === 'irs') return rendIRS(v, T);
-  const anoAtual = +today().slice(0, 4), futuros = T.t === 'proj' ? [1, 2, 3, 4, 5].map(i => anoAtual + i) : [];
+  const anoAtual = +today().slice(0, 4), futuros = [1, 2, 3, 4, 5].map(i => anoAtual + i);
   const anos = [...new Set([anoAtual, ...futuros, ...m.recibos.map(r => +r.ano)])].sort((a, b) => b - a);
   let ano = +tab('pf-ano', anoAtual); if (!anos.includes(ano)) ano = anoAtual;
   const anoSel = `<select class="inp inp-sm" id="pfa">${anos.map(y => `<option ${y === ano ? 'selected' : ''}>${y}</option>`).join('')}</select>`;
@@ -787,7 +787,7 @@ function rendimentos(v) {
     chart.bars(v.querySelector('#ch'), { labels: MES3, stacked: true, series: [{ name: 'Real', values: P.linhas.map(l => l.real != null ? r2(l.real - l.refeicao) : 0) }, { name: 'Projetado', values: P.linhas.map(l => l.real == null ? r2(l.proj - l.refeicao) : 0), color: 'var(--accent2)' },
       ...(refOn && P.refeicaoTotal ? [{ name: 'Subsídio de refeição', values: P.linhas.map(l => l.refeicao), color: 'var(--info)' }] : [])] });
   }
-  bindTabs(v); const s = v.querySelector('#pfa'); if (s) s.onchange = () => { setTab('pf-ano', s.value); app.refresh(); };
+  bindTabs(v); const s = v.querySelector('#pfa'); if (s) s.onchange = () => { setTab('pf-ano', s.value); if (+s.value > anoAtual && T.t === 'rec') setTab('pf-rend', 'proj'); app.refresh(); };
 }
 
 /* ---------- Despesas fixas ---------- */

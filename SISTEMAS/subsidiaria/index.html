@@ -24,7 +24,7 @@
 <script src="../shared/grupo.js?v=5"></script>
 <script src="../shared/modelos.js?v=3"></script>
 <script src="../shared/conta-casa.js?v=8"></script>
-<script src="../shared/modelo-planeamento.js?v=54"></script>
+<script src="../shared/modelo-planeamento.js?v=55"></script>
 <script src="../shared/leitor-recibos.js?v=3"></script>
 <script src="../shared/leitor-extratos.js?v=3"></script>
 <script>
@@ -60,6 +60,16 @@
   });
   if (m.registar) m.registar(app);
   app.start();
+  // todos os sistemas usam o mesmo motor: um separador aberto há muito avisa quando há versão nova do código
+  const versoes = t => [...t.matchAll(/shared\/[\w-]+\.js\?v=\d+/g)].map(x => x[0]).sort().join('|');
+  const atual = versoes([...document.scripts].map(x => x.getAttribute('src') || '').join(' '));
+  const verificar = () => fetch(location.pathname + '?vc=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(t => {
+    if (!t || versoes(t) === atual || document.getElementById('nova-versao')) return;
+    const b = document.createElement('div'); b.id = 'nova-versao';
+    b.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;background:var(--accent,#7c5cff);color:#fff;padding:10px 14px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-size:14px';
+    b.innerHTML = 'Há uma versão nova do sistema. <button style="background:#fff;color:#111;border:0;border-radius:8px;padding:6px 12px;font-weight:600;cursor:pointer">Atualizar agora</button>';
+    b.querySelector('button').onclick = () => location.reload(); document.body.appendChild(b); }).catch(() => {});
+  setInterval(verificar, 120000); document.addEventListener('visibilitychange', () => { if (!document.hidden) verificar(); });
 })();
 </script>
 </body>
