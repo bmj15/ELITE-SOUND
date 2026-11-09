@@ -432,7 +432,7 @@ function visao(v) {
 const COLS_REC = () => [
   { k: 'ano', label: 'Ano', type: 'int', min: 2000, max: 2100 }, { k: 'mes', label: 'Mês', type: 'select', opts: MESES.map((n, i) => [i + 1, n]) },
   { k: 'entidade', label: 'Entidade patronal', ph: 'opcional' }, { k: 'nifEntidade', label: 'NIF da entidade', ph: 'opcional' },
-  { k: 'bruto', label: 'Vencimento bruto', type: 'money' }, { k: 'liquido', label: 'Líquido recebido', type: 'money', hint: 'Total líquido do recibo, incluindo subsídios pagos nesse mês.' },
+  { k: 'bruto', label: 'Vencimento bruto', type: 'money' }, { k: 'brutoIRS', label: 'Bruto sujeito a IRS', type: 'money', hint: 'Só se o recibo tiver rubricas isentas (abono para falhas isento, ajudas de custo isentas…). Vazio = igual ao bruto.' }, { k: 'liquido', label: 'Líquido recebido', type: 'money', hint: 'Total líquido do recibo, incluindo subsídios pagos nesse mês.' },
   { k: 'irs', label: 'Retenção de IRS', type: 'money' }, { k: 'ss', label: 'Segurança Social', type: 'money' },
   { k: 'refeicao', label: 'Subsídio de refeição', type: 'money', hint: 'Parte do líquido que é subsídio de refeição.' }, { k: 'notas', label: 'Notas' },
   { k: 'subFerias', label: 'Inclui subsídio de férias', type: 'check' }, { k: 'subFeriasValor', label: 'Valor do subsídio de férias', type: 'money' },
@@ -550,9 +550,9 @@ function lerDespesasIRS(l) { const f = lerFormula(l); if (!f || f.nome !== 'DESP
   const v = {}; f.args.slice(1).forEach(a => { const m = a.match(/^(\S+)\s+(.+)$/); if (!m || numPT(m[2]) == null) throw new Error(`não percebo «${a}»`); v[semAcento(m[1])] = numPT(m[2]); }); return { ano, v }; }
 const despesasIRS = () => linhasIRS(M().plano.irsDespesas, lerDespesasIRS);
 const escalaoIRS = (x, r) => { const i = r.esc.findIndex(e => x <= e.ate); return { i: i < 0 ? r.esc.length - 1 : i, ...r.esc[i < 0 ? r.esc.length - 1 : i] }; };
-// Cat. A do ano: recibos reais + (ano atual ou futuro) meses em falta projetados pela média sem subsídios
+// Cat. A do ano (bruto sujeito a IRS, sem rubricas isentas): recibos reais + (ano atual ou futuro) meses em falta projetados pela média sem subsídios
 function catAIRS(ano) {
-  const m = M(), rs = m.recibos.filter(p => +p.ano === ano), y0 = +today().slice(0, 4), soma = (xs, k) => xs.reduce((t, p) => t + (+p[k] || 0), 0);
+  const m = M(), rs = m.recibos.filter(p => +p.ano === ano), y0 = +today().slice(0, 4), soma = (xs, k) => xs.reduce((t, p) => t + (k === 'bruto' && +p.brutoIRS > 0 ? +p.brutoIRS : +p[k] || 0), 0);
   const o = { bruto: soma(rs, 'bruto'), irs: soma(rs, 'irs'), ss: soma(rs, 'ss'), real: rs.length, proj: 0, fonte: null };
   if (ano < y0) return o;
   let base = rs; for (let y = ano - 1; !base.length && y >= ano - 3; y--) { base = m.recibos.filter(p => +p.ano === y); o.fonte = y; }
