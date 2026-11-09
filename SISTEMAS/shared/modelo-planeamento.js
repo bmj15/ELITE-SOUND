@@ -602,11 +602,12 @@ function dividas(v) {
       return `<tr class="${ed ? 'click' : ''}" data-v="${d.id}" style="${on ? '' : 'opacity:.5'}"><td style="${cart ? 'padding-left:28px' : ''}"><b>${esc(d.nome)}</b><div class="faint" style="font-size:12px">${cart ? `plano PagaSimples · ${esc(cart.nome)}${d.prazo ? ` · ${d.prazo} prestações` : ''}` : `${esc(nomeTipo(d.tipo))}${d.credor ? ' · ' + esc(d.credor) : ''}${d.limite ? ` · limite ${eur(d.limite)}` : ''}${d.ultimoExtrato ? ` · extrato n.º ${d.ultimoExtrato.numero} de ${date(d.ultimoExtrato.data)}` : ''}`}</div></td>
       <td class="r num">${eur(d.capital)}</td><td class="r num">${pct(d.taxa)} <span class="faint" style="font-size:11px">${esc((d.tipoTaxa || '').replace('-', ' '))}</span></td><td class="r num">${eur(d.prestacao)}</td><td class="r num">${eur(d.capital * taxaMensal(d))}</td>
       <td>${!on ? (d.canceladoEm ? `<span class="badge warn" data-tip="O banco cancelou o plano em ${date(d.canceladoEm)} e o valor em dívida passou para o saldo do cartão.">cancelado · passou para o cartão</span>` : '<span class="badge ok">liquidada</span>') : d.incumprimento ? `<span class="badge bad">em incumprimento${d.incumprimento.montante ? ' · ' + eur(d.incumprimento.montante) + ' em atraso' : ''}</span>${d.incumprimento.bloqueado ? ' <span class="badge bad">bloqueado</span>' : ''}` : n === Infinity ? '<span class="badge bad">nunca (juro > prestação)</span>' : `${n} meses`}</td>
-      <td>${!on ? '—' : cartaoComExtratos(d) ? (d.cartaoDe ? '<span class="faint" style="font-size:12px">paga-se no cartão</span>' : (() => { const ux = M().extratos.filter(e => e.conta === d.contaCartao).sort((a, b) => String(b.data).localeCompare(String(a.data)))[0]; return ux ? badgeExtrato(estadoExtrato(ux)) : ''; })()) : ps || (app.can('criar') ? `<button class="btn sm" data-p="${d.id}">Pedir ${eur(d.prestacao)}</button>` : date(pr))}</td>
+      <td>${!on ? '—' : cartaoComExtratos(d) ? (d.cartaoDe ? '<span class="faint" style="font-size:12px">paga-se no cartão</span>' : (() => { const ux = M().extratos.filter(e => e.conta === d.contaCartao).sort((a, b) => String(b.data).localeCompare(String(a.data)))[0]; const sx = ux && estadoExtrato(ux); return ux ? badgeExtrato(sx) + (podeDeclarar(sx) ? ` <button class="btn sm" data-dx="${ux.id}">${icon('check')} Marcar pago</button>` : '') : ''; })()) : ps || (app.can('criar') ? `<button class="btn sm" data-p="${d.id}">Pedir ${eur(d.prestacao)}</button>` : date(pr))}</td>
       <td class="r">${on && app.can('criar') && !(cartaoComExtratos(d) && d.cartaoDe) ? `<button class="btn sm ghost" data-a="${d.id}">Amortizar</button>` : on && d.cartaoDe ? '<span class="faint" style="font-size:11px" data-tip="No Santander, o que se paga a mais vai para o saldo do cartão, não para os planos PagaSimples. Para liquidar um plano antes do fim é preciso pedi-lo ao banco.">só pelo banco</span>' : ''}</td></tr>`; }).join('') || '<tr><td colspan="8" class="empty">Sem dívidas registadas.</td></tr>'}</tbody></table></div></div>
     ${m.extratos.length ? `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Extratos de cartão</h3><span class="sub">${m.extratos.length} extratos · o pagamento confirma-se no extrato seguinte · clique para ver os movimentos</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Cartão</th><th>N.º</th><th class="r">Saldo em dívida</th><th class="r">A pagar</th><th>Data limite</th><th>Pagamento</th><th class="r">Movimentos</th></tr></thead><tbody>
       ${m.extratos.slice().sort((a, b) => String(b.data).localeCompare(String(a.data))).slice(0, 36).map(x => { const c = m.dividas.find(y => y.id === x.divida); return `<tr class="click" data-x="${x.id}"><td>${date(x.data)}</td><td>${esc(c ? c.nome : x.conta)}</td><td class="mono">${esc(String(x.numero ?? '—'))}</td><td class="r num">${eur(x.saldo)}</td><td class="r num">${eur(x.pagar)}</td><td>${x.dataLimite ? date(x.dataLimite) : '—'}</td><td>${badgeExtrato(estadoExtrato(x))}</td><td class="r">${(x.movimentos || []).length}</td></tr>`; }).join('')}</tbody></table></div></div>` : ''}`;
   v.querySelectorAll('[data-x]').forEach(tr => tr.onclick = () => verExtrato(m.extratos.find(x => x.id === tr.dataset.x)));
+  v.querySelectorAll('[data-dx]').forEach(b => b.onclick = ev => { ev.stopPropagation(); declararPagamento(m.extratos.find(x => x.id === b.dataset.dx)); });
   const lx = v.querySelector('#lx'); if (lx) lx.onclick = escolherExtratos;
   const ed1 = d0 => { const novo = !d0, x = d0 || { tipo: 'consumo', tipoTaxa: 'TAN-fixa', dia: 1, contaOrigem: CAIXA, ativo: true, capital: 0, taxa: 0, prestacao: 0, comissao: null };
     editar({ titulo: 'Dívida / crédito', cols: COLS_DIV(), x, novo, validar: f => !f.nome ? 'Indique a designação' : f.capital < 0 ? 'Capital inválido' : null,
@@ -675,19 +676,23 @@ const ehPagamento = m => (+m.valor || 0) < 0 && (m.tipo === 'Pagamento' || /^PAG
 function estadoExtrato(x) {
   const hoje = today(), seg = M().extratos.filter(e => e.conta === x.conta && String(e.data) > String(x.data)).sort((a, b) => String(a.data).localeCompare(String(b.data)))[0] || null;
   const pagar = +x.pagar || 0, minimo = +x.minimo || 0, lim = x.dataLimite || null;
-  if (!seg) return { x, seg: null, estado: pagar <= 0.004 ? 'nada' : lim && lim >= hoje ? 'aberto' : 'aguarda', pagar, minimo, lim, pago: 0, pagoAte: 0, multa: 0, multas: [] };
+  const dec = x.declarado || null;
+  if (!seg) return { x, seg: null, dec, estado: pagar <= 0.004 ? 'nada' : dec ? 'declarado' : lim && lim >= hoje ? 'aberto' : 'aguarda', pagar, minimo, lim, pago: 0, pagoAte: 0, multa: 0, multas: [] };
   // pagamentos: todos os do extrato seguinte (o período começa no dia do extrato); alguns bancos chamam-lhes "PAG.TRANS.BANCARIA"
   const pags = (seg.movimentos || []).filter(ehPagamento);
   const pago = r2(pags.reduce((t, m) => t + Math.abs(+m.valor || 0), 0)), pagoAte = r2(pags.filter(m => !lim || String(m.data) <= lim).reduce((t, m) => t + Math.abs(+m.valor || 0), 0));
   const multas = (seg.movimentos || []).filter(m => ['Comissão', 'Juros', 'Imposto do selo'].includes(m.tipo) && (+m.valor || 0) > 0 && RX_MULTA.test(m.descricao || '')), multa = r2(multas.reduce((t, m) => t + (+m.valor || 0), 0));
   const ultimo = pags.map(m => m.data).sort().pop() || null;
   const estado = pagar <= 0.004 ? 'nada' : pagoAte >= pagar - 0.01 ? 'pago' : pagoAte >= minimo - 0.01 ? 'minimo' : pago >= minimo - 0.01 ? 'atraso' : 'falta';
-  return { x, seg, estado, pagar, minimo, lim, pago, pagoAte, ultimo, multa, multas, incumprimento: seg.incumprimento || null };
+  // o pagamento declarado não aparece (ou aparece mais baixo) no extrato seguinte
+  const naoConfirmado = dec && pago < (+dec.valor || 0) - 0.01 ? r2((+dec.valor || 0) - pago) : 0;
+  return { x, seg, dec, naoConfirmado, estado, pagar, minimo, lim, pago, pagoAte, ultimo, multa, multas, incumprimento: seg.incumprimento || null };
 }
 const badgeExtrato = s => {
   const mt = s.multa > 0.004 ? ` <span class="badge bad" data-tip="${esc(s.multas.map(m => `${m.descricao}: ${eur(m.valor)}`).join(' · '))}">multa ${eur(s.multa)}</span>` : '';
-  const inc = s.incumprimento ? ' <span class="badge bad">incumprimento</span>' : '';
+  const inc = (s.incumprimento ? ' <span class="badge bad">incumprimento</span>' : '') + (s.naoConfirmado ? ` <span class="badge bad" data-tip="${esc(`Marcou ${eur(s.dec.valor)} como pago em ${date(s.dec.data)}, mas o extrato de ${date(s.seg.data)} só mostra ${eur(s.pago)} de pagamentos.`)}">pagamento marcado não confirmado (${eur(s.naoConfirmado)})</span>` : '');
   if (s.estado === 'nada') return '<span class="badge plain">nada a pagar</span>';
+  if (s.estado === 'declarado') return `<span class="badge info" data-tip="${esc(`Marcado como pago por ${s.dec.nome || '—'}. Confirma-se (ou não) ao ler o extrato seguinte do cartão.`)}">pago ${eur(s.dec.valor)} ${date(s.dec.data)} · por confirmar</span>`;
   if (s.estado === 'aberto') return `<span class="badge info">a pagar até ${date(s.lim)}</span>`;
   if (s.estado === 'aguarda') return `<span class="badge warn" data-tip="A data limite já passou: o pagamento confirma-se ao ler o extrato seguinte.">aguarda extrato seguinte</span>`;
   if (s.estado === 'pago') return `<span class="badge ok" data-tip="${esc(`Pagamentos até ${date(s.lim)}: ${eur(s.pagoAte)} (extrato de ${date(s.seg.data)})`)}">pago${s.ultimo ? ' ' + date(s.ultimo) : ''}</span>` + (s.pago - s.pagar > 0.5 ? ` <span class="badge acc" data-tip="O valor a mais abateu ao saldo do cartão; o pagamento seguinte foi calculado sobre o saldo mais baixo.">+ ${eur(s.pago - s.pagar)} amortizado</span>` : '') + mt + inc;
@@ -695,6 +700,18 @@ const badgeExtrato = s => {
   if (s.estado === 'atraso') return `<span class="badge warn" data-tip="${esc(`Até ${date(s.lim)} pagou ${eur(s.pagoAte)} (mínimo ${eur(s.minimo)}); completou depois.`)}">pago em atraso${s.ultimo ? ' ' + date(s.ultimo) : ''}</span>` + mt + inc;
   return `<span class="badge bad" data-tip="${esc(`Mínimo ${eur(s.minimo)}, pago ${eur(s.pago)} até ao extrato de ${date(s.seg.data)}.`)}">em falta ${eur(Math.max(0, s.minimo - s.pago))}</span>` + mt + inc;
 };
+const podeDeclarar = s => s && ['aberto', 'aguarda'].includes(s.estado) && podeEditar();
+function declararPagamento(x, depois) {
+  const st = estadoExtrato(x);
+  ui.modal({ title: 'Marcar como pago', sub: `Extrato de ${date(x.data)} · a pagar ${eur(x.pagar)} (mínimo ${eur(x.minimo)}) até ${date(x.dataLimite)}`,
+    body: `<div class="alert info" style="margin-bottom:12px">${icon('info')}<div>Fica <b>pago · por confirmar</b>. Ao ler o extrato seguinte do cartão o sistema confirma o pagamento, a data (atraso) e as multas; se não o encontrar, avisa.</div></div>
+      <form class="form"><div class="fld"><label>Valor pago (€)</label><input class="inp num" type="number" step="any" name="valor" value="${r2(+x.pagar || 0)}"></div><div class="fld"><label>Data do pagamento</label><input class="inp" type="date" name="data" value="${today()}"></div></form>`,
+    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('key') + 'Assinar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!(+f.valor > 0) || !f.data) { ui.toast('Indique o valor e a data', 'warn'); return false; }
+      setTimeout(async () => { const s = await app.assinar('Pagamento do cartão', `Extrato de ${date(x.data)} · <b>${eur(f.valor)}</b> pago em ${date(f.data)}<br><span style="font-size:12px">Fica por confirmar até ao extrato seguinte.</span>`); if (!s) return;
+        x.declarado = { valor: r2(+f.valor), data: f.data, user: app.user.id, nome: app.user.nome, em: new Date().toISOString(),
+          assinatura: await s.signer.texto('CARTAO_PAGO', ['CARTAO-PAGO', x.conta, x.numero ?? '', x.data, r2(+f.valor).toFixed(2), f.data].join('|')) };
+        audit('PF_CARTAO_PAGO', `${x.conta} · extrato de ${x.data} · ${eur(f.valor)} em ${f.data} (por confirmar)`); app.save(); ui.toast('Marcado como pago: fica por confirmar no extrato seguinte', 'ok'); if (depois) depois(); else app.refresh(); }, 0); } }] });
+}
 // extrato de um cartão cuja data limite cai num mês (AAAA-MM): é o que paga a prestação desse mês
 const extratoDoMes = (conta, ym) => M().extratos.filter(e => e.conta === conta && String(e.dataLimite || '').slice(0, 7) === ym).sort((a, b) => String(b.data).localeCompare(String(a.data)))[0] || null;
 const cartaoComExtratos = d => d && d.tipo === 'cartao' && (d.cartaoDe || (d.contaCartao && M().extratos.some(e => e.conta === d.contaCartao)));
@@ -858,7 +875,7 @@ function verExtrato(x) {
   if (!x) return; const c = M().dividas.find(y => y.id === x.divida), casa = ligacaoCasa(), ex = casa && CC().extrato(casa.casa);
   ui.modal({ title: `Extrato n.º ${esc(String(x.numero ?? '—'))} · ${esc(c ? c.nome : x.conta)}`, wide: true, sub: `${x.periodoIni ? date(x.periodoIni) + ' a ' + date(x.periodoFim) : date(x.data)}${x.ficheiro ? ' · ' + esc(x.ficheiro) : ''}`,
     body: `<div class="kv" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div><span>Saldo em dívida</span><b class="num">${eur(x.saldo)}</b></div><div><span>Montante a pagar</span><b class="num">${eur(x.pagar)}</b></div><div><span>Mínimo</span><b class="num">${eur(x.minimo)}</b></div><div><span>Data limite</span><b>${x.dataLimite ? date(x.dataLimite) : '—'}</b></div></div>
-      <div style="margin-top:10px">Pagamento: ${badgeExtrato(estadoExtrato(x))}</div>
+      <div style="margin-top:10px">Pagamento: ${badgeExtrato(estadoExtrato(x))}${podeDeclarar(estadoExtrato(x)) ? ` <button class="btn sm" id="dxm">${icon('check')} Marcar pago</button>` : ''}</div>
       <div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>Data</th><th>Movimento</th><th>Tipo</th><th class="r">Montante</th>${ex ? '<th>Divisão com a casa</th>' : ''}</tr></thead><tbody>
       ${(x.movimentos || []).map((mv, i) => { const dv = ex ? divisoesDe(x, mv) : [];
         return `<tr><td>${date(mv.data)}</td><td>${esc(mv.descricao)}</td><td><span class="badge ${mv.tipo === 'Pagamento' ? 'ok' : mv.tipo === 'Compra' ? '' : 'warn'}">${esc(mv.tipo)}</span></td><td class="r num ${mv.valor < 0 ? 'pos' : ''}">${eur(mv.valor)}</td>
@@ -867,7 +884,8 @@ function verExtrato(x) {
       ${(x.planos || []).length ? `<div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>Plano PagaSimples</th><th class="r">Em dívida</th><th class="r">Prestação</th><th class="r">Prestação n.º</th></tr></thead><tbody>${x.planos.map(p => `<tr><td>${esc(p.descricao)}</td><td class="r num">${eur(p.saldo)}</td><td class="r num">${eur(p.prestacao)}</td><td class="r">${p.proxima ? `${p.proxima}/${p.prazo}` : '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}`,
     onOpen: (el, close) => {
       el.querySelectorAll('[data-dv]').forEach(b => b.onclick = () => { close(); dividirCompra(x, x.movimentos[+b.dataset.dv], c); });
-      el.querySelectorAll('[data-an]').forEach(b => b.onclick = () => { close(); anularDivisao(x, b.dataset.an); }); },
+      el.querySelectorAll('[data-an]').forEach(b => b.onclick = () => { close(); anularDivisao(x, b.dataset.an); });
+      const dm = el.querySelector('#dxm'); if (dm) dm.onclick = () => { close(); declararPagamento(x); }; },
     actions: [{ label: 'Fechar', kind: 'primary' }] });
 }
 
@@ -939,7 +957,7 @@ function contasAPagar(L, ym) {
     const dia = Math.min(28, Math.max(1, +e.dia || 1)), dataCob = `${ym}-${String(dia).padStart(2, '0')}`;
     const conta = e.periodicidade === 'cartao' && e.ref && e.ref.conta && M().extratos.some(z => z.conta === e.ref.conta) ? e.ref.conta : null;
     if (conta) { const xe = extratoDoMes(conta, ym), st = xe ? estadoExtrato(xe) : null;
-      return { e, valor: r2(v), deOutros: r2(deOutros), falta: r2(falta), cartao: true, st, paga: st && ['pago', 'minimo', 'atraso'].includes(st.estado) ? { data: st.ultimo || st.lim } : null }; }
+      return { e, valor: r2(v), deOutros: r2(deOutros), falta: r2(falta), cartao: true, st, xe, paga: st && ['pago', 'minimo', 'atraso', 'declarado'].includes(st.estado) ? { data: st.ultimo || (st.dec && st.dec.data) || st.lim } : null }; }
     const paga = (R.contasPagas || []).find(c => c.despesa === e.id && c.mes === ym && !c.anulada) || (dataCob <= today() ? { data: dataCob, auto: true } : null);
     return { e, valor: r2(v), deOutros: r2(deOutros), falta: r2(falta), paga };
   });
@@ -1034,7 +1052,7 @@ function casaPessoal(v) {
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Conta</th><th>Dia</th><th class="r">Valor total</th><th class="r">Parte dos outros</th><th>Estado</th><th></th></tr></thead><tbody>
         ${CP.linhas.map((x, i) => `<tr><td><b>${esc(x.e.nome)}</b></td><td>${x.e.dia || 1}</td><td class="r num">${eur(x.valor)}</td><td class="r num">${eur(x.deOutros)}</td>
           <td>${x.cartao ? `${x.st ? badgeExtrato(x.st) : '<span class="badge plain" data-tip="Ainda não há extrato do cartão com data limite neste mês.">aguarda extrato</span>'}${x.falta > 0.004 ? ` <span class="badge warn">falta acerto de ${eur(x.falta)}</span>` : ''}` : x.paga ? `<span class="badge ok" ${x.paga.auto ? 'data-tip="Paga no dia de cobrança."' : ''}>paga ${date(x.paga.data)}</span>${x.falta > 0.004 ? ` <span class="badge warn">falta acerto de ${eur(x.falta)}</span>` : ''}` : x.falta > 0.004 ? `<span class="badge warn">falta acerto de ${eur(x.falta)}</span>` : '<span class="badge info">pode pagar</span>'}</td>
-          <td class="r">${!x.cartao && !x.paga && x.falta <= 0.004 && ed ? `<button class="btn sm primary" data-cp="${i}">${icon('key')} Paga</button>` : ''}</td></tr>`).join('')}</tbody>
+          <td class="r">${!x.paga && x.falta <= 0.004 && ed && (!x.cartao || podeDeclarar(x.st)) ? `<button class="btn sm primary" data-cp="${i}">${icon('key')} Paga</button>` : ''}</td></tr>`).join('')}</tbody>
         <tfoot><tr><td>TOTAL</td><td></td><td class="r num">${eur(sum(CP.linhas, 'valor'))}</td><td class="r num">${eur(sum(CP.linhas, 'deOutros'))}</td><td colspan="2"></td></tr></tfoot></table></div></div>`; })() : ''}
     ${COMP.map((k, ki) => { const meses = Array.from({ length: 6 }, (_, i) => SPAP.addMonths(today().slice(0, 7) + '-01', i - 4).slice(0, 7)), eu0 = k.por.find(x => x.id === eu);
       return `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>${esc(k.e.nome)} · compras partilhadas</h3><span class="sub">cada um regista as compras que fez · paga-se a parte do total</span>
@@ -1060,7 +1078,7 @@ function casaPessoal(v) {
         <div class="fld full"><label>Descrição</label><input class="inp" name="descricao" placeholder="ex.: Continente, Lidl, talho…"></div></form>`,
       actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('key') + 'Assinar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!(+f.valor > 0)) { ui.toast('Indique o valor', 'warn'); return false; } if (!f.data) { ui.toast('Indique a data', 'warn'); return false; }
         setTimeout(async () => { if (await registarCompra(L, e, f)) { setTab('pf-casa-mes', f.data.slice(0, 7)); app.refresh(); } }, 0); } }] }); });
-  v.querySelectorAll('[data-cp]').forEach(b => b.onclick = async () => { if (await pagarConta(L, ymC, CP.linhas[+b.dataset.cp])) app.refresh(); });
+  v.querySelectorAll('[data-cp]').forEach(b => b.onclick = async () => { const x = CP.linhas[+b.dataset.cp]; if (x.cartao) { declararPagamento(x.xe); return; } if (await pagarConta(L, ymC, x)) app.refresh(); });
   const formPag = (concluir, lista) => {
     const opts = lista.map(x => { const o = concluir ? x.de : x.para; return `<option value="${o}" data-v="${x.valor}">${esc(ex.nomeM(o))} (${concluir ? 'deve-lhe' : 'deve'} ${eur(x.valor)})</option>`; }).join('');
     ui.modal({ title: concluir ? 'Registar recebimento' : 'Registar pagamento', sub: concluir ? 'Fica concluído com a sua assinatura.' : 'Fica a aguardar a confirmação de quem recebe, na Caixa de entrada do plano dele.',
