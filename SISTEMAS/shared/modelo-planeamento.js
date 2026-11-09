@@ -59,7 +59,7 @@ const mensalDesp = e => (+e.valor || 0) / ((PERIODOS.find(p => p[0] === e.period
 // despesas com início e/ou fim (AAAA-MM) só contam nos meses em que estão em vigor
 const ymHoje = () => today().slice(0, 7);
 const vigente = (e, ym = ymHoje()) => (!e.inicio || ym >= e.inicio) && (!e.fim || ym <= e.fim);
-const despAtivas = () => M().despesas.filter(e => e.ativo !== false && vigente(e));
+const despAtivas = (ym = ymHoje()) => M().despesas.filter(e => e.ativo !== false && vigente(e, ym));
 const divAtivas = () => M().dividas.filter(d => d.ativo !== false && (+d.capital || 0) > 0.005);
 // parte desta pessoa nas despesas comuns de uma "Casa partilhada" do grupo (lida do livro da casa, só leitura)
 function casaParte(ym = ymHoje()) {
@@ -72,7 +72,8 @@ function casaParte(ym = ymHoje()) {
   const val = e => SPAP.contaCasa ? SPAP.contaCasa.valorMes(e, ym).valor : mensalDesp(e);
   return { nome, membro: membro ? membro.nome : '', valor: r2(ds.reduce((t, e) => t + val(e) * +e.partes[pl.membroCasa], 0)), n: ds.length };
 }
-const despesasMensais = () => r2(despAtivas().reduce((s, e) => s + mensalDesp(e), 0) + ((casaParte() || {}).valor || 0));
+// despesas de um mês: as próprias em vigor nesse mês + a parte na casa nesse mês (valores reais, médias ou plano do cartão)
+const despesasMensais = (ym = ymHoje()) => r2(despAtivas(ym).reduce((s, e) => s + mensalDesp(e), 0) + ((casaParte(ym) || {}).valor || 0));
 const prestacoesMensais = () => r2(divAtivas().reduce((s, d) => s + (+d.prestacao || 0), 0));
 
 /* ---------- Motor: rendimentos e projeção anual ---------- */
@@ -120,7 +121,7 @@ function rendimentoMensal(ano = +today().slice(0, 4)) {
 
 /* ---------- Motor: simulador mês a mês (porta direta de simulator.py) ---------- */
 function construirCashflow(horizonte) {
-  const pl = M().plano, hoje = today(), y0 = +hoje.slice(0, 4), m0 = +hoje.slice(5, 7), desp = despesasMensais();
+  const pl = M().plano, hoje = today(), y0 = +hoje.slice(0, 4), m0 = +hoje.slice(5, 7);
   const proj = {}, P = a => proj[a] || (proj[a] = projecao(a));
   const out = [];
   for (let i = 0; i < horizonte; i++) {
@@ -128,7 +129,7 @@ function construirCashflow(horizonte) {
     let inc;
     if (y === y0) { const l = P(y).linhas[m - 1]; inc = l.proj + (pl.incluirRefeicao ? l.refeicao : 0); }
     else { const p = P(y0), base = salarioBase() || p.media; inc = p.media + (m === MES_FERIAS || m === MES_NATAL ? base : 0) + (pl.incluirRefeicao ? p.mediaRef : 0); }
-    out.push({ y, m, rendimento: inc + (+pl.outrosRendimentos || 0), despesas: desp });
+    out.push({ y, m, rendimento: inc + (+pl.outrosRendimentos || 0), despesas: despesasMensais(ymOf(y, m)) });
   }
   return out;
 }
