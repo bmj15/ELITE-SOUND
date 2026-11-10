@@ -2569,12 +2569,12 @@ return {
   modules: [
     { id: 'visao', label: 'Painel', title: 'Painel financeiro', icon: 'chart', render: visao },
     { id: 'rendimentos', label: 'Rendimentos', title: 'Rendimentos e projeção', icon: 'wallet', render: rendimentos },
-    { id: 'despesas', label: 'Despesas fixas', title: 'Despesas fixas', icon: 'list', render: despesas },
     { id: 'dividas', label: 'Dívidas e créditos', title: 'Dívidas e créditos', icon: 'credit', render: dividas },
+    { id: 'despesas', label: 'Despesas fixas', title: 'Despesas fixas', icon: 'list', render: despesas },
+    { id: 'casa', label: 'Partilhas', title: 'Despesas partilhadas · conta corrente', icon: 'users', render: casaPessoal },
     { id: 'simulador', label: 'Simulador de estratégias', title: 'Simulador de estratégias', icon: 'target', render: simulador },
     { id: 'poupancas', label: 'Poupanças', title: 'Poupanças', icon: 'shield', render: poupancas },
     { id: 'objetivos', label: 'Objetivos', title: 'Objetivos e compras', icon: 'pie', render: objetivos },
-    { id: 'casa', label: 'Partilhas', title: 'Despesas partilhadas · conta corrente', icon: 'users', render: casaPessoal },
   ],
   // pedidos de partilha dirigidos a este plano e pagamentos registados por quem partilha, à espera da minha confirmação
   caixa: () => { const out = convitesParaMim().map(({ casa, c }) => ({ titulo: ehAlt(c) ? 'Alteração a despesa partilhada' : ehObj(c) ? 'Objetivo partilhado' : 'Pedido de partilha', data: String(c.criadoEm || '').slice(0, 10), descricao: resumoConvite(casa, c),
