@@ -9,6 +9,7 @@
 const http = require('http');
 const https = require('https');
 const os = require('os');
+const net = require('net');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -235,14 +236,22 @@ function atender(req, res) {
 }
 const servidor = http.createServer(atender);
 
-// acesso na rede de casa: HTTPS com o certificado de DADOS-SERVIDOR\tls (se existir)
+// acesso na rede de casa: HTTPS com o certificado de DADOS-SERVIDOR\tls (se existir).
+// Na mesma porta, quem escrever http:// é reencaminhado para https://. As ligações ficam em DADOS-SERVIDOR\rede.log.
 function abrirRede() {
   const cert = path.join(PASTA_TLS, 'cert.pem'), key = path.join(PASTA_TLS, 'key.pem');
   if (!fs.existsSync(cert) || !fs.existsSync(key)) return;
   const ips = Object.values(os.networkInterfaces()).flat().filter(x => x && x.family === 'IPv4' && !x.internal).map(x => x.address);
-  https.createServer({ cert: fs.readFileSync(cert), key: fs.readFileSync(key) }, atender)
-    .on('error', e => console.error(`  [rede] Nao foi possivel abrir a porta ${PORT_REDE}: ${e.message}`))
+  const LOG = path.join(DADOS, 'rede.log'), registo = t => { try { fs.appendFileSync(LOG, new Date().toISOString() + ' ' + t + '\n'); } catch (e) { } };
+  const seguro = https.createServer({ cert: fs.readFileSync(cert), key: fs.readFileSync(key) }, (req, res) => { registo(`${req.socket.remoteAddress} ${req.method} ${req.url}`); atender(req, res); });
+  seguro.on('tlsClientError', (e, sock) => registo(`${sock && sock.remoteAddress} erro TLS: ${e.code || e.message}`));
+  const reencaminhar = http.createServer((req, res) => { registo(`${req.socket.remoteAddress} http -> https ${req.url}`); res.writeHead(301, { Location: `https://${req.headers.host || ips[0] + ':' + PORT_REDE}${req.url}` }); res.end(); });
+  net.createServer(sock => {
+    sock.on('error', () => {});
+    sock.once('data', buf => { sock.pause(); sock.unshift(buf); (buf[0] === 22 ? seguro : reencaminhar).emit('connection', sock); process.nextTick(() => sock.resume()); });
+  }).on('error', e => console.error(`  [rede] Nao foi possivel abrir a porta ${PORT_REDE}: ${e.message}`))
     .listen(PORT_REDE, '0.0.0.0', () => {
+      registo(`servidor de rede aberto na porta ${PORT_REDE} (${ips.join(', ')})`);
       console.log('  Rede de casa (telemovel, outros computadores):');
       ips.forEach(ip => console.log(`    https://${ip}:${PORT_REDE}/SISTEMAS/index.html`));
       console.log('');
