@@ -851,14 +851,16 @@ SPAP.createApp = function (cfg) {
 
   function allRoutes() { const m = {}; cfg.modules.forEach(x => m[x.id] = x); return Object.assign(m, coreRoutes); }
 
+  // o modelo pode esconder itens do núcleo que não se aplicam (ex.: relatórios empresariais num plano pessoal sem atividade)
+  const navVisivel = id => !cfg.navVisivel || cfg.navVisivel(id) !== false;
   function navHtml(cur) {
     const nIn = app.caixaEntrada().length + app.caixaModulos().length, nAlt = app.alteracoesParaMim().length, nRec = can('criar') ? app.recorrentesDevidos().length : 0;
     const item = (it) => `<a href="#/${it.id}" class="${cur === it.id ? 'active' : ''}">${icon(it.icon)}<span>${it.label}</span>${it.id === 'aprovacoes' && nIn ? `<span class="count">${nIn}</span>` : ''}${it.id === 'alteracoes' && nAlt ? `<span class="count">${nAlt}</span>` : ''}${it.id === 'recorrentes' && nRec ? `<span class="count">${nRec}</span>` : ''}</a>`;
     const groups = [
       { label: cfg.grupoModulos || cfg.nome, items: cfg.modules.filter(m => !m.hidden && (!m.perm || can(m.perm))) },
-      { label: 'Autorizações · SPAP', items: navCore.filter(n => n.grupo === 'spap' && (!n.perm || can(n.perm))) },
-      { label: 'Análise financeira', items: navCore.filter(n => n.grupo === 'fin' && (!n.perm || can(n.perm))) },
-      { label: 'Administração', items: navCore.filter(n => n.grupo === 'admin' && (!n.perm || can(n.perm))) },
+      { label: 'Autorizações · SPAP', items: navCore.filter(n => n.grupo === 'spap' && navVisivel(n.id) && (!n.perm || can(n.perm))) },
+      { label: 'Análise financeira', items: navCore.filter(n => n.grupo === 'fin' && navVisivel(n.id) && (!n.perm || can(n.perm))) },
+      { label: 'Administração', items: navCore.filter(n => n.grupo === 'admin' && navVisivel(n.id) && (!n.perm || can(n.perm))) },
     ].filter(g => g.items.length);
     return groups.map(g => `<div class="nav-group"><div class="nav-label">${g.label}</div><nav class="nav">${g.items.map(item).join('')}</nav></div>`).join('');
   }
@@ -868,7 +870,7 @@ SPAP.createApp = function (cfg) {
     const { r, params } = parseHash();
     const routes = allRoutes();
     const rt = routes[r] || routes[cfg.home];
-    if (rt.perm && !can(rt.perm)) { location.hash = '#/' + cfg.home; return; }
+    if ((rt.perm && !can(rt.perm)) || (coreRoutes[r] && !navVisivel(r))) { location.hash = '#/' + cfg.home; return; }
     const theme = document.documentElement.getAttribute('data-theme');
     root.innerHTML = `<div class="shell">
       <aside class="side" id="side">${brandHtml()}${navHtml(rt.id || r)}
@@ -2220,7 +2222,7 @@ SPAP.createApp = function (cfg) {
       if (cl === 'capex') { const n = f.vidaUtil * 12, m0 = new Date(d + 'T12:00:00'); for (let k = 0; k < n; k++) { const dd = new Date(m0.getFullYear(), m0.getMonth() + k, 15); if (dd.getFullYear() === +ano) R.dep[dd.getMonth()] += p.valor / n; } }
       if (!d.startsWith(ano)) return; const m = +d.slice(5, 7) - 1;
       if (cl === 'receita') R.receita[m] += p.valor;
-      else if (cl === 'custo_variavel') { if (!an) R.cv[m] += p.valor; }
+      else if (cl === 'custo_variavel') { if (!an || an.cvPedidos) R.cv[m] += p.valor; }
       else if (cl === 'custo_fixo') { R.cf[m] += p.valor; (R.cfCat[p.categoria] = R.cfCat[p.categoria] || z12())[m] += p.valor; }
       else if (cl === 'capex') R.capex[m] += p.valor;
       else if (cl === 'investimento') R.invest[m] += p.categoria === 'RESGATE DE APLICAÇÃO' ? -p.valor : p.valor;
@@ -2282,7 +2284,7 @@ SPAP.createApp = function (cfg) {
     const sec = (t, sub, html) => `<div class="sec-fin"><div class="sec-fin-h"><h3>${t}</h3><span class="sub">${sub}</span></div><div class="grid g4">${html}</div></div>`;
     v.innerHTML = `<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Exercício</span>${seletorAno('fa', ano)}${K.mesesN < 12 ? `<span class="badge plain">até ${MESES[K.mesesN - 1].toLowerCase()} (YTD)</span>` : ''}</div>
       <a class="btn sm" href="#/financeiro">${icon('file')} Relatórios financeiros</a></div>
-      ${!K.rev && !K.opex ? `<div class="alert info" style="margin-bottom:16px">${icon('chart')}<div>Ainda há poucos dados neste exercício. Os indicadores são calculados a partir dos pagamentos executados${cfg.analise ? ' e das vendas registadas' : ''}; a natureza de cada categoria define-se em <a href="#/financeiro" data-aba="ftab=cls">Relatórios financeiros → Classificação</a>.</div></div>` : ''}
+      ${!K.rev && !K.opex ? `<div class="alert info" style="margin-bottom:16px">${icon('chart')}<div>Ainda há poucos dados neste exercício. Os indicadores são calculados a partir dos pagamentos executados${cfg.analise ? (cfg.analiseTexto || ' e das vendas registadas') : ''}; a natureza de cada categoria define-se em <a href="#/financeiro" data-aba="ftab=cls">Relatórios financeiros → Classificação</a>.</div></div>` : ''}
       ${sec('Rentabilidade', 'Profitability', kpiC('revenue', eur(K.rev), K.yoy != null ? `${K.yoy >= 0 ? '▲' : '▼'} ${pct(Math.abs(K.yoy))} vs ${+ano - 1}` : '', true) + kpiC('contribution', eur(K.mc), fP(K.cmr) + ' da receita') + kpiC('ebitda', eur(K.ebitda), 'margem ' + fP(K.ebitdaM)) + kpiC('net', eur(K.rl), 'margem ' + fP(K.netM)))}
       ${sec('Ponto de equilíbrio', 'Break-even analysis', kpiC('bep', fE(K.bep), K.bep != null ? `${fE(K.bep / 12)} por mês` : '') + kpiC('mos', fP(K.mos), K.mos != null ? (K.mos >= 0 ? 'acima do break-even' : 'abaixo do break-even') : '') + kpiC('dol', fX(K.dol), 'sensibilidade do EBIT às vendas') + kpiC('bepUnits', K.bepUnits != null ? fX(Math.ceil(K.bepUnits), ' ' + (R.rotUnidade || 'un.') + '/mês') : nd, K.cmUnit ? `margem ${eur(K.cmUnit)} por unidade` : ''))}
       ${sec('Tesouraria e liquidez', 'Cash & liquidity', kpiC('cash', eur(K.caixa), 'contas próprias') + kpiC('burn', K.burn ? eur(K.burn) + '/mês' : eur(0), K.burn ? 'consumo médio dos últimos 3 meses' : 'fluxo de caixa positivo') + kpiC('runway', K.runway == null ? '∞' : fX(K.runway, ' meses'), K.runway == null ? 'sem consumo de caixa' : '') + kpiC('fcf', eur(K.fcf), `OCF ${eur(K.ocf)} · CAPEX ${eur(K.capex)}`))}
@@ -2372,7 +2374,7 @@ SPAP.createApp = function (cfg) {
     }
     if (tab === 'cls') {
       const f = finCfg(), own = proprias();
-      c.innerHTML = `<div class="alert info" style="margin-bottom:16px">${icon('settings')}<div>A natureza de cada categoria de pagamento define onde ele entra nos indicadores e relatórios. Pagamentos vindos do intercompany contam como receita. ${cfg.analise ? 'As vendas e as comissões vêm diretamente do módulo de vendas.' : ''}</div></div>
+      c.innerHTML = `<div class="alert info" style="margin-bottom:16px">${icon('settings')}<div>A natureza de cada categoria de pagamento define onde ele entra nos indicadores e relatórios. Pagamentos vindos do intercompany contam como receita. ${cfg.analise ? (cfg.analiseOrigem || 'As vendas e as comissões vêm diretamente do módulo de vendas.') : ''}</div></div>
         <div class="grid g2"><div class="card flush"><div class="card-h"><h3>Natureza das categorias</h3></div><div class="tbl-wrap"><table class="tbl"><tbody>
           ${db.categorias.map(ct => `<tr><td><b style="font-size:13px">${esc(ct)}</b></td><td><select class="inp inp-sm" data-cls="${esc(ct)}" ${can('admin') ? '' : 'disabled'}>${Object.entries(CLASSES).map(([k, l]) => `<option value="${k}" ${classeDe({ categoria: ct }) === k ? 'selected' : ''}>${l}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div></div>
         <div class="stack"><div class="card"><div class="card-h"><h3>Parâmetros</h3></div><div class="form">

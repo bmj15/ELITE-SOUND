@@ -622,6 +622,7 @@ function catAIRS(ano) {
   return o;
 }
 // Cat. B do ano: faturas-recibo (FR) e recibos (RG); uma fatura (FT) sozinha não é rendimento recebido
+const temCatB = () => { try { return M().recibosB.some(contaCatB); } catch (e) { return false; } };
 const contaCatB = x => !x.anulado && ['FR', 'RG'].includes(String(x.tipo || '').toUpperCase());
 const catBIRS = ano => { const rs = M().recibosB.filter(x => +String(x.data).slice(0, 4) === ano && contaCatB(x)); return { bruto: r2(sum(rs, 'bruto')), irs: r2(sum(rs, 'irs')), iva: r2(sum(rs, 'iva')), n: rs.length }; };
 function calcIRS(ano) {
@@ -2004,7 +2005,13 @@ const GLOSS = {
 };
 
 return {
-  seed, alcadaPadrao: 5000, tagline: sub.setor || 'Planeamento financeiro', home: 'visao', logo: `<span style="font-size:13px">${esc(sub.sigla || '')}</span>`,
+  seed, alcadaPadrao: 5000, tagline: sub.setor || 'Planeamento financeiro', home: 'visao',
+  // relatórios de empresa só fazem sentido com atividade independente (categoria B): aparecem quando há recibos verdes emitidos
+  navVisivel: id => !['indicadores', 'financeiro', 'investimentos', 'relatorios'].includes(id) || temCatB(),
+  // a receita da atividade são os recibos verdes (valor sem IVA); os custos continuam a vir dos pagamentos classificados
+  analiseTexto: ' e dos recibos verdes (categoria B)', analiseOrigem: 'A receita vem dos recibos verdes emitidos (<a href="#/rendimentos" data-aba="pf-rend=catb">Rendimentos › Recibos verdes</a>), sem IVA.',
+  analise: (a, ano) => { if (!temCatB()) return null; const z = () => Array(12).fill(0), r = { receitas: z(), custosVar: z(), unidades: z(), n: z(), rotUnidade: 'recibos', cvPedidos: true };
+    M().recibosB.filter(x => contaCatB(x) && String(x.data).startsWith(ano)).forEach(x => { const m = +String(x.data).slice(5, 7) - 1; r.receitas[m] += +x.bruto || 0; r.n[m]++; r.unidades[m]++; }); return r; }, logo: `<span style="font-size:13px">${esc(sub.sigla || '')}</span>`,
   heroTitle: 'Rendimentos, dívidas e objetivos num só plano.', heroText: 'Projeção anual, simulação de amortizações e saúde financeira — com cada pagamento autorizado e assinado.',
   // despesas e prestações por pedir, e o salário projetado, entram na previsão de liquidez
   previsao: (a, ini, fim) => {
