@@ -1788,18 +1788,100 @@ const COLS_PLANO = () => [
   { k: 'poupancaTipo', label: 'Poupança mensal', type: 'select', opts: [['none', 'Sem poupança separada'], ['fixed', 'Valor fixo'], ['percentage', '% do rendimento'], ['percentage_surplus', '% do excedente'], ['percentage_after_min_payments', '% do excedente depois das prestações']] },
   { k: 'poupancaFixa', label: 'Poupança fixa', type: 'money' }, { k: 'poupancaPct', label: 'Poupança em %', type: 'pct' },
   { k: 'horizonte', label: 'Horizonte da simulação (meses)', type: 'int', min: 12, max: 480 }];
+/* Parâmetros do plano: perguntas simples, escolhas por botões e barras, e o efeito de cada escolha mostrado logo.
+   Nada fica gravado até carregar em Guardar. */
+const PAR_CSS = `<style>.pf-par{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}@media(max-width:980px){.pf-par{grid-template-columns:1fr}}
+.pf-par .card-h{align-items:flex-start}.pf-par .pv{margin-left:auto;text-align:right}.pf-par .pv b{display:block;font-size:20px;font-variant-numeric:tabular-nums}.pf-par .pv span{font-size:12px;color:var(--muted)}
+.pf-q{margin:14px 0 0}.pf-q>label{display:block;font-weight:600;font-size:13px;margin-bottom:8px}.pf-q .hint{display:block;font-size:12px;color:var(--muted);margin-top:6px}
+.pf-seg{display:inline-flex;flex-wrap:wrap;gap:3px;padding:3px;border:1px solid var(--line2);border-radius:10px;background:var(--panel2)}
+.pf-seg button{border:0;background:transparent;color:var(--muted);padding:7px 12px;border-radius:7px;cursor:pointer;font:inherit;font-size:13px}.pf-seg button:hover{color:var(--text)}
+.pf-seg button.on{background:var(--accent);color:#fff}.pf-seg button:disabled{cursor:default}
+.pf-rng{display:flex;gap:14px;align-items:center}.pf-rng input[type=range]{flex:1;accent-color:var(--accent)}.pf-rng output{min-width:120px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.pf-sw{display:flex;gap:12px;align-items:center;cursor:pointer;font-size:13px}.pf-sw input{appearance:none;width:38px;height:22px;border-radius:11px;background:var(--line2);position:relative;cursor:pointer;flex:none;transition:background .15s}
+.pf-sw input::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}.pf-sw input:checked{background:var(--accent)}.pf-sw input:checked::after{left:19px}
+.pf-par details{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}.pf-par summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.pf-bar{position:sticky;bottom:12px;z-index:5;display:none;margin-top:16px;padding:12px 16px;border:1px solid var(--accent);border-radius:12px;background:var(--panel);box-shadow:0 8px 30px rgba(0,0,0,.35);align-items:center;gap:10px}.pf-bar.on{display:flex}</style>`;
+function parametrosPlano(v, T) {
+  const m = M(), pl = m.plano, ed = podeEditar(), w = JSON.parse(JSON.stringify(pl)), dis = ed ? '' : 'disabled';
+  const est = estimarLiquido(m.recibos).base || 0, desp = despesasMensais(), prest = prestacoesMensais(), saldoT = r2(tesouraria().reduce((t, c) => t + app.saldo(c.id), 0));
+  const seg = (k, ops) => `<div class="pf-seg" data-seg="${k}">${ops.map(([val, rot]) => `<button type="button" data-v="${esc(String(val))}" ${dis}>${rot}</button>`).join('')}</div>`;
+  const sw = (k, rot) => `<label class="pf-sw"><input type="checkbox" data-k="${k}" ${dis}><span>${rot}</span></label>`;
+  const rng = (k, min, max, step) => `<div class="pf-rng"><input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}" ${dis}><output data-out="${k}"></output></div>`;
+  const num = (k, ph = '0,00', extra = '') => `<input class="inp num" type="number" step="any" min="0" data-k="${k}" placeholder="${ph}" style="max-width:200px" ${extra} ${dis}>`;
+  const q = (rot, html, hint = '', show = '') => `<div class="pf-q" ${show ? `data-show="${show}"` : ''}><label>${rot}</label>${html}${hint ? `<span class="hint">${hint}</span>` : ''}</div>`;
+  const card = (ic, tit, pv, corpo) => `<div class="card"><div class="card-h"><h3 style="display:flex;gap:8px;align-items:center">${icon(ic)} ${tit}</h3><div class="pv" id="pv-${pv}"></div></div>${corpo}</div>`;
+  v.innerHTML = `${T.html}${PAR_CSS}<p class="muted" style="margin:0 0 16px">Estas escolhas são usadas no Painel, no simulador e nos objetivos. Veja o efeito de cada uma ao lado do título; só fica gravado quando carregar em Guardar.</p>
+    <div class="pf-par">
+    ${card('wallet', 'O seu ordenado', 'sal',
+      q('Quanto recebe por mês?', seg('modoSal', [['auto', `Calcular pelos recibos${est ? ` (${eur(est)})` : ''}`], ['manual', 'Indicar o valor']]))
+      + q('Valor líquido por mês', num('salarioBase'), '', 'modoSal=manual')
+      + q('Quando é pago?', seg('pagoMesSeguinte', [['false', 'No próprio mês'], ['true', 'No início do mês seguinte']]), 'Ex.: o recibo de novembro entra a 1 de dezembro.')
+      + q('Dia em que entra na conta', rng('diaSalario', 1, 28, 1))
+      + q('Outros rendimentos por mês', num('outrosRendimentos'), 'Rendas, pensões, trabalhos extra…')
+      + `<div class="pf-q">${sw('incluirRefeicao', 'Contar o subsídio de refeição como rendimento')}</div>`)}
+    ${card('chart', 'Aumentos do ordenado', 'aum',
+      q('Como sobe o seu ordenado nos próximos anos?', seg('aumentoTipo', [['smn', 'Acompanha o salário mínimo'], ['fixo', 'Aumento fixo por ano']]))
+      + q('Aumento por ano', rng('aumentoSalarialPc', 0, 10, 0.5), 'Mérito, mudança de categoria, contrato coletivo…', 'aumentoTipo=fixo')
+      + `<div class="pf-q">${sw('atualizarSMN', 'Nunca abaixo do salário mínimo nos anos futuros')}</div>`
+      + `<details><summary>Opções avançadas</summary>
+        ${q('Vencimento base bruto mensal', num('brutoBase', 'estimar pelos recibos'), (b => b.valor ? `Estimado: ${eur(b.valor)} (${esc(b.origem)}). Serve para comparar com o salário mínimo.` : 'Serve para comparar com o salário mínimo.')(brutoBase()))}
+        ${q('Subida do salário mínimo depois de ' + Math.max(...Object.keys(SMN_PADRAO).map(Number)), num('smnAumento'), '€ por ano')}
+        ${q('Corrigir o salário mínimo de alguns anos', `<input class="inp" data-k="smnTabela" placeholder="ex.: 2027: 980; 2030: 1150" ${dis}>`, `Tabela atual: ${Object.entries(SMN_PADRAO).map(([a, x]) => a + ': ' + x).join(' · ')} €`)}</details>`)}
+    ${card('shield', 'Fundo de emergência', 'emg',
+      q('Quanto quer ter de reserva?', rng('emergMeses', 0, 12, 1), `Em meses das suas despesas fixas (${eur(desp)} por mês).`)
+      + q('Em quanto tempo quer lá chegar?', rng('emergProgressivo', 0, 60, 3))
+      + q('Quanto já tem guardado?', seg('fundoOrigem', [['tesouraria', `O saldo das minhas contas (${eur(saldoT)})`], ['manual', 'Outro valor']]))
+      + q('Valor que já tem', num('fundoInicial'), '', 'fundoOrigem=manual'))}
+    ${card('target', 'Poupar todos os meses', 'poup',
+      q('Quer pôr dinheiro de parte todos os meses?', seg('poupancaTipo', [['none', 'Não'], ['fixed', 'Um valor fixo'], ['percentage', '% do que ganho'], ['percentage_surplus', '% do que sobra'], ['percentage_after_min_payments', '% do que sobra depois das prestações']]))
+      + q('Valor por mês', num('poupancaFixa'), '', 'poupancaTipo=fixed')
+      + q('Percentagem', rng('poupancaPc', 0, 50, 1), 'Sai primeiro, antes dos objetivos e da amortização extra.', 'poupancaTipo=percentage,percentage_surplus,percentage_after_min_payments'))}
+    ${card('credit', 'Pagar as dívidas mais depressa', 'div',
+      q('Valor extra por mês para amortizar', num('extraFixo'), 'Somado ao que sobrar em cada mês.')
+      + `<details><summary>Opções avançadas</summary>${q('Até quando simular', seg('horizonte', [[60, '5 anos'], [120, '10 anos'], [240, '20 anos'], [360, '30 anos'], [480, '40 anos']]))}</details>`)}
+    </div>
+    ${ed ? `<div class="pf-bar" id="pbar"><span>${icon('info')}</span><span style="flex:1">Tem alterações por guardar.</span><button class="btn ghost" id="pdesc">Descartar</button><button class="btn primary" id="pgrd">${icon('check')} Guardar</button></div>` : ''}`;
+  bindTabs(v);
+  // valores do formulário <-> plano de trabalho (w)
+  w.modoSal = +w.salarioBase > 0 ? 'manual' : 'auto'; w.aumentoSalarialPc = r2((+w.aumentoSalarial || 0) * 100); w.poupancaPc = r2((+w.poupancaPct || 0) * 100);
+  w.pagoMesSeguinte = String(!!w.pagoMesSeguinte); w.horizonte = String([60, 120, 240, 360, 480].reduce((a, b) => Math.abs(b - (+w.horizonte || 240)) < Math.abs(a - (+w.horizonte || 240)) ? b : a));
+  const fmtOut = { diaSalario: x => 'dia ' + x, aumentoSalarialPc: x => '+' + String(x).replace('.', ',') + '% / ano', emergMeses: x => +x === 0 ? 'sem fundo' : `${x} ${+x === 1 ? 'mês' : 'meses'} · ${eur(desp * x)}`,
+    emergProgressivo: x => +x === 0 ? 'o mais depressa possível' : `${x} meses`, poupancaPc: x => x + '%' };
+  const rendM = () => (w.modoSal === 'manual' ? +w.salarioBase || 0 : est) + (+w.outrosRendimentos || 0);
+  const preview = () => {
+    const pv = (id, val, sub) => { v.querySelector('#pv-' + id).innerHTML = `<b>${val}</b><span>${sub}</span>`; };
+    pv('sal', eur(rendM()), 'por mês, para o plano');
+    pv('aum', w.aumentoTipo === 'smn' ? 'como o mínimo' : `+${String(w.aumentoSalarialPc).replace('.', ',')}%`, 'por ano');
+    const alvo = desp * (+w.emergMeses || 0), ja = w.fundoOrigem === 'manual' ? +w.fundoInicial || 0 : saldoT, falta = Math.max(0, alvo - ja);
+    const porMes = falta <= 0 ? 0 : +w.emergProgressivo > 0 ? falta / +w.emergProgressivo : alvo / 12;
+    pv('emg', eur(alvo), falta <= 0 ? (alvo ? 'já tem o fundo completo' : +w.emergMeses ? 'ainda sem despesas fixas registadas' : 'sem fundo de emergência') : `faltam ${eur(falta)} · ≈ ${eur(porMes)}/mês`);
+    const pc = (+w.poupancaPc || 0) / 100, r = rendM(), k = w.poupancaTipo;
+    const pm = k === 'fixed' ? +w.poupancaFixa || 0 : k === 'percentage' ? r * pc : k === 'percentage_surplus' ? Math.max(0, r - desp) * pc : k === 'percentage_after_min_payments' ? Math.max(0, r - desp - prest) * pc : 0;
+    pv('poup', eur(pm), k === 'none' ? 'não separa poupança' : 'por mês (este mês)');
+    pv('div', eur(+w.extraFixo || 0), 'extra por mês');
+    v.querySelectorAll('[data-show]').forEach(el => { const [k, vals] = el.dataset.show.split('='); el.style.display = vals.split(',').includes(String(w[k])) ? '' : 'none'; });
+  };
+  const sujo = () => { const b = v.querySelector('#pbar'); if (b) b.classList.add('on'); };
+  v.querySelectorAll('[data-seg]').forEach(g => { const k = g.dataset.seg, marca = () => g.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(w[k])));
+    marca(); g.querySelectorAll('button').forEach(b => b.onclick = () => { w[k] = b.dataset.v; marca(); preview(); sujo(); }); });
+  v.querySelectorAll('[data-k]').forEach(i => { const k = i.dataset.k, out = v.querySelector(`[data-out="${k}"]`);
+    if (i.type === 'checkbox') i.checked = !!w[k]; else i.value = w[k] == null || (i.type === 'number' && !+w[k]) ? '' : w[k];
+    if (i.type === 'range' && i.value === '') i.value = i.min;
+    const upd = () => { w[k] = i.type === 'checkbox' ? i.checked : i.type === 'range' || i.type === 'number' ? +i.value || 0 : i.value; if (out) out.textContent = (fmtOut[k] || String)(w[k]); };
+    upd(); i.oninput = () => { upd(); preview(); sujo(); }; i.onchange = i.oninput; });
+  preview();
+  const pd = v.querySelector('#pdesc'); if (pd) pd.onclick = () => app.refresh();
+  const pg = v.querySelector('#pgrd'); if (pg) pg.onclick = () => {
+    Object.assign(pl, { salarioBase: w.modoSal === 'manual' ? r2(+w.salarioBase || 0) : 0, pagoMesSeguinte: w.pagoMesSeguinte === 'true', diaSalario: Math.min(28, Math.max(1, +w.diaSalario || 1)),
+      outrosRendimentos: r2(+w.outrosRendimentos || 0), incluirRefeicao: !!w.incluirRefeicao, aumentoTipo: w.aumentoTipo === 'smn' ? 'smn' : 'fixo', aumentoSalarial: (+w.aumentoSalarialPc || 0) / 100,
+      atualizarSMN: !!w.atualizarSMN, brutoBase: r2(+w.brutoBase || 0), smnAumento: +w.smnAumento || 0, smnTabela: String(w.smnTabela || '').trim(),
+      emergMeses: +w.emergMeses || 0, emergProgressivo: Math.max(0, +w.emergProgressivo || 0), fundoOrigem: w.fundoOrigem === 'manual' ? 'manual' : 'tesouraria', fundoInicial: r2(+w.fundoInicial || 0),
+      poupancaTipo: w.poupancaTipo || 'none', poupancaFixa: r2(+w.poupancaFixa || 0), poupancaPct: (+w.poupancaPc || 0) / 100, extraFixo: r2(+w.extraFixo || 0), horizonte: Math.max(12, Math.min(480, +w.horizonte || 240)) });
+    audit('PF_PLANO', 'Parâmetros do plano financeiro alterados'); app.save(); ui.toast('Parâmetros guardados', 'ok'); app.refresh(); };
+}
 function simulador(v) {
   const T = tabs('pf-sim', 'est', [['est', 'Comparar estratégias'], ['plano', 'Plano mês a mês'], ['par', 'Parâmetros do plano']]), m = M(), kn = app.kn;
-  if (T.t === 'par') {
-    const cols = COLS_PLANO();
-    v.innerHTML = `${T.html}<div class="card"><div class="card-h"><h3>Parâmetros do plano</h3><span class="sub">usados no painel, no simulador e nos objetivos</span></div><form class="form" id="pp">${cols.map(c => campo(c, m.plano)).join('')}</form>
-      <div class="row" style="justify-content:flex-end;margin-top:14px">${podeEditar() ? `<button class="btn primary" id="gp">Guardar parâmetros</button>` : ''}</div></div>`;
-    bindTabs(v);
-    const gp = v.querySelector('#gp'); if (gp) gp.onclick = () => { const f = lerCampos(v.querySelector('#pp'), cols);
-      f.horizonte = Math.max(12, Math.min(480, f.horizonte || 240)); f.emergProgressivo = Math.max(0, f.emergProgressivo || 0); f.poupancaPct = f.poupancaPct || 0;
-      Object.assign(m.plano, f); audit('PF_PLANO', 'Parâmetros do plano financeiro alterados'); app.save(); ui.toast('Parâmetros guardados', 'ok'); app.refresh(); };
-    return;
-  }
+  if (T.t === 'par') { parametrosPlano(v, T); return; }
   const ds = divAtivas();
   if (!ds.length) { v.innerHTML = `${T.html}<div class="empty">Sem dívidas ativas para simular. Registe-as em <a href="#/dividas">Dívidas e créditos</a>.</div>`; bindTabs(v); return; }
   const R = compararEstrategias(), ks = ['baseline', ...ESTRATEGIAS.map(e => e[0])];
