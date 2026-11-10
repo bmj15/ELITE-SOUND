@@ -502,7 +502,7 @@ const rotMes = ref => x => { const n = MES3[+x.slice(5, 7) - 1], c = n[0] + n.sl
 // [rótulo, rota, botão a acionar na página (ou função), separador]
 const ATALHOS = {
   rend: [['Ler recibo', null, () => escolherRecibos(), null, 'upload', 'PDF ou fotografia do recibo de vencimento'], ['Adicionar manualmente', null, () => editarRecibo(), null, 'edit', 'Introduzir os valores do recibo']],
-  desp: [['Adicionar manualmente', 'despesas', 'nd', null, 'edit', 'Despesa fixa só sua'], ['Despesa partilhada', null, () => partilharDespesa(), null, 'users', 'Dividir com outra pessoa do grupo (começa quando ela aceitar)']],
+  desp: [['Despesa fixa', 'despesas', 'nd', null, 'edit', 'Despesa fixa só sua'], ['Despesa partilhada', null, () => partilharDespesa(), null, 'users', 'Dividir com outra pessoa do grupo (começa quando ela aceitar)']],
   div: [['Ler extrato', null, () => escolherExtratos(), null, 'upload', 'PDF do extrato do cartão de crédito'], ['Adicionar manualmente', 'dividas', 'nv', null, 'edit', 'Novo crédito, empréstimo ou cartão']],
 };
 let atalhoPend = null;
