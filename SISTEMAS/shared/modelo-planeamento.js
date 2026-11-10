@@ -2546,7 +2546,7 @@ return {
   perfil: () => perfilPessoal(),
   grupoSpap: 'Contas e documentos',
   // pagamentos sem circuito de aprovação: as páginas de autorizações saem do menu (Pedidos fica acessível por link para o histórico)
-  navVisivel: id => ['pedidos', 'alteracoes', 'verificar', 'auditoria', 'utilizadores', 'definicoes'].includes(id) ? 'menu' : !['intercompany', 'delegacoes', 'spap', 'recorrentes', 'orcamentos'].includes(id) && (!['indicadores', 'financeiro', 'investimentos', 'relatorios'].includes(id) || temCatB()),
+  navVisivel: id => ['pedidos', 'alteracoes', 'verificar', 'auditoria', 'utilizadores', 'definicoes', 'fechos'].includes(id) ? 'menu' : !['intercompany', 'delegacoes', 'spap', 'recorrentes', 'orcamentos'].includes(id) && (!['indicadores', 'financeiro', 'investimentos', 'relatorios'].includes(id) || temCatB()),
   // a receita da atividade são os recibos verdes (valor sem IVA); os custos continuam a vir dos pagamentos classificados
   analiseTexto: ' e dos recibos verdes (categoria B)', analiseOrigem: 'A receita vem dos recibos verdes emitidos (<a href="#/rendimentos" data-aba="pf-rend=catb">Rendimentos › Recibos verdes</a>), sem IVA.',
   analise: (a, ano) => { if (!temCatB()) return null; const z = () => Array(12).fill(0), r = { receitas: z(), custosVar: z(), unidades: z(), n: z(), rotUnidade: 'recibos', cvPedidos: true };
