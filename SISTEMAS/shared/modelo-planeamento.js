@@ -459,6 +459,27 @@ const bindTabs = v => v.querySelectorAll('[data-tab]').forEach(b => b.onclick = 
 const kpi = (rot, val, foot = '', cls = '', hero = false, add = '') => `<div class="card kpi ${hero ? 'hero' : ''}"${add ? ' style="position:relative"' : ''}>${add ? `<button class="btn sm" data-add="${add}" title="${esc((ATALHOS[add] || []).map(x => x[0]).join(' · '))}" style="position:absolute;top:10px;right:10px;width:28px;height:28px;padding:0;justify-content:center;font-size:16px;line-height:1;font-weight:400;border-radius:6px;border:1px solid var(--line2);background:transparent;color:var(--muted)">+</button>` : ''}<div class="lbl"${add ? ' style="padding-right:34px"' : ''}>${rot}</div><div class="val num ${cls}">${val}</div>${foot ? `<div class="foot">${foot}</div>` : ''}</div>`;
 const fmtMes = k => k ? `${MESES[+k.slice(5, 7) - 1]} ${k.slice(0, 4)}` : '—';
 
+/* ---------- Seletor em fita (meses e anos) ---------- */
+// ‹ vizinhos [selecionado] vizinhos ›: o atual leva um ponto; "Hoje" aparece quando o atual fica fora da fita
+const FITA_CSS = `<style>.pf-fita{display:flex;gap:8px;align-items:center;flex-wrap:nowrap}.pf-mes{background:none;border:0;width:40px;height:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;color:var(--muted);font-size:26px;line-height:1}.pf-mes:disabled{opacity:.25;cursor:default}.pf-mes:not(:disabled):hover{color:inherit;background:var(--line)}
+  .pf-chip{background:none;border:1px solid transparent;border-radius:999px;padding:9px 18px;font-size:15px;line-height:20px;color:var(--muted);cursor:pointer;white-space:nowrap;position:relative}.pf-chip:hover{color:inherit;border-color:var(--line)}.pf-chip.vh{border-color:var(--line)}
+  .pf-chip.on{color:inherit;font-weight:600;font-size:17px;padding:9px 22px;border-color:var(--line2);background:var(--panel2);cursor:default}.pf-chip.hoje:not(.on)::after{content:'';position:absolute;left:50%;bottom:-4px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--accent)}
+  .pf-fita.sm{gap:4px}.pf-fita.sm .pf-mes{width:32px;height:32px;font-size:22px}.pf-fita.sm .pf-chip{padding:6px 14px;font-size:14px}.pf-fita.sm .pf-chip.on{font-size:15px;padding:6px 16px}
+  @media (max-width:640px){.pf-chip.longe{display:none}.pf-chip,.pf-fita.sm .pf-chip{padding:6px 9px;font-size:13px}.pf-chip.on,.pf-fita.sm .pf-chip.on{font-size:14px;padding:6px 12px}.pf-mes,.pf-fita.sm .pf-mes{width:30px;height:30px;font-size:20px}}</style>`;
+function fita(id, itens, sel, { rot = String, rotSel, atual, nome = rot, unidade = 'mês', sm = false, n = 5 } = {}) {
+  itens = itens.map(String); sel = String(sel); atual = atual == null ? null : String(atual);
+  const i = itens.indexOf(sel), a = Math.max(0, Math.min(i - Math.floor(n / 2), itens.length - n)), vis = itens.slice(a, a + n), ano = unidade === 'ano';
+  const ant = ano ? 'Ano anterior' : 'Mês anterior', seg = ano ? 'Ano seguinte' : 'Mês seguinte';
+  return `${FITA_CSS}<div class="pf-fita${sm ? ' sm' : ''}" data-fita="${id}">
+    <button class="pf-mes" data-fv="${i > 0 ? itens[i - 1] : ''}" ${i > 0 ? '' : 'disabled'} title="${ant}" aria-label="${ant}">‹</button>
+    ${vis.map(x => `<button class="pf-chip ${x === sel ? 'on' : ''} ${x === atual ? 'hoje' : ''} ${Math.abs(itens.indexOf(x) - i) > 1 ? 'longe' : ''}" data-fv="${x}" title="${esc(nome(x))}${x === atual ? (ano ? ' (ano atual)' : ' (mês atual)') : ''}">${esc(x === sel ? (rotSel || rot)(x) : rot(x))}</button>`).join('')}
+    <button class="pf-mes" data-fv="${i < itens.length - 1 ? itens[i + 1] : ''}" ${i < itens.length - 1 ? '' : 'disabled'} title="${seg}" aria-label="${seg}">›</button>
+    ${atual != null && itens.includes(atual) && !vis.includes(atual) ? `<button class="pf-chip vh" data-fv="${atual}" title="Voltar a ${esc(nome(atual))}">${ano ? 'Este ano' : 'Hoje'}</button>` : ''}</div>`;
+}
+const ligarFita = (v, id, fn) => v.querySelectorAll(`[data-fita="${id}"] [data-fv]`).forEach(b => { if (b.dataset.fv && !b.disabled && !b.classList.contains('on')) b.onclick = () => fn(b.dataset.fv); });
+// rótulo curto de um mês (com o ano só quando é diferente do de referência)
+const rotMes = ref => x => { const n = MES3[+x.slice(5, 7) - 1], c = n[0] + n.slice(1).toLowerCase(); return x.slice(0, 4) !== String(ref).slice(0, 4) ? `${c} ${x.slice(2, 4)}` : c; };
+
 /* ---------- Atalhos [+] do Painel ---------- */
 // [rótulo, rota, botão a acionar na página (ou função), separador]
 const ATALHOS = {
@@ -488,17 +509,7 @@ function visao(v) {
   Object.entries((casaParte(ym) || {}).cats || {}).forEach(([c, val]) => divCat[c] = r2((divCat[c] || 0) + val));
   if (I.prest > 0) divCat['Prestações de dívidas'] = r2((divCat['Prestações de dívidas'] || 0) + I.prest);
   const divItens = Object.entries(divCat).filter(([, val]) => val > 0.005).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value })), divTot = r2(divItens.reduce((t, x) => t + x.value, 0));
-  v.innerHTML = `<style>.pf-mes{background:none;border:0;width:40px;height:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;color:var(--muted);font-size:26px;line-height:1}.pf-mes:disabled{opacity:.25;cursor:default}.pf-mes:not(:disabled):hover{color:inherit;background:var(--line)}
-      .pf-chip{background:none;border:1px solid transparent;border-radius:999px;padding:9px 18px;font-size:15px;line-height:20px;color:var(--muted);cursor:pointer;white-space:nowrap;position:relative}.pf-chip:hover{color:inherit;border-color:var(--line)}
-      .pf-chip.on{color:inherit;font-weight:600;font-size:17px;padding:9px 22px;border-color:var(--line2);background:var(--panel2);cursor:default}.pf-chip.hoje:not(.on)::after{content:'';position:absolute;left:50%;bottom:-4px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--accent)}@media (max-width:640px){.pf-chip.longe{display:none}.pf-chip{padding:6px 9px;font-size:13px}.pf-chip.on{font-size:14px;padding:6px 12px}.pf-mes{width:30px;height:30px;font-size:20px}}</style>
-    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:10px 0 28px"><div></div>
-      ${(() => { const i = mesesSel.indexOf(ym), a = Math.max(0, Math.min(i - 2, mesesSel.length - 5)), vis = mesesSel.slice(a, a + 5), y0 = ym.slice(0, 4);
-        const rot = x => { const n = MES3[+x.slice(5, 7) - 1], c = n[0] + n.slice(1).toLowerCase(); return x === ym ? `${MESES[+x.slice(5, 7) - 1]} ${x.slice(0, 4)}` : x.slice(0, 4) !== y0 ? `${c} ${x.slice(2, 4)}` : c; };
-        return `<div class="row" style="gap:8px;align-items:center;justify-content:center;flex-wrap:nowrap">
-        <button class="pf-mes" id="pfm-p" ${i > 0 ? '' : 'disabled'} title="Mês anterior" aria-label="Mês anterior">‹</button>
-        ${vis.map(x => `<button class="pf-chip ${x === ym ? 'on' : ''} ${x === hojeYm ? 'hoje' : ''} ${Math.abs(mesesSel.indexOf(x) - i) > 1 ? 'longe' : ''}" data-mes="${x}" title="${nomeYm(x)}${x === hojeYm ? ' (mês atual)' : ''}">${rot(x)}</button>`).join('')}
-        <button class="pf-mes" id="pfm-n" ${i < mesesSel.length - 1 ? '' : 'disabled'} title="Mês seguinte" aria-label="Mês seguinte">›</button>${vis.includes(hojeYm) ? '' : `<button class="pf-chip" id="pfm-h" style="border-color:var(--line)" title="Voltar a ${nomeYm(hojeYm)}">Hoje</button>`}</div>`; })()}
-      <div></div></div>${I.alertas.map(([k, t]) => `<div class="alert ${k}" style="margin-bottom:10px">${icon('alert')}<div>${t}</div></div>`).join('')}
+  v.innerHTML = `<div style="display:flex;justify-content:center;margin:10px 0 28px">${fita('pfm', mesesSel, ym, { rot: rotMes(ym), rotSel: nomeYm, nome: nomeYm, atual: hojeYm })}</div>${I.alertas.map(([k, t]) => `<div class="alert ${k}" style="margin-bottom:10px">${icon('alert')}<div>${t}</div></div>`).join('')}
     <style>.pf-kpis .kpi .foot{max-height:0;opacity:0;overflow:hidden;margin-top:0;transition:max-height .2s,opacity .2s,margin-top .2s}.pf-kpis .kpi:hover .foot,.pf-kpis .kpi:focus-within .foot{max-height:160px;opacity:1;margin-top:8px}</style>
     <div class="grid g4 pf-kpis" style="margin-top:${I.alertas.length ? 6 : 0}px">
       ${kpi(`${icon('wallet')} ${kn('pf_rend', 'Rendimento líquido do mês')}`, eur(I.rend), `${linhaYm.real != null ? 'Recibo' : 'Previsto'} de ${MES3[rmY - 1].toLowerCase()}.${ymRec !== ym ? ` · pago em ${MES3[+ym.slice(5, 7) - 1].toLowerCase()}.` : ''}${linhaYm.subValor > 0.004 ? `<br>Inclui ${eur(linhaYm.subValor)} sub. de ${linhaYm.subTipo}` : subYm ? '<br>Com subsídio' : ''}${linhaYm.refeicao > 0.004 ? (M().plano.incluirRefeicao ? `<br>Inclui ${eur(linhaYm.refeicao)} de refeição` : `<br>+ ${eur(linhaYm.refeicao)} de refeição (alimentação)`) : ''}<br>Média 12 meses: ${eur(rendimentoMensal())}`, '', true, podeEditar() ? 'rend' : '')}
@@ -515,9 +526,7 @@ function visao(v) {
       <div class="card"><div class="card-h"><h3>Diversificação das despesas</h3><span class="sub">${nomeYm(ym)} · <a href="#/despesas">ver despesas</a></span></div>
         ${divItens.length ? `<div id="chdiv"></div><div class="faint" style="font-size:12px;margin-top:8px">${divItens.slice(0, 3).map(x => `${esc(x.label)} ${pct(x.value / divTot)}`).join(' · ')}</div>` : '<div class="empty">Sem despesas nem prestações neste mês. Registe-as em <a href="#/despesas">Despesas fixas</a>.</div>'}</div>
     </div>`;
-  const irMes = x => { setTab('pf-painel-mes', x); app.refresh(); }, iM = mesesSel.indexOf(ym);
-  [['#pfm-p', mesesSel[iM - 1]], ['#pfm-n', mesesSel[iM + 1]], ['#pfm-h', hojeYm]].forEach(([q, x]) => { const b = v.querySelector(q); if (b && x) b.onclick = () => irMes(x); });
-  v.querySelectorAll('[data-mes]').forEach(b => { if (b.dataset.mes !== ym) b.onclick = () => irMes(b.dataset.mes); });
+  ligarFita(v, 'pfm', x => { setTab('pf-painel-mes', x); app.refresh(); });
   v.querySelectorAll('[data-add]').forEach(b => b.onclick = () => usarAtalho(b.dataset.add));
   const chdiv = v.querySelector('#chdiv'); if (chdiv) chart.donut(chdiv, { items: divItens, center: eur(divTot), sub: 'no mês' });
 }
@@ -719,12 +728,12 @@ function rendCatB(v, T) {
   const m = M(), ed = podeEditar(), y0 = +today().slice(0, 4), anos = [...new Set([y0, ...m.recibosB.map(x => +String(x.data).slice(0, 4))])].sort((a, b) => b - a);
   let ano = +tab('pf-anob', y0); if (!anos.includes(ano)) ano = y0;
   const rs = m.recibosB.filter(x => +String(x.data).slice(0, 4) === ano).sort((a, b) => String(b.data).localeCompare(String(a.data))), B = catBIRS(ano), lim = 15000;
-  v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano</span><select class="inp inp-sm" id="pfb">${anos.map(y => `<option ${y === ano ? 'selected' : ''}>${y}</option>`).join('')}</select></div>${ed ? `<div class="row"><button class="btn" id="ib" data-tip="Portal das Finanças › Faturas e Recibos › Consultar › Exportar (CSV)">${icon('upload')} Importar do Portal (CSV)</button><button class="btn primary" id="nb">${icon('plus')} Novo recibo verde</button></div>` : ''}</div>
+  v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px">${fita('pfb', anos.slice().sort((a, b) => a - b), ano, { atual: y0, unidade: 'ano', sm: true })}${ed ? `<div class="row"><button class="btn" id="ib" data-tip="Portal das Finanças › Faturas e Recibos › Consultar › Exportar (CSV)">${icon('upload')} Importar do Portal (CSV)</button><button class="btn primary" id="nb">${icon('plus')} Novo recibo verde</button></div>` : ''}</div>
     <div class="grid g4">${kpi(`${icon('wallet')} Recebido em ${ano} (Cat. B)`, eur(B.bruto), `${B.n} faturas-recibo / recibos`, '', true)}${kpi('IRS retido', eur(B.irs))}${kpi('IVA liquidado', eur(B.iva))}
       ${kpi('Limite de isenção de IVA (art. 53.º)', pct(B.bruto / lim), `${eur(B.bruto)} de ${eur(lim)}`, B.bruto >= lim ? 'neg' : B.bruto >= lim * 0.8 ? 'neg' : '')}</div>
     <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Recibos verdes ${ano}</h3><span class="sub">FR e RG contam como rendimento; uma FT sozinha é só informativa · clique para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Documento</th><th>Cliente</th><th class="r">Valor</th><th class="r">IVA</th><th class="r">Retenção IRS</th><th class="r">Total</th><th></th></tr></thead><tbody>
     ${rs.map(x => `<tr class="${ed ? 'click' : ''}" data-b="${x.id}" style="${contaCatB(x) ? '' : 'opacity:.6'}"><td>${date(x.data)}</td><td><span class="badge ${contaCatB(x) ? 'ok' : ''}">${esc(x.tipo || '—')}</span> ${esc(x.numero || '')}</td><td>${esc(x.cliente || '—')}${x.nif ? `<div class="faint" style="font-size:11px">NIF ${esc(x.nif)}</div>` : ''}</td><td class="r num">${eur(x.bruto)}</td><td class="r num">${eur(x.iva)}</td><td class="r num">${eur(x.irs)}</td><td class="r num">${eur((+x.bruto || 0) + (+x.iva || 0) - (+x.irs || 0))}</td><td>${contaCatB(x) ? '' : `<span class="faint" style="font-size:11px">${x.anulado ? 'anulado' : 'não conta'}</span>`}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">Sem recibos verdes neste ano.</td></tr>'}</tbody></table></div></div>`;
-  bindTabs(v); const s = v.querySelector('#pfb'); if (s) s.onchange = () => { setTab('pf-anob', s.value); app.refresh(); };
+  bindTabs(v); ligarFita(v, 'pfb', y => { setTab('pf-anob', y); app.refresh(); });
   const editarB = x0 => { const x = x0 || { data: today(), tipo: 'FR', bruto: 0, iva: 0, irs: 0 };
     ui.modal({ title: x0 ? 'Recibo verde' : 'Novo recibo verde', sub: 'Categoria B · fatura-recibo emitida no Portal das Finanças',
       body: `<form class="form"><div class="fld"><label>Data</label><input class="inp" type="date" name="data" value="${esc(x.data)}"></div><div class="fld"><label>Tipo</label><select class="inp" name="tipo">${[['FR', 'FR · Fatura-recibo'], ['RG', 'RG · Recibo (de uma FT)'], ['FT', 'FT · Fatura (ainda não paga)']].map(([k, l]) => `<option value="${k}" ${k === x.tipo ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
@@ -744,7 +753,7 @@ function rendIRS(v, T) {
   let ano = +tab('pf-anoirs', y0); if (!anos.includes(ano)) ano = y0;
   const X = calcIRS(ano), linha = (rot, val, nota = '', forte = false) => `<tr><td>${forte ? `<b>${rot}</b>` : rot}${nota ? `<div class="faint" style="font-size:11px">${nota}</div>` : ''}</td><td class="r num">${forte ? `<b>${val}</b>` : val}</td></tr>`;
   const dErr = despesasIRS().erros;
-  v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano fiscal</span><select class="inp inp-sm" id="pfi">${anos.map(y => `<option ${y === ano ? 'selected' : ''}>${y}</option>`).join('')}</select></div><span class="faint" style="font-size:12px">Liquidação estimada · a declaração entrega-se no ano seguinte</span></div>
+  v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row" style="gap:10px"><span class="muted">Ano fiscal</span>${fita('pfi', anos.slice().sort((a, b) => a - b), ano, { atual: y0, unidade: 'ano', sm: true })}</div><span class="faint" style="font-size:12px">Liquidação estimada · a declaração entrega-se no ano seguinte</span></div>
     ${[...erros, ...dErr].length ? `<div class="alert bad" style="margin-bottom:12px">${icon('alert')}<div>Erros na configuração: ${[...erros, ...dErr].map(esc).join(' · ')}</div></div>` : ''}
     ${X.erro ? `<div class="empty">${esc(X.erro)}</div>` : `
     ${X.avisos.length ? `<div class="alert warn" style="margin-bottom:12px">${icon('info')}<div>${X.avisos.map(esc).join('<br>')}</div></div>` : ''}
@@ -781,7 +790,7 @@ function rendIRS(v, T) {
         <div class="fld"><label>Participação do município (%)</label><input class="inp num" type="number" step="any" name="irsMunicipio" value="${r2((pl.irsMunicipio ?? 0.05) * 100)}" ${ed ? '' : 'disabled'}><span class="hint">Faro: 4,5% → devolve 0,5% da coleta.</span></div>
         <div class="fld"><label>Coeficiente da Cat. B (%)</label><input class="inp num" type="number" step="any" name="irsCoefB" value="${+pl.irsCoefB ? r2(pl.irsCoefB * 100) : ''}" placeholder="da regra do ano" ${ed ? '' : 'disabled'}><span class="hint">Anexo B: campo 403 → 75%; 404 (serviços genéricos) → 35%; vendas → 15%.</span></div>
         ${ed ? `<div class="fld full"><div class="row"><button type="button" class="btn primary" id="girs">${icon('check')} Guardar</button>${pl.irsRegras ? '<button type="button" class="btn ghost" id="rirs">Repor regras de origem</button>' : ''}</div></div>` : ''}</form></div>`;
-  bindTabs(v); const s = v.querySelector('#pfi'); if (s) s.onchange = () => { setTab('pf-anoirs', s.value); app.refresh(); };
+  bindTabs(v); ligarFita(v, 'pfi', y => { setTab('pf-anoirs', y); app.refresh(); });
   const g = v.querySelector('#girs'); if (g) g.onclick = () => { const f = ui.formData(v.querySelector('#firs'));
     const e1 = linhasIRS(f.irsRegras, lerRegraIRS).erros, e2 = linhasIRS(f.irsDespesas, lerDespesasIRS).erros; if (e1.length || e2.length) { ui.toast('Corrija: ' + [...e1, ...e2].join(' · '), 'bad'); return; }
     Object.assign(pl, { irsRegras: f.irsRegras.trim() === IRS_PADRAO ? '' : f.irsRegras.trim(), irsDespesas: f.irsDespesas.trim(), irsNascimento: f.irsNascimento, irsInicioAtividade: parseInt(f.irsInicioAtividade, 10) || 0, irsQualificacao: parseInt(f.irsQualificacao, 10) || 0,
@@ -796,7 +805,7 @@ function rendimentos(v) {
   const anoAtual = +today().slice(0, 4), futuros = [1, 2, 3, 4, 5].map(i => anoAtual + i);
   const anos = [...new Set([anoAtual, ...futuros, ...m.recibos.map(r => +r.ano)])].sort((a, b) => b - a);
   let ano = +tab('pf-ano', anoAtual); if (!anos.includes(ano)) ano = anoAtual;
-  const anoSel = `<select class="inp inp-sm" id="pfa">${anos.map(y => `<option ${y === ano ? 'selected' : ''}>${y}</option>`).join('')}</select>`;
+  const anoSel = fita('pfa', anos.slice().sort((a, b) => a - b), ano, { atual: anoAtual, unidade: 'ano', sm: true });
   const est = estimarLiquido(m.recibos);
   if (T.t === 'rec') {
     const rs = m.recibos.filter(r => +r.ano === ano).sort((a, b) => b.mes - a.mes), PR = projecao(ano);
@@ -804,7 +813,7 @@ function rendimentos(v) {
     v.innerHTML = `${T.html}${EMP ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div style="flex:1"><b>Mudança de emprego detetada.</b> Desde ${fmtMes(EMP.desde)} há ${EMP.n} recibos de <b>${esc(EMP.ent)}</b>${EMP.entAnt ? ` (antes: ${esc(EMP.entAnt)})` : ', diferente dos anteriores'}.
         As previsões usam ${eur(salarioBase())} de líquido recorrente; com o novo emprego são <b>${eur(EMP.liquido)}</b>${EMP.bruto ? ` (vencimento sujeito a SS ≈ ${eur(EMP.bruto)})` : ''}.${EMP.parcial ? ` O recibo de ${MESES[EMP.parcial.mes - 1]} ${EMP.parcial.ano} (${eur(EMP.parcial.liquido)}) é de um mês incompleto e deixa de contar para as médias.` : ''}
         ${dica('Atualizar grava o novo líquido recorrente e o vencimento nos Parâmetros do plano e passa a usar só os recibos do novo emprego para as médias. Os valores recebidos continuam todos registados.')}</div>
-        ${ed ? `<button class="btn sm primary" id="emp">${icon('check')} Atualizar previsões</button><button class="btn sm ghost" id="empx">Dispensar</button>` : ''}</div>` : ''}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano</span>${anoSel}</div>${ed ? `<div class="row"><button class="btn" id="lr">${icon('upload')} Ler recibos (PDF/foto)</button><button class="btn primary" id="nr">${icon('plus')} Registar recibo</button></div>` : ''}</div>
+        ${ed ? `<button class="btn sm primary" id="emp">${icon('check')} Atualizar previsões</button><button class="btn sm ghost" id="empx">Dispensar</button>` : ''}</div>` : ''}<div class="row between" style="margin-bottom:16px">${anoSel}${ed ? `<div class="row"><button class="btn" id="lr">${icon('upload')} Ler recibos (PDF/foto)</button><button class="btn primary" id="nr">${icon('plus')} Registar recibo</button></div>` : ''}</div>
       <div class="grid g4">${kpi(`${icon('wallet')} Líquido recebido ${ano}`, eur(sum(rs, 'liquido')), `${rs.length} ${rs.length === 1 ? 'recibo' : 'recibos'}`, '', true)}${kpi('Bruto ' + ano, eur(sum(rs, 'bruto')))}${kpi('IRS retido', eur(sum(rs, 'irs')), `SS ${eur(sum(rs, 'ss'))}`)}
         ${kpi(kn('pf_liqrec', 'Líquido recorrente'), eur(salarioBase()), +m.plano.salarioBase ? 'definido nos parâmetros' : est.n ? esc(est.metodo) : 'sem recibos')}</div>
       <div class="card" style="margin-top:16px"><div class="card-h"><h3>${kn('pf_proj', 'Rendimento líquido')} ${ano}</h3><span class="sub">real ${eur(PR.ytd)} · projetado ${eur(PR.total)} · <a href="#/rendimentos" data-aba="pf-rend=proj">ver projeção</a></span></div><div id="chr"></div></div>
@@ -830,7 +839,7 @@ function rendimentos(v) {
     const proximos = [anoAtual, ...futuros].map(y => ({ y, p: projecao(y), S: salarioAno(y) }));
     const smnCard = `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Próximos anos</h3><span class="sub">${smnOn ? `vencimento base ${eur(BB.valor)} (${esc(BB.origem)}) comparado com o salário mínimo de cada ano` : 'sem atualização do salário mínimo: os anos futuros repetem o atual'}</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ano</th><th class="r">Salário mínimo</th><th class="r">Vencimento usado</th><th></th><th class="r">Líquido/mês (sem subsídios)</th><th class="r">Projeção anual líquida</th></tr></thead><tbody>
       ${proximos.map(({ y, p, S }) => `<tr class="click" data-ano="${y}"${y === ano ? ' style="background:rgba(127,127,127,.10)"' : ''}><td><b>${y}</b></td><td class="r num">${eur(S.smn)}</td><td class="r num">${eur(y === anoAtual ? S.bruto : S.usado)}</td><td>${y === anoAtual ? '<span class="badge ok">recibos</span>' : !smnOn ? '<span class="badge">igual ao atual</span>' : S.minimo ? '<span class="badge warn">salário mínimo</span>' : '<span class="badge info">valor efetivo</span>'}</td><td class="r num">${eur(p.media)}</td><td class="r num"><b>${eur(p.total - (refOn ? 0 : p.refeicaoTotal))}</b></td></tr>`).join('')}</tbody></table></div></div>`;
-    v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Ano</span>${anoSel}</div>${ed ? `<label class="check"><input type="checkbox" id="smn" ${smnOn ? 'checked' : ''}> Atualizar pelo salário mínimo</label>` : ''}</div>
+    v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px">${anoSel}${ed ? `<label class="check"><input type="checkbox" id="smn" ${smnOn ? 'checked' : ''}> Atualizar pelo salário mínimo</label>` : ''}</div>
       ${P.futuro ? `<div class="alert info" style="margin-bottom:16px">${icon('chart')}<div>Projeção de ${ano}: ${P.salario.minimo ? `o salário mínimo previsto (<b>${eur(P.salario.smn)}</b>) é superior ao seu vencimento ${+m.plano.aumentoSalarial ? `${m.plano.aumentoTipo === 'smn' ? 'atualizado como o mínimo' : 'com o aumento anual'} (${eur(P.salario.efetivo)})` : `base (${eur(P.salario.bruto)})`}, por isso usa-se o mínimo` : `usa-se o seu vencimento ${m.plano.aumentoTipo === 'smn' ? `atualizado na mesma % que o salário mínimo (<b>${eur(P.salario.efetivo)}</b>)` : +m.plano.aumentoSalarial ? `com o aumento anual de ${pct(+m.plano.aumentoSalarial)} (<b>${eur(P.salario.efetivo)}</b>)` : `base (<b>${eur(P.salario.bruto)}</b>)`}${smnOn ? `, superior ao salário mínimo previsto (${eur(P.salario.smn)})` : ' (atualização pelo salário mínimo desligada)'}`}: <b>${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)}</b> sobre o líquido atual sem refeição. Ajuste em <a href="#/simulador" data-aba="pf-sim=par">Parâmetros do plano</a>.</div></div>` : ''}
       <div class="grid g4">${kpi(`${icon('chart')} ${kn('pf_proj', 'Projeção anual líquida')}`, eur(P.total - (refOn ? 0 : P.refeicaoTotal)), refOn ? `inclui ${eur(P.refeicaoTotal)} de refeição` : `sem os ${eur(P.refeicaoTotal)} de refeição`, '', true)}
         ${P.futuro ? kpi('Vencimento base previsto', eur(P.salario.usado), `${P.salario.minimo ? 'salário mínimo' : 'o seu salário'} · ${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)} face a hoje`) : kpi('Recebido até agora (YTD)', eur(P.ytd), `${P.n} meses com recibo`)}${kpi('Média mensal (sem subsídios)', eur(P.media), `inclui ${eur(P.mediaRef)} de refeição`)}
@@ -844,7 +853,7 @@ function rendimentos(v) {
     chart.bars(v.querySelector('#ch'), { labels: MES3, stacked: true, series: [{ name: 'Real', values: P.linhas.map(l => l.real != null ? r2(l.real - l.refeicao) : 0) }, { name: 'Projetado', values: P.linhas.map(l => l.real == null ? r2(l.proj - l.refeicao) : 0), color: 'var(--accent2)' },
       ...(refOn && P.refeicaoTotal ? [{ name: 'Subsídio de refeição', values: P.linhas.map(l => l.refeicao), color: 'var(--info)' }] : [])] });
   }
-  bindTabs(v); const s = v.querySelector('#pfa'); if (s) s.onchange = () => { setTab('pf-ano', s.value); if (+s.value > anoAtual && T.t === 'rec') setTab('pf-rend', 'proj'); app.refresh(); };
+  bindTabs(v); ligarFita(v, 'pfa', y => { setTab('pf-ano', y); if (+y > anoAtual && T.t === 'rec') setTab('pf-rend', 'proj'); app.refresh(); });
 }
 
 /* ---------- Despesas fixas ---------- */
@@ -1534,7 +1543,7 @@ function casaPessoal(v) {
       const res = CP.outros.map(o => { const a = CP.acerto[o.id];
         return `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>Acerto de ${esc(nm(o.id))} · ${fmtMes(ymC)}: <b class="num">${eur(a.deve)}</b></span><span>${a.deve <= 0.004 ? '<span class="badge plain">sem acerto a receber</span>' : a.liquidado ? `<span class="badge ok">pago${a.recebido < a.deve - 0.004 ? ' (com crédito anterior)' : ''}</span>` : `${a.recebido ? `<span class="badge ok">${eur(a.recebido)} confirmado</span> ` : ''}${a.porConfirmar ? `<span class="badge info">${eur(a.porConfirmar)} enviado · por confirmar</span> ` : ''}<span class="badge warn">falta receber ${eur(a.pendente)}</span>`}</span></div>`; }).join('');
       return `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Contas que paga</h3><span class="sub">despesas comuns em seu nome · pagam-se com o acerto confirmado de quem divide · contam como pagas no dia de cobrança</span>
-        <select class="inp inp-sm" id="cmes" style="margin-left:auto">${meses.map(x => `<option value="${x}" ${x === ymC ? 'selected' : ''}>${fmtMes(x)}</option>`).join('')}</select></div>
+        <div style="margin-left:auto">${fita('cmes', meses, ymC, { rot: rotMes(ymC), rotSel: fmtMes, nome: fmtMes, atual: today().slice(0, 7), sm: true })}</div></div>
         <div style="padding:0 16px 8px">${res}</div>
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Conta</th><th>Dia</th><th class="r">Valor total</th><th class="r">Parte dos outros</th><th>Estado</th><th></th></tr></thead><tbody>
         ${CP.linhas.map((x, i) => `<tr><td><b>${esc(x.e.nome)}</b></td><td>${x.e.dia || 1}</td><td class="r num">${eur(x.valor)}</td><td class="r num">${eur(x.deOutros)}</td>
@@ -1558,7 +1567,7 @@ function casaPessoal(v) {
       return `<tr><td>${date(l.data)}</td><td>${esc(l.tipo === 'acerto' ? 'Acerto das despesas comuns · ' + fmtMes(l.mes) : l.descricao)}<div class="faint" style="font-size:12px">${sentido}</div>${l.estimado && l.estimado.length ? `<div style="font-size:11px"><span class="badge warn" data-tip="${esc('Ainda sem valor real de: ' + l.estimado.join(', ') + '. Usa-se a média; quando o valor real for registado (Despesas partilhadas › Valores reais), o acerto é corrigido.')}">estimado</span></div>` : ''}</td><td><span class="badge plain">${l.tipo === 'acerto' ? 'acerto mensal' : 'dívida'}</span>${l.emCurso ? ' <span class="badge info" data-tip="Inclui compras partilhadas: o valor muda à medida que se registam compras neste mês.">em curso</span>' : ''}</td><td class="r num">${eur(l.valor)}</td><td></td><td></td><td></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Sem movimentos.</td></tr>'}</tbody></table></div></div>`;
   ligarPartilhas(v, L);
   v.querySelectorAll('[data-cf]').forEach(b => b.onclick = async () => { if (await confirmarPagamento(b.dataset.cf)) app.refresh(); });
-  v.querySelectorAll('#cmes, [data-cpm]').forEach(cm => cm.onchange = () => { setTab('pf-casa-mes', cm.value); app.refresh(); });
+  ligarFita(v, 'cmes', x => { setTab('pf-casa-mes', x); app.refresh(); });
   v.querySelectorAll('[data-ac]').forEach(b => b.onclick = async () => { const c = COMP.flatMap(k => k.cs).find(x => x.id === b.dataset.ac); if (c && await anularCompra(L, c)) app.refresh(); });
   v.querySelectorAll('[data-nc]').forEach(b => b.onclick = () => { const e = COMP[+b.dataset.nc].e;
     ui.modal({ title: 'Registar compra · ' + esc(e.nome), sub: 'Conta no acerto do mês da data da compra. Fica registada com a sua assinatura.',
