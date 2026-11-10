@@ -1818,13 +1818,17 @@ function simulador(v) {
     chart.linha(v.querySelector('#ch'), { labels: lab, series: ks.map((k, i) => ({ name: nomeEstr(k), dash: k === 'baseline', values: idx.map(j => R[k].meses[j] ? R[k].meses[j].divida : 0) })) });
   } else {
     const r = R[esc1], nomes = Object.fromEntries(ds.map(d => [d.id, d.nome]));
-    v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row"><span class="muted">Estratégia</span><select class="inp inp-sm" id="es">${ESTRATEGIAS.map(([k, l]) => `<option value="${k}" ${k === esc1 ? 'selected' : ''}>${l}${k === melhor ? ' (melhor)' : ''}</option>`).join('')}</select></div><span class="muted" style="font-size:12px">${r.livre ? 'livre de dívidas em ' + fmtMes(r.livre) : 'não fica liquidado no horizonte'}</span></div>
+    // um ano de cada vez, escolhido na fita (como os outros seletores de ano)
+    const y0 = +ymHoje().slice(0, 4), yMax = r.meses.length ? r.meses[r.meses.length - 1].y : y0;
+    let ano = +tab('pf-anoplano', y0); if (!(ano >= y0 - 2 && ano <= Math.max(yMax, y0) + 2)) ano = y0;
+    const doAno = r.meses.filter(x => x.y === ano);
+    v.innerHTML = `${T.html}${barraFita(fita('pfpl', [], ano, { atual: y0, unidade: 'ano', sm: true }), `<span class="muted" style="font-size:12px;text-align:right">${r.livre ? 'livre de dívidas em ' + fmtMes(r.livre) : 'não fica liquidado no horizonte'}</span>`, `<div class="row"><span class="muted">Estratégia</span><select class="inp inp-sm" id="es">${ESTRATEGIAS.map(([k, l]) => `<option value="${k}" ${k === esc1 ? 'selected' : ''}>${l}${k === melhor ? ' (melhor)' : ''}</option>`).join('')}</select></div>`)}
       <div class="card flush"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Mês</th><th class="r">Rendimento</th><th class="r">Despesas</th><th class="r">Prestações</th><th class="r">Poupança</th><th class="r">Objetivos</th><th class="r">Fundo emerg.</th><th class="r">Amortização extra</th><th>Dívida-alvo</th><th class="r">Juros</th><th class="r">Dívida total</th></tr></thead><tbody>
-      ${r.meses.slice(0, 120).map(x => `<tr><td><b>${MES3[x.m - 1]} ${x.y}</b></td><td class="r num">${eur(x.rendimento)}</td><td class="r num">${eur(x.despesas)}</td><td class="r num">${eur(x.prestacoes)}</td><td class="r num">${eur(x.poupanca)}</td>
+      ${doAno.map(x => `<tr><td><b>${MES3[x.m - 1]} ${x.y}</b></td><td class="r num">${eur(x.rendimento)}</td><td class="r num">${eur(x.despesas)}</td><td class="r num">${eur(x.prestacoes)}</td><td class="r num">${eur(x.poupanca)}</td>
         <td class="r num"${x.nomesObj.length ? ` data-tip="${esc(x.nomesObj.join(', '))}"` : ''}>${eur(x.objetivos)}${x.amortObjetivos > 0.005 ? `<div class="faint" style="font-size:11px">amortiza ${eur(x.amortObjetivos)}</div>` : ''}</td>
         <td class="r num">${eur(x.emergencia)}<div class="faint" style="font-size:11px">${eur(x.emergenciaSaldo)} / ${eur(x.emergenciaAlvo)}</div></td><td class="r num">${eur(x.extra + x.comissoes)}</td>
-        <td style="font-size:12px">${Object.entries(x.porDiv).map(([id, val]) => `${esc(nomes[id] || id)} <span class="num">${eur(val)}</span>`).join('<br>') || '<span class="faint">—</span>'}</td><td class="r num">${eur(x.juros)}</td><td class="r num"><b>${eur(x.divida)}</b></td></tr>`).join('')}</tbody></table></div></div>
-      ${r.meses.length > 120 ? '<p class="faint" style="font-size:12px">Mostram-se os primeiros 120 meses.</p>' : ''}`;
+        <td style="font-size:12px">${Object.entries(x.porDiv).map(([id, val]) => `${esc(nomes[id] || id)} <span class="num">${eur(val)}</span>`).join('<br>') || '<span class="faint">—</span>'}</td><td class="r num">${eur(x.juros)}</td><td class="r num"><b>${eur(x.divida)}</b></td></tr>`).join('') || `<tr><td colspan="11" class="empty">${ano < y0 ? 'O plano começa no mês atual.' : r.livre ? `Livre de dívidas em ${fmtMes(r.livre)}: o plano termina aí.` : 'Fora do horizonte do plano.'}</td></tr>`}</tbody></table></div></div>`;
+    ligarFita(v, 'pfpl', y => { setTab('pf-anoplano', y); app.refresh(); });
     v.querySelector('#es').onchange = e => { setTab('pf-estr', e.target.value); app.refresh(); };
   }
   bindTabs(v);
