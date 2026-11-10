@@ -136,16 +136,43 @@ const avisoEmprego = () => { const e = mudancaEmprego(); return e && !e.feito &&
    Até 2026: valores publicados. 2027–2028: acordo de rendimentos. 2029: objetivo anunciado.
    Podem ser corrigidos nos parâmetros ("2027: 980; 2030: 1150"); depois do último ano soma-se o aumento anual indicado. */
 const SMN_PADRAO = { 2023: 760, 2024: 820, 2025: 870, 2026: 920, 2027: 970, 2028: 1020, 2029: 1100 };
-function tabelaSMN() {
-  const t = { ...SMN_PADRAO };
-  String(M().plano.smnTabela || '').split(/[;\n]+/).forEach(p => { const m = p.match(/(20\d{2})\s*[:=]\s*([\d.,]+)/); if (m) { const v = +m[2].replace(/\.(?=\d{3}\b)/g, '').replace(',', '.'); if (v > 0) t[+m[1]] = v; } });
-  return t;
-}
+/* AUMENTOS DO ORDENADO — definidos aqui pelo programador, não pelo utilizador.
+   Só para quem trabalha em Portugal: tipo 'smn' = o ordenado sobe na mesma % que o salário mínimo; 'fixo' = sobe pct por ano.
+   minimo: nos anos futuros nunca fica abaixo do salário mínimo (só em tempo inteiro: em tempo parcial o mínimo é proporcional às horas).
+   smnAumento: quanto sobe o mínimo por ano depois do último ano de SMN_PADRAO.
+   Fora de Portugal o aumento deteta-se pelos recibos da entidade (variação anual do vencimento). */
+const AUMENTO_PT = { tipo: 'smn', pct: 0, minimo: true, smnAumento: 50 };
+function tabelaSMN() { return { ...SMN_PADRAO }; }
 function smnAno(y) {
   const t = tabelaSMN(), anos = Object.keys(t).map(Number).sort((a, b) => a - b); if (t[y]) return t[y];
   if (y < anos[0]) return t[anos[0]];
-  const ult = anos[anos.length - 1], aum = M().plano.smnAumento == null || M().plano.smnAumento === '' ? 50 : +M().plano.smnAumento || 0;
-  return r2(t[ult] + (y - ult) * aum);
+  const ult = anos[anos.length - 1];
+  return r2(t[ult] + (y - ult) * AUMENTO_PT.smnAumento);
+}
+// NIF português válido (9 dígitos com dígito de controlo)
+const nifPT = n => { const d = String(n || '').replace(/\D/g, ''); if (!/^[1-9]\d{8}$/.test(d)) return false; let t = 0; for (let i = 0; i < 8; i++) t += +d[i] * (9 - i); const c = 11 - t % 11; return (c >= 10 ? 0 : c) === +d[8]; };
+const REGIMES = [['inteiro', 'Tempo inteiro'], ['parcial', 'Tempo parcial'], ['outro', 'Outro regime']];
+const nomeRegime = k => (REGIMES.find(x => x[0] === k) || REGIMES[0])[1];
+// regime de trabalho e país de cada entidade pagadora: plano.entInfo = { entidade: { regime, pais: 'PT' | 'outro' } }
+// sem escolha: Portugal, a menos que os recibos tenham um número fiscal que não é um NIF português e nenhum desconto para a Segurança Social
+const paisDetetado = k => { const rs = M().recibos.filter(r => chaveEnt(r) === k); return rs.some(r => String(r.nifEntidade || '').trim()) && !rs.some(r => nifPT(r.nifEntidade) || +r.ss > 0) ? 'outro' : 'PT'; };
+const infoEnt = k => { const o = (M().plano.entInfo || {})[k] || {}; return { regime: o.regime || 'inteiro', pais: o.pais || paisDetetado(k) }; };
+// aumento anual detetado pelos recibos de uma entidade: média do vencimento (sem subsídios) do primeiro e do último ano com recibos
+function aumentoDetetado(k) {
+  const por = {}; M().recibos.filter(r => chaveEnt(r) === k && !r.subFerias && !r.subNatal && (+r.ss > 0 || +r.bruto > 0)).forEach(r => { const b = +r.ss > 0 ? +r.ss / 0.11 : +r.bruto; (por[r.ano] = por[r.ano] || []).push(b); });
+  const anos = Object.keys(por).map(Number).sort((a, b) => a - b); if (anos.length < 2) return { taxa: 0, anos: anos.length };
+  const med = y => por[y].reduce((t, x) => t + x, 0) / por[y].length, a = anos[0], b = anos[anos.length - 1];
+  const taxa = Math.pow(med(b) / med(a), 1 / (b - a)) - 1;
+  return { taxa: Math.max(0, Math.min(0.2, isFinite(taxa) ? taxa : 0)), anos: anos.length, de: a, ate: b };
+}
+// regra de aumento que se aplica à entidade principal (a do recibo mais recente)
+function regraAumento() {
+  const k = entPrincipal(), I = infoEnt(k);
+  if (I.pais === 'PT') return { pt: true, tipo: AUMENTO_PT.tipo, taxa: AUMENTO_PT.tipo === 'fixo' ? AUMENTO_PT.pct : 0, minimo: AUMENTO_PT.minimo && I.regime === 'inteiro', regime: I.regime,
+    texto: (AUMENTO_PT.tipo === 'smn' ? 'sobe na mesma % que o salário mínimo' : `+${pct(AUMENTO_PT.pct)} por ano`) + (AUMENTO_PT.minimo && I.regime === 'inteiro' ? ', nunca abaixo do mínimo' : '') };
+  const d = aumentoDetetado(k);
+  return { pt: false, tipo: 'fixo', taxa: d.taxa, minimo: false, regime: I.regime, detetado: d,
+    texto: d.anos < 2 ? 'sem aumento: ainda não há recibos de dois anos para o detetar' : `+${pct(d.taxa)} por ano, detetado nos recibos de ${d.de} a ${d.ate}` };
 }
 // vencimento base bruto atual: o indicado nos parâmetros ou, sem ele, a base da Segurança Social (SS ÷ 11%) do último recibo sem subsídios
 function brutoBase() {
@@ -156,10 +183,10 @@ function brutoBase() {
 }
 // salário de um ano futuro: max(vencimento atual com o aumento anual previsto, mínimo desse ano); fator = usado ÷ vencimento atual
 function salarioAno(y) {
-  const b = brutoBase().valor, smn = smnAno(y), on = M().plano.atualizarSMN !== false, anos = Math.max(0, y - +today().slice(0, 4));
+  const G = regraAumento(), b = brutoBase().valor, smn = smnAno(y), on = G.minimo, anos = Math.max(0, y - +today().slice(0, 4));
   // 'smn': o salário sobe na mesma % que o salário mínimo (mantém a mesma distância relativa ao mínimo)
-  const y0 = +today().slice(0, 4), efetivo = M().plano.aumentoTipo === 'smn' ? b * smnAno(Math.max(y, y0)) / smnAno(y0) : b * Math.pow(1 + (+M().plano.aumentoSalarial || 0), anos), usado = b > 0 ? (on ? Math.max(efetivo, smn) : efetivo) : 0;
-  return { bruto: b, smn, efetivo: r2(efetivo), usado: r2(usado), minimo: on && b > 0 && smn > efetivo, fator: b > 0 ? usado / b : 1 };
+  const y0 = +today().slice(0, 4), efetivo = G.tipo === 'smn' ? b * smnAno(Math.max(y, y0)) / smnAno(y0) : b * Math.pow(1 + (+G.taxa || 0), anos), usado = b > 0 ? (on ? Math.max(efetivo, smn) : efetivo) : 0;
+  return { bruto: b, smn, efetivo: r2(efetivo), usado: r2(usado), minimo: on && b > 0 && smn > efetivo, fator: b > 0 ? usado / b : 1, regra: G };
 }
 function projecao(ano) {
   const anoAtual = +today().slice(0, 4);
@@ -459,25 +486,29 @@ function entidadesNovas(rs) {
   if (fila.length) setTimeout(() => fila.shift()(), 350);
 }
 function configEntidade(r, temAnterior, fila = []) {
-  const pl = M().plano, k = chaveEnt(r), nome = r.entidade || 'NIF ' + r.nifEntidade, ent = { modo: 'extra', ref: refConta(r) }, pe = pagEnt(k), wp = { ['seg:' + k]: String(pe.seguinte), ['dia:' + k]: pe.dia };
+  const pl = M().plano, k = chaveEnt(r), nome = r.entidade || 'NIF ' + r.nifEntidade, ent = { modo: 'extra', ref: refConta(r), regime: infoEnt(k).regime, pais: infoEnt(k).pais }, pe = pagEnt(k), wp = { ['seg:' + k]: String(pe.seguinte), ['dia:' + k]: pe.dia };
   const seg = (id, ops) => `<div class="tabs" data-s="${id}" style="flex-wrap:wrap;width:max-content;max-width:100%">${ops.map(([v, l]) => `<button type="button" data-v="${v}">${l}</button>`).join('')}</div>`;
   ui.modal({ title: 'Nova entidade pagadora', sub: `<b>${esc(nome)}</b> aparece pela primeira vez no recibo de ${MESES[+r.mes - 1].toLowerCase()} de ${r.ano}. Configure como entra no seu plano.`,
     body: `${PAR_CSS}<div style="display:flex;flex-direction:column;gap:18px">
       ${temAnterior ? `<div><div style="font-weight:600;margin-bottom:8px">Este rendimento…</div>${seg('modo', [['novo', 'Substitui o emprego anterior'], ['extra', 'É um trabalho a mais']])}
         <div class="faint" style="font-size:12px;margin-top:6px">Novo emprego: as previsões passam a usar só os recibos desde ${fmtMes(ymOf(+r.ano, +r.mes))}. Trabalho a mais: soma ao que já recebe.</div></div>` : ''}
+      <div><div style="font-weight:600;margin-bottom:8px">Regime de trabalho</div>${seg('regime', REGIMES)}
+        <div style="margin-top:10px">${seg('pais', [['PT', 'Em Portugal'], ['outro', 'Noutro país']])}</div>
+        <div class="faint" style="font-size:12px;margin-top:6px">Em Portugal os aumentos seguem as regras do sistema (salário mínimo). Noutro país detetam-se pelos recibos.</div></div>
       <div><div style="font-weight:600;margin-bottom:8px">Quando paga</div>${ctlPagamento(k)}<div class="faint" style="font-size:12px;margin-top:6px">Ex.: o recibo de novembro entra em dezembro, ao dia 1.</div></div>
       ${+r.refeicao > 0 ? `<div><div style="font-weight:600;margin-bottom:8px">Subsídio de refeição (${eur(r.refeicao)} neste recibo)</div>${seg('ref', [['1', 'Conta como rendimento'], ['0', 'Reservado à alimentação']])}
         <div class="faint" style="font-size:12px;margin-top:6px">Reservado: paga primeiro as despesas de alimentação e não entra no rendimento do plano.</div></div>` : ''}
       <div class="faint" style="font-size:12px">Pode mudar depois em Rendimentos › Recibos de vencimento (botão de configuração ao lado do +).</div></div>`,
-    onOpen: el => { ligarControlos(el, wp, { ['dia:' + k]: fmtDia }, () => {}); el.querySelectorAll('[data-s]').forEach(g => { const id = g.dataset.s, cur = () => id === 'ref' ? (ent.ref ? '1' : '0') : ent.modo;
+    onOpen: el => { ligarControlos(el, wp, { ['dia:' + k]: fmtDia }, () => {}); el.querySelectorAll('[data-s]').forEach(g => { const id = g.dataset.s, cur = () => id === 'ref' ? (ent.ref ? '1' : '0') : ent[id];
       const marca = () => g.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === cur())); marca();
-      g.querySelectorAll('button').forEach(b => b.onclick = () => { if (id === 'ref') ent.ref = b.dataset.v === '1'; else ent.modo = b.dataset.v; marca(); }); }); },
+      g.querySelectorAll('button').forEach(b => b.onclick = () => { if (id === 'ref') ent.ref = b.dataset.v === '1'; else ent[id] = b.dataset.v; marca(); }); }); },
     actions: [{ label: 'Mais tarde', kind: 'ghost', onClick: () => { if (fila.length) setTimeout(() => fila.shift()(), 300); } },
       { label: icon('check') + 'Guardar', kind: 'primary', onClick: () => { const P = M().plano;
         if (+r.refeicao > 0) P.refeicaoRend = Object.assign({}, P.refeicaoRend || {}, { [k]: ent.ref });
         P.pagamentoEnt = Object.assign({}, P.pagamentoEnt || {}, { [k]: { seguinte: wp['seg:' + k] === 'true', dia: Math.min(28, Math.max(0, +wp['dia:' + k] || 0)) } });
+        P.entInfo = Object.assign({}, P.entInfo || {}, { [k]: { regime: ent.regime, pais: ent.pais } });
         if (temAnterior && ent.modo === 'novo') { P.empregoDesde = ymOf(+r.ano, +r.mes); P.salarioBase = 0; }
-        audit('PF_ENTIDADE', `${nome}: ${temAnterior ? (ent.modo === 'novo' ? 'novo emprego desde ' + fmtMes(P.empregoDesde || '') : 'trabalho a mais') : 'primeiro emprego'}${+r.refeicao > 0 ? ` · refeição ${ent.ref ? 'conta como rendimento' : 'reservada à alimentação'}` : ''}`);
+        audit('PF_ENTIDADE', `${nome}: ${temAnterior ? (ent.modo === 'novo' ? 'novo emprego desde ' + fmtMes(P.empregoDesde || '') : 'trabalho a mais') : 'primeiro emprego'} · ${nomeRegime(ent.regime)} · ${ent.pais === 'PT' ? 'Portugal' : 'outro país'}${+r.refeicao > 0 ? ` · refeição ${ent.ref ? 'conta como rendimento' : 'reservada à alimentação'}` : ''}`);
         app.save(); ui.toast('Configuração guardada', 'ok'); app.refresh(); if (fila.length) setTimeout(() => fila.shift()(), 300); } }] });
 }
 async function gravarComEntrada(rs, aposGravar) {
@@ -980,12 +1011,12 @@ function rendimentos(v) {
     const empx = v.querySelector('#empx'); if (empx) empx.onclick = () => { const e = mudancaEmprego(); if (!e) return; m.plano.sugDispensadas = [...new Set([...(m.plano.sugDispensadas || []), e.chave])]; app.save(); app.refresh(); };
 
   } else {
-    const P = projecao(ano), refOn = false, smnOn = m.plano.atualizarSMN !== false, BB = brutoBase();
+    const P = projecao(ano), refOn = false, G = regraAumento(), BB = brutoBase();
     const proximos = [anoAtual, ...futuros].map(y => ({ y, p: projecao(y), S: salarioAno(y) }));
-    const smnCard = `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Próximos anos</h3><span class="sub">${smnOn ? `vencimento base ${eur(BB.valor)} (${esc(BB.origem)}) comparado com o salário mínimo de cada ano` : 'sem atualização do salário mínimo: os anos futuros repetem o atual'}</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ano</th><th class="r">Salário mínimo</th><th class="r">Vencimento usado</th><th></th><th class="r">Líquido/mês (sem subsídios)</th><th class="r">Projeção anual líquida</th></tr></thead><tbody>
-      ${proximos.map(({ y, p, S }) => `<tr class="click" data-ano="${y}"${y === ano ? ' style="background:rgba(127,127,127,.10)"' : ''}><td><b>${y}</b></td><td class="r num">${eur(S.smn)}</td><td class="r num">${eur(y === anoAtual ? S.bruto : S.usado)}</td><td>${y === anoAtual ? '<span class="badge ok">recibos</span>' : !smnOn ? '<span class="badge">igual ao atual</span>' : S.minimo ? '<span class="badge warn">salário mínimo</span>' : '<span class="badge info">valor efetivo</span>'}</td><td class="r num">${eur(p.media)}</td><td class="r num"><b>${eur(p.total - (refOn ? 0 : p.refeicaoTotal))}</b></td></tr>`).join('')}</tbody></table></div></div>`;
-    v.innerHTML = `${T.html}${barraFita(anoSel, ed ? `<style>${SW_CSS}</style><label class="pf-sw" style="justify-self:end"><input type="checkbox" id="smn" ${smnOn ? 'checked' : ''}><span>Atualizar pelo salário mínimo</span></label>` : '')}
-      ${P.futuro ? `<div class="alert info" style="margin-bottom:16px">${icon('chart')}<div>Projeção de ${ano}: ${P.salario.minimo ? `o salário mínimo previsto (<b>${eur(P.salario.smn)}</b>) é superior ao seu vencimento ${+m.plano.aumentoSalarial ? `${m.plano.aumentoTipo === 'smn' ? 'atualizado como o mínimo' : 'com o aumento anual'} (${eur(P.salario.efetivo)})` : `base (${eur(P.salario.bruto)})`}, por isso usa-se o mínimo` : `usa-se o seu vencimento ${m.plano.aumentoTipo === 'smn' ? `atualizado na mesma % que o salário mínimo (<b>${eur(P.salario.efetivo)}</b>)` : +m.plano.aumentoSalarial ? `com o aumento anual de ${pct(+m.plano.aumentoSalarial)} (<b>${eur(P.salario.efetivo)}</b>)` : `base (<b>${eur(P.salario.bruto)}</b>)`}${smnOn ? `, superior ao salário mínimo previsto (${eur(P.salario.smn)})` : ' (atualização pelo salário mínimo desligada)'}`}: <b>${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)}</b> sobre o líquido atual sem refeição. Ajuste em <a href="#/poupancas">Poupanças</a>.</div></div>` : ''}
+    const smnCard = `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Próximos anos</h3><span class="sub">vencimento base ${eur(BB.valor)} (${esc(BB.origem)}) · ${esc(G.texto)}</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ano</th><th class="r">Salário mínimo</th><th class="r">Vencimento usado</th><th></th><th class="r">Líquido/mês (sem subsídios)</th><th class="r">Projeção anual líquida</th></tr></thead><tbody>
+      ${proximos.map(({ y, p, S }) => `<tr class="click" data-ano="${y}"${y === ano ? ' style="background:rgba(127,127,127,.10)"' : ''}><td><b>${y}</b></td><td class="r num">${eur(S.smn)}</td><td class="r num">${eur(y === anoAtual ? S.bruto : S.usado)}</td><td>${y === anoAtual ? '<span class="badge ok">recibos</span>' : S.minimo ? '<span class="badge warn">salário mínimo</span>' : '<span class="badge info">valor efetivo</span>'}</td><td class="r num">${eur(p.media)}</td><td class="r num"><b>${eur(p.total - (refOn ? 0 : p.refeicaoTotal))}</b></td></tr>`).join('')}</tbody></table></div></div>`;
+    v.innerHTML = `${T.html}${barraFita(anoSel, '')}
+      ${P.futuro ? `<div class="alert info" style="margin-bottom:16px">${icon('chart')}<div>Projeção de ${ano}: ${P.salario.minimo ? `o salário mínimo previsto (<b>${eur(P.salario.smn)}</b>) é superior ao seu vencimento atualizado (${eur(P.salario.efetivo)}), por isso usa-se o mínimo` : `vencimento previsto <b>${eur(P.salario.efetivo)}</b>`} · ${G.pt ? 'regras do sistema para Portugal' : 'trabalho fora de Portugal'}: ${esc(G.texto)}. <b>${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)}</b> sobre o líquido atual sem refeição.</div></div>` : ''}
       <div class="grid g4">${kpi(`${icon('chart')} ${kn('pf_proj', 'Projeção anual líquida')}`, eur(P.total - P.refeicaoTotal), P.refeicaoTotal ? `sem ${eur(P.refeicaoTotal)} de refeição reservados à alimentação` : 'inclui o subsídio de refeição', '', true)}
         ${P.futuro ? kpi('Vencimento base previsto', eur(P.salario.usado), `${P.salario.minimo ? 'salário mínimo' : 'o seu salário'} · ${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)} face a hoje`) : kpi('Recebido até agora (YTD)', eur(P.ytd), `${P.n} meses com recibo`)}${kpi('Média mensal (sem subsídios)', eur(P.media), `inclui ${eur(P.mediaRefAll)} de refeição`)}
         ${kpi(P.futuro ? 'Subsídios previstos' : 'Subsídios por receber', eur(P.subF + P.subN), `${P.temF ? 'férias recebido' : 'férias ' + eur(P.subF)} · ${P.temN ? 'Natal recebido' : 'Natal ' + eur(P.subN)}`)}</div>
@@ -993,7 +1024,6 @@ function rendimentos(v) {
       <div class="card flush" style="margin-top:16px"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Mês</th><th class="r">Real</th><th class="r">Projetado</th><th class="r">dos quais refeição</th><th>Notas</th></tr></thead><tbody>
       ${P.linhas.map(l => `<tr><td><b>${MESES[l.m - 1]}</b></td><td class="r num">${l.real == null ? '<span class="faint">—</span>' : eur(l.real)}</td><td class="r num">${eur(l.proj)}</td><td class="r num">${eur(l.refeicao)}</td><td>${l.real == null ? '<span class="badge">estimado</span> ' : '<span class="badge ok">recibo</span> '}${l.sub ? '<span class="badge info">subsídio</span>' : ''}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td>TOTAL</td><td class="r num">${eur(P.ytd)}</td><td class="r num">${eur(P.total)}</td><td class="r num">${eur(P.refeicaoTotal)}</td><td></td></tr></tfoot></table></div></div>${smnCard}`;
-    const cs = v.querySelector('#smn'); if (cs) cs.onchange = () => { m.plano.atualizarSMN = cs.checked; audit('PF_PLANO', `Atualização pelo salário mínimo ${cs.checked ? 'ligada' : 'desligada'}`); app.save(); app.refresh(); };
     v.querySelectorAll('[data-ano]').forEach(tr => tr.onclick = () => { setTab('pf-ano', tr.dataset.ano); app.refresh(); });
     chart.bars(v.querySelector('#ch'), { labels: MES3, stacked: true, series: [{ name: 'Real', values: P.linhas.map(l => l.real != null ? r2(l.real - l.refeicao) : 0) }, { name: 'Projetado', values: P.linhas.map(l => l.real == null ? r2(l.proj - l.refeicao) : 0), color: 'var(--accent2)' },
       ...(refOn && P.refeicaoTotal ? [{ name: 'Subsídio de refeição', values: P.linhas.map(l => l.refeicao), color: 'var(--info)' }] : [])] });
@@ -1898,15 +1928,10 @@ function parametrosPlano(v, T, modo = 'par') {
     <div class="grid ${POUP ? 'g3' : 'g2'}" style="margin-bottom:16px">${POUP ? `${kpi('Fundo de emergência', pv('emg'), pv('emg-s'))}${kpi('Poupança por mês', pv('poup'), pv('poup-s'))}${kpi('Amortização extra', pv('div'), 'por mês, além do que sobrar')}`
       : `${kpi('Rendimento do plano', pv('sal'), `líquido recorrente${+pl.outrosRendimentos ? ' + outros rendimentos' : ''} de <a href="#/rendimentos" data-aba="pf-rend=rec">Rendimentos</a>`)}${kpi('Aumento do ordenado', pv('aum'), pv('aum-s'))}`}</div>
     <div class="pf-par">
-    ${POUP ? '' : sec('chart', 'Aumentos',
-      row('Como sobe o ordenado', 'Usado para projetar os próximos anos.', seg('aumentoTipo', [['smn', 'Como o salário mínimo'], ['fixo', 'Aumento fixo']]))
-      + row('Aumento por ano', 'Mérito, categoria, contrato coletivo…', rng('aumentoSalarialPc', 0, 10, 0.5), 'aumentoTipo=fixo')
-      + row('Salário mínimo', '', sw('atualizarSMN', 'Nunca abaixo do mínimo nos anos futuros'))
-      + `<details><summary>Opções avançadas</summary>
-        ${row('Vencimento base bruto', (b => b.valor ? `Estimado: ${eur(b.valor)} (${esc(b.origem)}).` : 'Para comparar com o salário mínimo.')(brutoBase()), eurIn('brutoBase', 'estimar'))}
-        ${row('Subida do mínimo depois de ' + Math.max(...Object.keys(SMN_PADRAO).map(Number)), 'Por ano.', eurIn('smnAumento'))}
-        ${row('Corrigir o salário mínimo', `Tabela: ${Object.entries(SMN_PADRAO).map(([a, x]) => a + ' ' + x).join(' · ')} €`, `<input class="inp" data-k="smnTabela" placeholder="ex.: 2027: 980; 2030: 1150" ${dis}>`)}
-        ${row('Simular até', 'Horizonte do simulador e do plano mês a mês.', seg('horizonte', [[60, '5 anos'], [120, '10 anos'], [240, '20 anos'], [360, '30 anos'], [480, '40 anos']]))}</details>`)}
+    ${POUP ? '' : (G => sec('chart', 'Aumentos',
+      row('Como sobe o ordenado', G.pt ? `Regras do sistema para quem trabalha em Portugal (${esc(nomeRegime(G.regime).toLowerCase())}).` : 'Trabalho fora de Portugal: detetado pelos recibos.', `<span>${esc(G.texto)}</span>`)
+      + row('Entidade principal', 'O regime e o país mudam-se em <a href="#/rendimentos" data-aba="pf-rend=rec">Rendimentos › Recibos de vencimento</a> (botão de configuração).', `<span>${esc((empregosComRefeicao().find(e => e.k === entPrincipal()) || { nome: '—' }).nome)}</span>`)))(regraAumento())}
+    ${POUP ? '' : sec('calendar', 'Simulação', row('Simular até', 'Horizonte do simulador e do plano mês a mês.', seg('horizonte', [[60, '5 anos'], [120, '10 anos'], [240, '20 anos'], [360, '30 anos'], [480, '40 anos']])))}
     ${!POUP ? '' : sec('shield', 'Fundo de emergência',
       row('Reserva', `Em meses das suas despesas fixas (${eur(desp)}/mês).`, rng('emergMeses', 0, 12, 1))
       + row('Prazo para lá chegar', '', rng('emergProgressivo', 0, 60, 3))
@@ -1931,7 +1956,7 @@ function parametrosPlano(v, T, modo = 'par') {
   const preview = () => {
     const pv = (id, val, sub) => { const a = v.querySelector('#pv-' + id), b = v.querySelector('#pv-' + id + '-s'); if (a) a.textContent = val; if (b && sub != null) b.textContent = sub; };
     pv('sal', eur(rendM()));
-    pv('aum', w.aumentoTipo === 'smn' ? 'como o mínimo' : '+' + String(w.aumentoSalarialPc).replace('.', ',') + '%', w.aumentoTipo === 'smn' ? 'sobe na mesma % que o salário mínimo' : 'por ano' + (w.atualizarSMN ? ', nunca abaixo do mínimo' : ''));
+    { const G = regraAumento(); pv('aum', G.tipo === 'smn' ? 'como o mínimo' : '+' + pct(G.taxa), G.pt ? 'regras do sistema · Portugal' : 'detetado pelos recibos'); }
     const alvo = desp * (+w.emergMeses || 0), ja = w.fundoOrigem === 'manual' ? +w.fundoInicial || 0 : saldoT, falta = Math.max(0, alvo - ja);
     const porMes = falta <= 0 ? 0 : +w.emergProgressivo > 0 ? falta / +w.emergProgressivo : alvo / 12;
     pv('emg', eur(alvo), falta <= 0 ? (alvo ? 'completo' : +w.emergMeses ? 'ainda sem despesas fixas' : 'sem reserva') : `faltam ${eur(falta)} · ${eur(porMes)}/mês`);
@@ -1952,9 +1977,7 @@ function parametrosPlano(v, T, modo = 'par') {
   preview();
   const pd = v.querySelector('#pdesc'); if (pd) pd.onclick = () => app.refresh();
   const pg = v.querySelector('#pgrd'); if (pg) pg.onclick = () => {
-    Object.assign(pl, { aumentoTipo: w.aumentoTipo === 'smn' ? 'smn' : 'fixo', aumentoSalarial: (+w.aumentoSalarialPc || 0) / 100,
-      atualizarSMN: !!w.atualizarSMN, brutoBase: r2(+w.brutoBase || 0), smnAumento: +w.smnAumento || 0, smnTabela: String(w.smnTabela || '').trim(),
-      emergMeses: +w.emergMeses || 0, emergProgressivo: Math.max(0, +w.emergProgressivo || 0), fundoOrigem: w.fundoOrigem === 'manual' ? 'manual' : 'tesouraria', fundoInicial: r2(+w.fundoInicial || 0),
+    Object.assign(pl, { emergMeses: +w.emergMeses || 0, emergProgressivo: Math.max(0, +w.emergProgressivo || 0), fundoOrigem: w.fundoOrigem === 'manual' ? 'manual' : 'tesouraria', fundoInicial: r2(+w.fundoInicial || 0),
       poupancaTipo: w.poupancaTipo || 'none', poupancaFixa: r2(+w.poupancaFixa || 0), poupancaPct: (+w.poupancaPc || 0) / 100, extraFixo: r2(+w.extraFixo || 0), horizonte: Math.max(12, Math.min(480, +w.horizonte || 240)) });
     audit('PF_PLANO', POUP ? 'Poupanças (fundo de emergência, poupança mensal, amortização extra) alteradas' : 'Parâmetros do plano financeiro alterados'); app.save(); ui.toast(POUP ? 'Poupanças guardadas' : 'Parâmetros guardados', 'ok'); app.refresh(); };
 }
@@ -2013,18 +2036,19 @@ const ctlPagamento = k => cSeg('seg:' + k, [['false', 'No próprio mês'], ['tru
 // como e quando paga cada entidade pagadora, e o subsídio de refeição de cada uma
 function configOrdenado() {
   const pl = M().plano, w = {}, EMP = empregosComRefeicao(), fmt = {};
-  EMP.forEach(e => { const pe = pagEnt(e.k); w['seg:' + e.k] = String(pe.seguinte); w['dia:' + e.k] = pe.dia; fmt['dia:' + e.k] = fmtDia; if (e.media) w['ref:' + e.k] = refConta({ entidade: e.k }); });
+  EMP.forEach(e => { const pe = pagEnt(e.k), I = infoEnt(e.k); w['reg:' + e.k] = I.regime; w['pais:' + e.k] = I.pais; w['seg:' + e.k] = String(pe.seguinte); w['dia:' + e.k] = pe.dia; fmt['dia:' + e.k] = fmtDia; if (e.media) w['ref:' + e.k] = refConta({ entidade: e.k }); });
   const sw = (k, rot) => `<label class="pf-sw"><input type="checkbox" data-k="${esc(k)}"><span>${rot}</span></label>`;
   ui.modal({ title: 'Configurar ordenado', sub: 'Cada entidade pagadora paga à sua maneira: quando entra o dinheiro e como conta o subsídio de refeição.', wide: true,
     body: `${PAR_CSS}<div class="pf-par" style="display:flex;flex-direction:column;gap:12px">${EMP.map(e => `<div class="card">
         <div class="card-h"><h3>${icon('wallet')} ${esc(e.nome)}</h3><span class="sub">${e.n} ${e.n === 1 ? 'recibo' : 'recibos'} · último ${fmtMes(e.ult)}</span></div>
+        ${cRow('Regime de trabalho', 'Em Portugal os aumentos seguem as regras do sistema; noutro país detetam-se pelos recibos.', cSeg('reg:' + e.k, REGIMES) + `<div style="margin-top:10px">${cSeg('pais:' + e.k, [['PT', 'Em Portugal'], ['outro', 'Noutro país']])}</div>`)}
         ${cRow('Quando paga', 'Ex.: o recibo de novembro entra em dezembro. E em que dia entra na conta.', ctlPagamento(e.k))}
         ${cRow('Subsídio de refeição', e.media ? `≈ ${eur(e.media)}/mês. O que não contar fica reservado à alimentação.` : '', e.media ? sw('ref:' + e.k, 'Conta como rendimento') : '<span class="faint" style="font-size:13px">Sem subsídio de refeição nos recibos</span>')}</div>`).join('')
       || '<div class="empty">Ainda não há recibos de vencimento.</div>'}</div>`,
     onOpen: el => ligarControlos(el, w, fmt, () => {}),
-    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('check') + 'Guardar', kind: 'primary', onClick: () => { const P = M().plano, rr = Object.assign({}, P.refeicaoRend || {}), pg = Object.assign({}, P.pagamentoEnt || {});
-      EMP.forEach(e => { pg[e.k] = { seguinte: w['seg:' + e.k] === 'true', dia: Math.min(28, Math.max(0, +w['dia:' + e.k] || 0)) }; if (e.media) rr[e.k] = !!w['ref:' + e.k]; });
-      Object.assign(P, { refeicaoRend: rr, pagamentoEnt: pg });
+    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('check') + 'Guardar', kind: 'primary', onClick: () => { const P = M().plano, rr = Object.assign({}, P.refeicaoRend || {}), pg = Object.assign({}, P.pagamentoEnt || {}), ei = Object.assign({}, P.entInfo || {});
+      EMP.forEach(e => { ei[e.k] = { regime: w['reg:' + e.k] || 'inteiro', pais: w['pais:' + e.k] === 'outro' ? 'outro' : 'PT' }; pg[e.k] = { seguinte: w['seg:' + e.k] === 'true', dia: Math.min(28, Math.max(0, +w['dia:' + e.k] || 0)) }; if (e.media) rr[e.k] = !!w['ref:' + e.k]; });
+      Object.assign(P, { refeicaoRend: rr, pagamentoEnt: pg, entInfo: ei });
       audit('PF_PLANO', 'Configuração do ordenado por entidade pagadora (pagamento e subsídio de refeição)'); app.save(); ui.toast('Configuração guardada', 'ok'); app.refresh(); } }] });
 }
 function poupancas(v) {
