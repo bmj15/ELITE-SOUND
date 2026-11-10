@@ -1953,7 +1953,98 @@ function parametrosPlano(v, T, modo = 'par') {
       poupancaTipo: w.poupancaTipo || 'none', poupancaFixa: r2(+w.poupancaFixa || 0), poupancaPct: (+w.poupancaPc || 0) / 100, extraFixo: r2(+w.extraFixo || 0), horizonte: Math.max(12, Math.min(480, +w.horizonte || 240)) });
     audit('PF_PLANO', POUP ? 'Poupanças (fundo de emergência, poupança mensal, amortização extra) alteradas' : 'Parâmetros do plano financeiro alterados'); app.save(); ui.toast(POUP ? 'Poupanças guardadas' : 'Parâmetros guardados', 'ok'); app.refresh(); };
 }
-const poupancas = v => parametrosPlano(v, { html: '' }, 'poup');
+/* ---------- Poupanças ----------
+   Página de indicadores: quanto se põe de lado por mês, a taxa de poupança, o fundo de emergência e a evolução
+   nos próximos 24 meses. As escolhas (fundo, poupança mensal, amortização extra) ajustam-se pelo [+], em modais. */
+const cSeg = (k, ops) => `<div class="tabs" data-seg="${k}" style="flex-wrap:wrap;width:max-content;max-width:100%">${ops.map(([val, rot]) => `<button type="button" data-v="${esc(String(val))}">${rot}</button>`).join('')}</div>`;
+const cRng = (k, min, max, step) => `<div class="pf-rng"><input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}"><output data-out="${k}"></output></div>`;
+const cEur = k => `<span class="pf-eur"><input class="inp num" type="number" step="any" min="0" data-k="${k}" placeholder="0,00"></span>`;
+const cRow = (tit, sub, ctl, show = '') => `<div class="pf-row" ${show ? `data-show="${show}"` : ''}><div><b>${tit}</b>${sub ? `<span>${sub}</span>` : ''}</div><div>${ctl}</div></div>`;
+function ligarControlos(el, w, fmtOut, depois) {
+  const tudo = () => { el.querySelectorAll('[data-show]').forEach(x => { const [k, vals] = x.dataset.show.split('='); x.style.display = vals.split(',').includes(String(w[k])) ? '' : 'none'; }); depois(); };
+  el.querySelectorAll('[data-seg]').forEach(g => { const k = g.dataset.seg, marca = () => g.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(w[k])));
+    marca(); g.querySelectorAll('button').forEach(b => b.onclick = () => { w[k] = b.dataset.v; marca(); tudo(); }); });
+  el.querySelectorAll('[data-k]').forEach(i => { const k = i.dataset.k, out = el.querySelector(`[data-out="${k}"]`);
+    i.value = w[k] == null || (i.type === 'number' && !+w[k]) ? '' : w[k]; if (i.type === 'range' && i.value === '') i.value = i.min;
+    const upd = () => { w[k] = i.type === 'range' || i.type === 'number' ? +i.value || 0 : i.value; if (out) out.textContent = (fmtOut[k] || String)(w[k]); };
+    upd(); i.oninput = () => { upd(); tudo(); }; });
+  tudo();
+}
+const NOME_POUP = { none: 'Sem poupança separada', fixed: 'Valor fixo', percentage: '% do que ganha', percentage_surplus: '% do que sobra', percentage_after_min_payments: '% do que sobra depois das prestações' };
+// projeção a n meses: poupança acumulada e fundo de emergência (mesma regra do simulador: alvo imediato com teto de 1/12 por mês, ou rampa)
+function projPoupanca(n = 24) {
+  const pl = M().plano, meses = +pl.emergMeses || 0, prog = +pl.emergProgressivo || 0; let f = fundoAtual(), acc = 0;
+  return excedentesMes(n).map((x, i) => { acc += x.poup; const alvo = x.desp * meses, alvoE = prog > 0 ? alvo * Math.min(1, (i + 1) / prog) : alvo, teto = prog > 0 ? Infinity : alvo / 12;
+    const c = Math.max(0, Math.min(Math.max(0, alvoE - f), Math.max(0, x.exc), teto)); f += c; return { ym: x.ym, poup: x.poup, acc: r2(acc), fundoMes: r2(c), fundo: r2(f), alvo: r2(alvo) }; });
+}
+function ajustarPoupanca(qual) {
+  const pl = M().plano, w = JSON.parse(JSON.stringify(pl)), desp = despesasMensais(), prest = prestacoesMensais(), rend = rendimentoMensal(), saldoT = r2(tesouraria().reduce((t, c) => t + app.saldo(c.id), 0));
+  w.poupancaPc = r2((+w.poupancaPct || 0) * 100);
+  const cfg = {
+    fundo: ['Fundo de emergência', 'Uma reserva para imprevistos (perder o emprego, uma avaria, uma doença).',
+      cRow('Reserva', `Em meses das suas despesas fixas (${eur(desp)}/mês).`, cRng('emergMeses', 0, 12, 1)) + cRow('Prazo para lá chegar', 'Sem prazo, junta até 1/12 do alvo por mês.', cRng('emergProgressivo', 0, 60, 3))
+      + cRow('Já tem guardado', '', cSeg('fundoOrigem', [['tesouraria', `Saldo das contas · ${eur(saldoT)}`], ['manual', 'Outro valor']])) + cRow('Valor guardado', '', cEur('fundoInicial'), 'fundoOrigem=manual'),
+      () => { const alvo = desp * (+w.emergMeses || 0), ja = w.fundoOrigem === 'manual' ? +w.fundoInicial || 0 : saldoT, falta = Math.max(0, alvo - ja);
+        return alvo ? `Alvo <b>${eur(alvo)}</b> · ${falta ? `faltam ${eur(falta)} (≈ ${eur(+w.emergProgressivo > 0 ? falta / +w.emergProgressivo : alvo / 12)}/mês)` : 'já completo'}` : 'Sem fundo de emergência.'; },
+      () => ({ emergMeses: +w.emergMeses || 0, emergProgressivo: Math.max(0, +w.emergProgressivo || 0), fundoOrigem: w.fundoOrigem === 'manual' ? 'manual' : 'tesouraria', fundoInicial: r2(+w.fundoInicial || 0) })],
+    poup: ['Poupança mensal', 'Sai primeiro, antes dos objetivos e da amortização extra.',
+      cRow('Pôr de parte todos os meses', '', cSeg('poupancaTipo', [['none', 'Não'], ['fixed', 'Valor fixo'], ['percentage', '% do que ganho'], ['percentage_surplus', '% do que sobra'], ['percentage_after_min_payments', '% após prestações']]))
+      + cRow('Valor por mês', '', cEur('poupancaFixa'), 'poupancaTipo=fixed') + cRow('Percentagem', '', cRng('poupancaPc', 0, 50, 1), 'poupancaTipo=percentage,percentage_surplus,percentage_after_min_payments'),
+      () => { const pc = (+w.poupancaPc || 0) / 100, k = w.poupancaTipo, pm = k === 'fixed' ? +w.poupancaFixa || 0 : k === 'percentage' ? rend * pc : k === 'percentage_surplus' ? Math.max(0, rend - desp) * pc : k === 'percentage_after_min_payments' ? Math.max(0, rend - desp - prest) * pc : 0;
+        return k === 'none' ? 'Não separa poupança todos os meses.' : `≈ <b>${eur(pm)}</b> por mês · <b>${eur(pm * 12)}</b> por ano`; },
+      () => ({ poupancaTipo: w.poupancaTipo || 'none', poupancaFixa: r2(+w.poupancaFixa || 0), poupancaPct: (+w.poupancaPc || 0) / 100 })],
+    extra: ['Amortização extra', 'Valor a mais por mês para pagar as dívidas, somado ao que sobrar.',
+      cRow('Valor extra por mês', 'A ordem de pagamento escolhe-se no Simulador de estratégias.', cEur('extraFixo')),
+      () => `<b>${eur(+w.extraFixo || 0)}</b> por mês · ${eur((+w.extraFixo || 0) * 12)} por ano`, () => ({ extraFixo: r2(+w.extraFixo || 0) })] }[qual];
+  const fmtOut = { emergMeses: x => +x === 0 ? 'sem fundo' : `${x} ${+x === 1 ? 'mês' : 'meses'} · ${eur(desp * x)}`, emergProgressivo: x => +x === 0 ? 'sem prazo' : `${x} meses`, poupancaPc: x => x + '%' };
+  ui.modal({ title: cfg[0], sub: cfg[1], wide: true, body: `${PAR_CSS}<div class="pf-par" style="display:block"><div class="card" style="border:0;background:none">${cfg[2]}</div></div>
+      <div class="alert info" style="margin-top:12px">${icon('info')}<div data-res></div></div>`,
+    onOpen: el => ligarControlos(el, w, fmtOut, () => { el.querySelector('[data-res]').innerHTML = cfg[3](); }),
+    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('check') + 'Guardar', kind: 'primary', onClick: () => {
+      Object.assign(M().plano, cfg[4]()); audit('PF_PLANO', `Poupanças: ${cfg[0]} alterado`); app.save(); ui.toast(`${cfg[0]} guardado`, 'ok'); app.refresh(); } }] });
+}
+function poupancas(v) {
+  const pl = M().plano, ed = podeEditar(), desp = despesasMensais(), rend = rendimentoMensal(), P = projPoupanca(24), p0 = P[0] || { poup: 0, fundoMes: 0 };
+  const alvo = r2(desp * (+pl.emergMeses || 0)), saldoF = fundoAtual(), fr = alvo > 0 ? Math.min(1, saldoF / alvo) : 0, cobertos = desp > 0 ? saldoF / desp : 0;
+  const completo = alvo > 0 ? (saldoF >= alvo ? 'já' : (P.find(x => x.fundo >= x.alvo - 0.5) || {}).ym) : null, extra = +pl.extraFixo || 0;
+  const mes = r2(p0.poup + p0.fundoMes + extra), taxa = rend > 0 ? mes / rend : 0, em12 = P[11] || P[P.length - 1] || { acc: 0, fundo: saldoF };
+  const ops = [['Fundo de emergência', null, () => ajustarPoupanca('fundo'), null, 'shield', 'Reserva e prazo'], ['Poupança mensal', null, () => ajustarPoupanca('poup'), null, 'target', 'Quanto pôr de parte'], ['Amortização extra', null, () => ajustarPoupanca('extra'), null, 'credit', 'Valor a mais para as dívidas']];
+  const taxaCls = taxa >= BENCH.poupBoa ? 'pos' : taxa < BENCH.poupMin ? 'neg' : '';
+  const regra = pl.poupancaTipo === 'fixed' ? eur(pl.poupancaFixa) + ' por mês' : pl.poupancaTipo && pl.poupancaTipo !== 'none' ? `${pct(+pl.poupancaPct || 0)} ${NOME_POUP[pl.poupancaTipo].replace('% ', '')}` : 'nenhuma';
+  const ajustar = q => ed ? `<button class="btn sm ghost" data-aj="${q}" style="margin-left:auto">${icon('edit')} Ajustar</button>` : '';
+  v.innerHTML = `<div class="grid g4">
+      ${kpi(`${icon('target')} Poupa este mês`, eur(mes), `poupança ${eur(p0.poup)} · fundo ${eur(p0.fundoMes)} · extra ${eur(extra)}`, '', true, ed ? 'poup' : '')}
+      ${kpi('Taxa de poupança', pct(taxa), `do rendimento · recomendado ≥ ${pct(BENCH.poupMin)}, bom ≥ ${pct(BENCH.poupBoa)}`, taxaCls)}
+      ${kpi('Fundo de emergência', eur(saldoF), alvo ? `${pct(fr)} de ${eur(alvo)} · ${String(r2(cobertos)).replace('.', ',')} meses cobertos` : +pl.emergMeses && !desp ? 'sem despesas fixas para calcular o alvo' : 'sem alvo definido', fr >= 1 ? 'pos' : '')}
+      ${kpi('Daqui a 12 meses', eur(em12.acc + em12.fundo), `poupança ${eur(em12.acc)} + fundo ${eur(em12.fundo)}`)}</div>
+    <div class="grid g2" style="margin-top:16px;align-items:stretch">
+      <div class="card"><div class="card-h"><h3>${icon('shield')} Fundo de emergência</h3>${ajustar('fundo')}</div>
+        ${alvo ? `<div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(saldoF)}</span><span class="muted">de ${eur(alvo)}</span></div>
+        <div class="progress" style="height:10px"><i style="width:${r2(fr * 100)}%"></i></div>
+        <div class="grid g3" style="margin-top:16px;gap:12px">
+          <div><div class="faint" style="font-size:12px">Alvo</div><b>${+pl.emergMeses} ${+pl.emergMeses === 1 ? 'mês' : 'meses'}</b><div class="faint" style="font-size:12px">de despesas fixas</div></div>
+          <div><div class="faint" style="font-size:12px">Cobre hoje</div><b>${String(r2(cobertos)).replace('.', ',')} meses</b><div class="faint" style="font-size:12px">sem nenhum rendimento</div></div>
+          <div><div class="faint" style="font-size:12px">Completo</div><b>${completo === 'já' ? 'já está' : completo ? fmtMes(completo) : 'não em 24 meses'}</b><div class="faint" style="font-size:12px">${+pl.emergProgressivo ? `prazo de ${pl.emergProgressivo} meses` : 'sem prazo definido'}</div></div></div>
+        <div class="faint" style="font-size:12px;margin-top:12px">${pl.fundoOrigem === 'manual' ? 'Valor guardado indicado por si.' : 'Conta o saldo das suas contas de tesouraria.'}</div>`
+        : `<div class="empty">${+pl.emergMeses && !desp ? `O alvo é de ${pl.emergMeses} meses de despesas fixas, mas ainda não há <a href="#/despesas">despesas fixas</a> registadas.` : `Sem fundo de emergência definido.${ed ? ' Use Ajustar para escolher quantos meses de despesas quer ter de reserva.' : ''}`}</div>`}</div>
+      <div class="card"><div class="card-h"><h3>${icon('target')} Poupança mensal</h3>${ajustar('poup')}</div>
+        ${pl.poupancaTipo && pl.poupancaTipo !== 'none' ? `<div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(p0.poup)}</span><span class="muted">este mês</span></div>
+        <div class="grid g3" style="margin-top:8px;gap:12px">
+          <div><div class="faint" style="font-size:12px">Regra</div><b>${esc(NOME_POUP[pl.poupancaTipo])}</b><div class="faint" style="font-size:12px">${regra}</div></div>
+          <div><div class="faint" style="font-size:12px">Em 12 meses</div><b>${eur(em12.acc)}</b><div class="faint" style="font-size:12px">acumulado</div></div>
+          <div><div class="faint" style="font-size:12px">Em 24 meses</div><b>${eur((P[P.length - 1] || { acc: 0 }).acc)}</b><div class="faint" style="font-size:12px">acumulado</div></div></div>
+        <div class="faint" style="font-size:12px;margin-top:12px">Sai primeiro, antes dos <a href="#/objetivos">objetivos</a> e da amortização extra.</div>`
+        : `<div class="empty">Não separa poupança todos os meses.${ed ? ' Use Ajustar para pôr de parte um valor fixo ou uma percentagem.' : ''}</div>`}</div></div>
+    <div class="grid g2" style="margin-top:16px;grid-template-columns:2fr 1fr;align-items:stretch">
+      <div class="card"><div class="card-h"><h3>Evolução</h3><span class="sub">próximos 24 meses</span></div><div id="chp"></div></div>
+      <div class="card"><div class="card-h"><h3>${icon('credit')} Dívidas</h3>${ajustar('extra')}</div>
+        <div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(extra)}</span><span class="muted">extra por mês</span></div>
+        <div class="faint" style="font-size:12.5px">Além do que sobrar em cada mês. Prestações atuais: ${eur(prestacoesMensais())}/mês.</div>
+        <div style="margin-top:14px"><a href="#/simulador">Ver no Simulador de estratégias</a></div></div></div>`;
+  if (P.length) chart.linha(v.querySelector('#chp'), { labels: P.map(x => `${MES3[+x.ym.slice(5) - 1]} ${x.ym.slice(2, 4)}`), series: [{ name: 'Fundo de emergência', values: P.map(x => x.fundo) }, { name: 'Poupança acumulada', values: P.map(x => x.acc) }] });
+  v.querySelectorAll('[data-add="poup"]').forEach(b => b.onclick = () => escolherAcao(ops, 'Ajustar poupanças'));
+  v.querySelectorAll('[data-aj]').forEach(b => b.onclick = () => ajustarPoupanca(b.dataset.aj));
+}
 function simulador(v) {
   const T = tabs('pf-sim', 'est', [['est', 'Comparar estratégias'], ['plano', 'Plano mês a mês'], ['par', 'Parâmetros do plano']]), m = M(), kn = app.kn;
   if (T.t === 'par') { parametrosPlano(v, T); return; }
