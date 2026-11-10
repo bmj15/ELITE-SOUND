@@ -863,7 +863,7 @@ SPAP.createApp = function (cfg) {
     const item = (it) => `<a href="#/${it.id}" class="${cur === it.id ? 'active' : ''}">${icon(it.icon)}<span>${it.label}</span>${it.id === 'aprovacoes' && nIn ? `<span class="count">${nIn}</span>` : ''}${it.id === 'alteracoes' && nAlt ? `<span class="count">${nAlt}</span>` : ''}${it.id === 'recorrentes' && nRec ? `<span class="count">${nRec}</span>` : ''}</a>`;
     const groups = [
       { label: cfg.grupoModulos || cfg.nome, items: cfg.modules.filter(m => !m.hidden && (!m.perm || can(m.perm))) },
-      { label: 'Autorizações · SPAP', items: navCore.filter(n => n.grupo === 'spap' && navVisivel(n.id) && (!n.perm || can(n.perm))) },
+      { label: cfg.grupoSpap || 'Autorizações · SPAP', items: navCore.filter(n => n.grupo === 'spap' && navVisivel(n.id) && (!n.perm || can(n.perm))) },
       { label: 'Análise financeira', items: navCore.filter(n => n.grupo === 'fin' && navVisivel(n.id) && (!n.perm || can(n.perm))) },
       { label: 'Administração', items: navCore.filter(n => n.grupo === 'admin' && navVisivel(n.id) && (!n.perm || can(n.perm))) },
     ].filter(g => g.items.length);
