@@ -679,7 +679,16 @@ function lerRegraIRS(l) {
   return r;
 }
 function linhasIRS(texto, ler) { const out = {}, erros = []; String(texto || '').split(/\r?\n/).map(l => l.trim()).forEach((l, i) => { if (!l || l.startsWith('#')) return; try { const r = ler(l); out[r.ano] = r; } catch (e) { erros.push(`linha ${i + 1}: ${e.message}`); } }); return { out, erros }; }
-const regrasIRS = () => linhasIRS(M().plano.irsRegras || IRS_PADRAO, lerRegraIRS);
+// regras de IRS (escalões, deduções, IRS Jovem…): definidas no sistema (IRS_PADRAO), não pelo utilizador
+const regrasIRS = () => linhasIRS(IRS_PADRAO, lerRegraIRS);
+// despesas do e-Fatura guardadas como =DESPESAS(ano; NOME valor; …), uma linha por ano
+const fmtPT = x => String(r2(x)).replace('.', ',');
+function gravarDespesasIRS(texto, ano, v) {
+  const linhas = String(texto || '').split(/\r?\n/).filter(l => { const t = l.trim(); if (!t) return false; try { return lerDespesasIRS(t).ano !== ano; } catch (e) { return true; } });
+  const itens = Object.entries(v).filter(([, x]) => x > 0).map(([k, x]) => `${k} ${fmtPT(x)}`);
+  if (itens.length) linhas.push(`=DESPESAS(${ano}; ${itens.join('; ')})`);
+  return linhas.sort().join('\n');
+}
 function lerDespesasIRS(l) { const f = lerFormula(l); if (!f || f.nome !== 'DESPESAS') throw new Error('deve ser =DESPESAS(ano; …)'); const ano = parseInt(f.args[0], 10); if (!(ano > 2000)) throw new Error('falta o ano');
   const v = {}; f.args.slice(1).forEach(a => { const m = a.match(/^(\S+)\s+(.+)$/); if (!m || numPT(m[2]) == null) throw new Error(`não percebo «${a}»`); v[semAcento(m[1])] = numPT(m[2]); }); return { ano, v }; }
 const despesasIRS = () => linhasIRS(M().plano.irsDespesas, lerDespesasIRS);
@@ -805,24 +814,25 @@ function rendIRS(v, T) {
         ${linha(X.acerto >= 0 ? 'Reembolso' : 'A pagar', eur(Math.abs(X.acerto)), '', true)}</tbody></table></div></div>
       <div class="card"><div class="card-h"><h3>Escalões de ${X.r.ano}</h3><span class="sub">parcela a abater calculada</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Até</th><th class="r">Taxa</th><th class="r">Parcela</th></tr></thead><tbody>
         ${X.r.esc.map((e, i) => `<tr style="${i === X.E.i ? 'background:var(--panel3)' : ''}"><td>${isFinite(e.ate) ? eur(e.ate) : 'acima'}</td><td class="r num">${pct(e.taxa)}</td><td class="r num">${eur(e.parcela)}</td></tr>`).join('')}</tbody></table></div></div></div>`}
-    <div class="card" style="margin-top:16px"><div class="card-h"><h3>Configuração</h3><span class="sub">uma linha por ano, como uma fórmula</span></div>
-      <form class="form" id="firs"><div class="fld full"><label>Regras de IRS</label><textarea class="inp mono" name="irsRegras" rows="4" style="font-size:12px;white-space:pre;overflow-x:auto" ${ed ? '' : 'disabled'}>${esc(pl.irsRegras || IRS_PADRAO)}</textarea>
-        <span class="hint">=IRS(ano; ESC(limite:taxa:parcela a abater; …; taxa:parcela do último) — sem parcela, é calculada; ESPECIFICA(€); MINIMO(€); JOVEM(% por ano de atividade; limite €; idade máx.; nível QNQ exigido); CATB(coeficiente); SOLID(de:taxa; …); GERAIS(taxa; máx.); SAUDE(…); … ; IVA(limite global; NOME taxa, …)). Linhas começadas por # são ignoradas.</span></div>
-        <div class="fld full"><label>Despesas do e-Fatura</label><textarea class="inp mono" name="irsDespesas" rows="3" style="font-size:12px" placeholder="=DESPESAS(2026; GERAIS 2047,84; SAUDE 33,85; EDUCACAO 3,99; RESTAURACAO 247,30)" ${ed ? '' : 'disabled'}>${esc(pl.irsDespesas || '')}</textarea>
-          <span class="hint">=DESPESAS(ano; NOME valor; …) · nomes: ${Object.keys(NOMES_DED).join(', ')}. Nos IVA indique o IVA suportado.</span></div>
+    <div class="grid g2" style="margin-top:16px;align-items:start">
+      <div class="card"><div class="card-h"><h3>Os seus dados</h3><span class="sub">usados no cálculo</span></div>
+      <form class="form" id="firs">
         <div class="fld"><label>Data de nascimento</label><input class="inp" type="date" name="irsNascimento" value="${esc(pl.irsNascimento || '')}" ${ed ? '' : 'disabled'}></div>
         <div class="fld"><label>Ano de início de atividade</label><input class="inp num" type="number" name="irsInicioAtividade" value="${esc(pl.irsInicioAtividade || '')}" ${ed ? '' : 'disabled'}><span class="hint">1.º ano de rendimentos de trabalho (IRS Jovem).</span></div>
         <div class="fld"><label>Nível de qualificação (QNQ)</label><input class="inp num" type="number" min="1" max="8" name="irsQualificacao" value="${esc(pl.irsQualificacao || '')}" ${ed ? '' : 'disabled'}></div>
-        <div class="fld"><label>Participação do município (%)</label><input class="inp num" type="number" step="any" name="irsMunicipio" value="${r2((pl.irsMunicipio ?? 0.05) * 100)}" ${ed ? '' : 'disabled'}><span class="hint">Faro: 4,5% → devolve 0,5% da coleta.</span></div>
-        <div class="fld"><label>Coeficiente da Cat. B (%)</label><input class="inp num" type="number" step="any" name="irsCoefB" value="${+pl.irsCoefB ? r2(pl.irsCoefB * 100) : ''}" placeholder="da regra do ano" ${ed ? '' : 'disabled'}><span class="hint">Anexo B: campo 403 → 75%; 404 (serviços genéricos) → 35%; vendas → 15%.</span></div>
-        ${ed ? `<div class="fld full"><div class="row"><button type="button" class="btn primary" id="girs">${icon('check')} Guardar</button>${pl.irsRegras ? '<button type="button" class="btn ghost" id="rirs">Repor regras de origem</button>' : ''}</div></div>` : ''}</form></div>`;
+        <div class="fld"><label>Participação do município (%)</label><input class="inp num" type="number" step="any" name="irsMunicipio" value="${r2((pl.irsMunicipio ?? 0.05) * 100)}" ${ed ? '' : 'disabled'}><span class="hint">Ex.: Faro 4,5% devolve 0,5% da coleta.</span></div>
+        <div class="fld full"><label>Coeficiente da Cat. B (%)</label><input class="inp num" type="number" step="any" name="irsCoefB" value="${+pl.irsCoefB ? r2(pl.irsCoefB * 100) : ''}" placeholder="o habitual do ano" ${ed ? '' : 'disabled'}><span class="hint">Anexo B: campo 403 → 75%; 404 (serviços genéricos) → 35%; vendas → 15%.</span></div>
+      </form></div>
+      <div class="card"><div class="card-h"><h3>Despesas do e-Fatura ${ano}</h3><span class="sub">valores do Portal das Finanças</span></div>
+      <form class="form" id="fded">${Object.entries(NOMES_DED).map(([k, n]) => { const val = ((despesasIRS().out[ano] || { v: {} }).v || {})[k]; return `<div class="fld"><label>${esc(n)}</label><input class="inp num" type="number" step="0.01" min="0" name="${k}" value="${val ? r2(val) : ''}" placeholder="0,00" ${ed ? '' : 'disabled'}></div>`; }).join('')}
+        <div class="fld full"><span class="hint">Nas linhas de IVA indique o IVA suportado.</span></div></form></div></div>
+    ${ed ? `<div class="row" style="justify-content:flex-end;margin-top:12px"><button type="button" class="btn primary" id="girs">${icon('check')} Guardar</button></div>` : ''}`;
   bindTabs(v); ligarFita(v, 'pfi', y => { setTab('pf-anoirs', y); app.refresh(); });
-  const g = v.querySelector('#girs'); if (g) g.onclick = () => { const f = ui.formData(v.querySelector('#firs'));
-    const e1 = linhasIRS(f.irsRegras, lerRegraIRS).erros, e2 = linhasIRS(f.irsDespesas, lerDespesasIRS).erros; if (e1.length || e2.length) { ui.toast('Corrija: ' + [...e1, ...e2].join(' · '), 'bad'); return; }
-    Object.assign(pl, { irsRegras: f.irsRegras.trim() === IRS_PADRAO ? '' : f.irsRegras.trim(), irsDespesas: f.irsDespesas.trim(), irsNascimento: f.irsNascimento, irsInicioAtividade: parseInt(f.irsInicioAtividade, 10) || 0, irsQualificacao: parseInt(f.irsQualificacao, 10) || 0,
+  const g = v.querySelector('#girs'); if (g) g.onclick = () => { const f = ui.formData(v.querySelector('#firs')), fd = ui.formData(v.querySelector('#fded')), dv = {};
+    Object.keys(NOMES_DED).forEach(k => { const x = +fd[k]; if (x > 0) dv[k] = r2(x); });
+    Object.assign(pl, { irsRegras: '', irsDespesas: gravarDespesasIRS(pl.irsDespesas, ano, dv), irsNascimento: f.irsNascimento, irsInicioAtividade: parseInt(f.irsInicioAtividade, 10) || 0, irsQualificacao: parseInt(f.irsQualificacao, 10) || 0,
       irsMunicipio: f.irsMunicipio === '' ? 0.05 : (+f.irsMunicipio || 0) / 100, irsCoefB: f.irsCoefB === '' ? 0 : (+f.irsCoefB || 0) / 100 });
     audit('PF_IRS_CONFIG', 'Configuração de IRS atualizada'); app.save(); ui.toast('Configuração de IRS guardada', 'ok'); app.refresh(); };
-  const rr = v.querySelector('#rirs'); if (rr) rr.onclick = () => { pl.irsRegras = ''; app.save(); app.refresh(); };
 }
 // menu de Rendimentos: só os quadrados; clicar abre essa área sozinha na página, com um botão Voltar para o menu
 function menuRend() {
