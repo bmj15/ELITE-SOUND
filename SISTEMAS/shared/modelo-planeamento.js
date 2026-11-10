@@ -85,7 +85,7 @@ const ehAlim = e => /aliment/i.test(e.categoria || '') || /aliment|supermercado|
 const refConta = p => { const pl = M().plano, o = pl.refeicaoRend || {}, k = chaveEnt(p); return k in o ? !!o[k] : !!pl.incluirRefeicao; };
 // a parte do subsídio de refeição de um recibo que fica reservada à alimentação (não conta como rendimento)
 const refReservada = p => refConta(p) ? 0 : +p.refeicao || 0;
-// empregos com subsídio de refeição nos recibos (para a escolha nos Parâmetros do plano)
+// entidades pagadoras dos recibos (Configurar ordenado, em Rendimentos)
 function empregosComRefeicao() {
   const o = {}; M().recibos.filter(r => +r.liquido > 0 || +r.refeicao > 0).forEach(r => { const k = chaveEnt(r), x = o[k] || (o[k] = { k, nome: r.entidade || (r.nifEntidade ? 'NIF ' + r.nifEntidade : 'Sem entidade indicada'), n: 0, tot: 0, nr: 0, ult: '' });
     x.n++; if (+r.refeicao > 0) { x.nr++; x.tot += +r.refeicao; } const ym = ymOf(+r.ano, +r.mes); if (ym > x.ult) { x.ult = ym; if (r.entidade) x.nome = r.entidade; } });
@@ -987,7 +987,7 @@ function rendimentos(v) {
     const EMP = avisoEmprego();
     v.innerHTML = `${T.html}${EMP ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div style="flex:1"><b>Mudança de emprego detetada.</b> Desde ${fmtMes(EMP.desde)} há ${EMP.n} recibos de <b>${esc(EMP.ent)}</b>${EMP.entAnt ? ` (antes: ${esc(EMP.entAnt)})` : ', diferente dos anteriores'}.
         As previsões usam ${eur(salarioBase())} de líquido recorrente; com o novo emprego são <b>${eur(EMP.liquido)}</b>${EMP.bruto ? ` (vencimento sujeito a SS ≈ ${eur(EMP.bruto)})` : ''}.${EMP.parcial ? ` O recibo de ${MESES[EMP.parcial.mes - 1]} ${EMP.parcial.ano} (${eur(EMP.parcial.liquido)}) é de um mês incompleto e deixa de contar para as médias.` : ''}
-        ${dica('Atualizar grava o novo líquido recorrente e o vencimento nos Parâmetros do plano e passa a usar só os recibos do novo emprego para as médias. Os valores recebidos continuam todos registados.')}</div>
+        ${dica('Atualizar grava o novo líquido recorrente e o vencimento do plano e passa a usar só os recibos do novo emprego para as médias. Os valores recebidos continuam todos registados.')}</div>
         ${ed ? `<button class="btn sm primary" id="emp">${icon('check')} Atualizar previsões</button><button class="btn sm ghost" id="empx">Dispensar</button>` : ''}</div>` : ''}${barraFita(anoSel, ed ? `<span style="display:inline-flex;gap:8px;justify-content:flex-end"><button class="btn sm" id="cford" title="Configurar ordenado: quando é pago e subsídio de refeição de cada entidade" style="${MAIS_CSS};width:34px;height:34px">${icon('settings')}</button>${botaoMais(ATALHOS.rend)}</span>` : '')}
       <div class="grid g4">${kpi(`${icon('wallet')} Líquido recebido ${ano}`, eur(sum(rs, 'liquido')), `${rs.length} ${rs.length === 1 ? 'recibo' : 'recibos'}`, '', true)}${kpi('Bruto ' + ano, eur(sum(rs, 'bruto')))}${kpi('IRS retido', eur(sum(rs, 'irs')), `SS ${eur(sum(rs, 'ss'))}`)}
         ${kpi(kn('pf_liqrec', 'Líquido recorrente'), eur(salarioBase()), +m.plano.salarioBase ? 'do novo emprego' : est.n ? esc(est.metodo) : 'sem recibos')}</div>
@@ -1926,12 +1926,8 @@ function parametrosPlano(v, T, modo = 'par') {
   v.innerHTML = `${T.html}${PAR_CSS}
     ${POUP ? `<p class="muted" style="margin:0 0 16px">O que separa todos os meses antes de pensar nos <a href="#/objetivos">objetivos</a>: a reserva para imprevistos, a poupança e o que vai a mais para as dívidas.</p>` : ''}
     <div class="grid ${POUP ? 'g3' : 'g2'}" style="margin-bottom:16px">${POUP ? `${kpi('Fundo de emergência', pv('emg'), pv('emg-s'))}${kpi('Poupança por mês', pv('poup'), pv('poup-s'))}${kpi('Amortização extra', pv('div'), 'por mês, além do que sobrar')}`
-      : `${kpi('Rendimento do plano', pv('sal'), `líquido recorrente${+pl.outrosRendimentos ? ' + outros rendimentos' : ''} de <a href="#/rendimentos" data-aba="pf-rend=rec">Rendimentos</a>`)}${kpi('Aumento do ordenado', pv('aum'), pv('aum-s'))}`}</div>
+      : ''}</div>
     <div class="pf-par">
-    ${POUP ? '' : (G => sec('chart', 'Aumentos',
-      row('Como sobe o ordenado', G.pt ? `Regras do sistema para quem trabalha em Portugal (${esc(nomeRegime(G.regime).toLowerCase())}).` : 'Trabalho fora de Portugal: detetado pelos recibos.', `<span>${esc(G.texto)}</span>`)
-      + row('Entidade principal', 'O regime e o país mudam-se em <a href="#/rendimentos" data-aba="pf-rend=rec">Rendimentos › Recibos de vencimento</a> (botão de configuração).', `<span>${esc((empregosComRefeicao().find(e => e.k === entPrincipal()) || { nome: '—' }).nome)}</span>`)))(regraAumento())}
-    ${POUP ? '' : sec('calendar', 'Simulação', row('Simular até', 'Horizonte do simulador e do plano mês a mês.', seg('horizonte', [[60, '5 anos'], [120, '10 anos'], [240, '20 anos'], [360, '30 anos'], [480, '40 anos']])))}
     ${!POUP ? '' : sec('shield', 'Fundo de emergência',
       row('Reserva', `Em meses das suas despesas fixas (${eur(desp)}/mês).`, rng('emergMeses', 0, 12, 1))
       + row('Prazo para lá chegar', '', rng('emergProgressivo', 0, 60, 3))
@@ -1956,7 +1952,6 @@ function parametrosPlano(v, T, modo = 'par') {
   const preview = () => {
     const pv = (id, val, sub) => { const a = v.querySelector('#pv-' + id), b = v.querySelector('#pv-' + id + '-s'); if (a) a.textContent = val; if (b && sub != null) b.textContent = sub; };
     pv('sal', eur(rendM()));
-    { const G = regraAumento(); pv('aum', G.tipo === 'smn' ? 'como o mínimo' : '+' + pct(G.taxa), G.pt ? 'regras do sistema · Portugal' : 'detetado pelos recibos'); }
     const alvo = desp * (+w.emergMeses || 0), ja = w.fundoOrigem === 'manual' ? +w.fundoInicial || 0 : saldoT, falta = Math.max(0, alvo - ja);
     const porMes = falta <= 0 ? 0 : +w.emergProgressivo > 0 ? falta / +w.emergProgressivo : alvo / 12;
     pv('emg', eur(alvo), falta <= 0 ? (alvo ? 'completo' : +w.emergMeses ? 'ainda sem despesas fixas' : 'sem reserva') : `faltam ${eur(falta)} · ${eur(porMes)}/mês`);
@@ -1978,7 +1973,7 @@ function parametrosPlano(v, T, modo = 'par') {
   const pd = v.querySelector('#pdesc'); if (pd) pd.onclick = () => app.refresh();
   const pg = v.querySelector('#pgrd'); if (pg) pg.onclick = () => {
     Object.assign(pl, { emergMeses: +w.emergMeses || 0, emergProgressivo: Math.max(0, +w.emergProgressivo || 0), fundoOrigem: w.fundoOrigem === 'manual' ? 'manual' : 'tesouraria', fundoInicial: r2(+w.fundoInicial || 0),
-      poupancaTipo: w.poupancaTipo || 'none', poupancaFixa: r2(+w.poupancaFixa || 0), poupancaPct: (+w.poupancaPc || 0) / 100, extraFixo: r2(+w.extraFixo || 0), horizonte: Math.max(12, Math.min(480, +w.horizonte || 240)) });
+      poupancaTipo: w.poupancaTipo || 'none', poupancaFixa: r2(+w.poupancaFixa || 0), poupancaPct: (+w.poupancaPc || 0) / 100, extraFixo: r2(+w.extraFixo || 0) });
     audit('PF_PLANO', POUP ? 'Poupanças (fundo de emergência, poupança mensal, amortização extra) alteradas' : 'Parâmetros do plano financeiro alterados'); app.save(); ui.toast(POUP ? 'Poupanças guardadas' : 'Parâmetros guardados', 'ok'); app.refresh(); };
 }
 /* ---------- Poupanças ----------
@@ -2102,8 +2097,8 @@ function poupancas(v) {
   v.querySelectorAll('[data-aj]').forEach(b => b.onclick = () => ajustarPoupanca(b.dataset.aj));
 }
 function simulador(v) {
-  const T = tabs('pf-sim', 'est', [['est', 'Comparar estratégias'], ['plano', 'Plano mês a mês'], ['par', 'Parâmetros do plano']]), m = M(), kn = app.kn;
-  if (T.t === 'par') { parametrosPlano(v, T); return; }
+  if (tab('pf-sim', 'est') === 'par') setTab('pf-sim', 'est');
+  const T = tabs('pf-sim', 'est', [['est', 'Comparar estratégias'], ['plano', 'Plano mês a mês']]), m = M(), kn = app.kn;
   const ds = divAtivas();
   if (!ds.length) { v.innerHTML = `${T.html}<div class="empty">Sem dívidas ativas para simular. Registe-as em <a href="#/dividas">Dívidas e créditos</a>.</div>`; bindTabs(v); return; }
   const R = compararEstrategias(), ks = ['baseline', ...ESTRATEGIAS.map(e => e[0])];
@@ -2418,7 +2413,7 @@ function objetivos(v) {
   const poup12 = r2(sum(CF.slice(0, 12), 'poup'));
   const PLANO = CF.slice(0, mesesPlano).map((c, i) => `<tr><td style="white-space:nowrap"><b>${mesCurto(c.ym)}</b></td>
       <td class="r num ${c.exc < 0 ? 'neg' : ''}">${c.exc > 0 ? '+' : ''}${eur(c.exc)}</td>
-      <td>${c.poup > 0.005 ? `<span class="badge info" style="margin:2px 4px 2px 0" data-tip="Poupança mensal definida no Simulador › Parâmetros do plano. Sai antes dos objetivos.">Poupança mensal <b class="num">${eur(c.poup)}</b></span>` : ''}${poe[i].map(([x, v]) => `<span class="badge plain" style="margin:2px 4px 2px 0">${esc(nCurto(x))} <b class="num">${eur(v)}</b></span>`).join('')}${reserva[i] > 0.005 ? `<span class="badge warn" style="margin:2px 4px 2px 0" data-tip="Guardar para cobrir meses seguintes que fecham negativos">reserva <b class="num">${eur(reserva[i])}</b></span>` : ''}${cobreNeg[i] > 0.005 ? `<span class="faint" style="font-size:12px">usa ${eur(cobreNeg[i])} da reserva</span>` : ''}</td>
+      <td>${c.poup > 0.005 ? `<span class="badge info" style="margin:2px 4px 2px 0" data-tip="Poupança mensal definida em Poupanças. Sai antes dos objetivos.">Poupança mensal <b class="num">${eur(c.poup)}</b></span>` : ''}${poe[i].map(([x, v]) => `<span class="badge plain" style="margin:2px 4px 2px 0">${esc(nCurto(x))} <b class="num">${eur(v)}</b></span>`).join('')}${reserva[i] > 0.005 ? `<span class="badge warn" style="margin:2px 4px 2px 0" data-tip="Guardar para cobrir meses seguintes que fecham negativos">reserva <b class="num">${eur(reserva[i])}</b></span>` : ''}${cobreNeg[i] > 0.005 ? `<span class="faint" style="font-size:12px">usa ${eur(cobreNeg[i])} da reserva</span>` : ''}</td>
       <td>${paga[i].map(x => `<span class="badge ok" style="margin:2px 4px 2px 0">${icon('check')} ${esc(nCurto(x))}</span>`).join('')}</td>
       <td class="r num faint">${eur(livreCal[i])}</td></tr>`).join('');
   const barra = (pc, cls) => `<div class="progress ${cls}"><i style="width:${Math.min(100, Math.max(0, Math.round(pc)))}%"></i></div>`;
