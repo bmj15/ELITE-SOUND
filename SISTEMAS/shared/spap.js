@@ -189,7 +189,7 @@ const esconderTip = () => { const tip = document.getElementById('chart-tip'); if
 document.addEventListener('focusin', e => { const t = e.target.closest && e.target.closest('[data-tip]'); if (!t) return; const r = t.getBoundingClientRect(); mostrarTip(t, r.left, r.bottom + 8); });
 document.addEventListener('focusout', esconderTip);
 document.addEventListener('touchstart', e => { const t = e.target.closest && e.target.closest('.info-tip[data-tip]'); if (!t) return esconderTip(); const r = t.getBoundingClientRect(); mostrarTip(t, r.left - 120, r.bottom + 8); }, { passive: true });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') esconderTip(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { esconderTip(); const sd = document.querySelector('.side.open'); if (sd) sd.classList.remove('open'); } });
 document.addEventListener('mousemove', e => {
   const t = e.target.closest && e.target.closest('[data-tip]');
   let tip = document.getElementById('chart-tip');
@@ -876,7 +876,8 @@ SPAP.createApp = function (cfg) {
     const rt = routes[r] || routes[cfg.home];
     if ((rt.perm && !can(rt.perm)) || (coreRoutes[r] && !navVisivel(r, true))) { location.hash = '#/' + cfg.home; return; }
     const theme = document.documentElement.getAttribute('data-theme');
-    root.innerHTML = `<div class="shell">
+    let semMenu = false; try { semMenu = localStorage.getItem('ui-sem-menu') === '1'; } catch (e) { }
+    root.innerHTML = `<div class="shell${semMenu ? ' sem-menu' : ''}">
       <aside class="side" id="side">${brandHtml()}${navHtml(rt.id || r)}
         <div class="side-foot">
           <div class="user-chip"><span class="avatar">${initials(app.user.nome)}</span><div class="who"><b>${esc(app.user.nome)}</b><span>${ROLES[app.user.role].label}</span></div></div>
@@ -888,12 +889,12 @@ SPAP.createApp = function (cfg) {
             <button class="btn ghost sm" id="b-out" title="Terminar sessão">${icon('logout')}</button>
           </div>
           ${cfg.outroSistema ? `<a class="btn ghost sm" style="margin-top:8px;width:100%" href="${cfg.outroSistema.href}">${icon('swap')} ${esc(cfg.outroSistema.label)}</a>` : ''}
-        </div></aside>
+        </div></aside><div class="side-veu" id="side-veu"></div>
       <main><header class="top">
-        <button class="btn ghost icon menu-btn" id="b-menu">${icon('menu')}</button>
+        <button class="btn ghost icon menu-btn" id="b-menu" title="Mostrar ou esconder o menu" aria-label="Mostrar ou esconder o menu">${icon('menu')}</button>
         <div><div class="crumb">${esc(cfg.nome)}</div><h1 id="ttl">${esc(rt.title || rt.label)}</h1></div>
         <div class="spacer"></div>
-        ${can('criar') ? `<button class="btn primary" id="b-new">${icon('plus')}<span>Novo pedido</span></button>` : ''}
+        ${can('criar') && !cfg.pagamentoDireto ? `<button class="btn primary" id="b-new">${icon('plus')}<span>Novo pedido</span></button>` : ''}
       </header><section id="view"></section></main></div>`;
     const $ = s => root.querySelector(s);
     $('#b-theme').onclick = toggleTheme;
@@ -901,7 +902,13 @@ SPAP.createApp = function (cfg) {
     $('#b-sig').onclick = () => perfilAssinatura();
     $('#b-lock').onclick = () => logout('bloqueio manual');
     $('#b-out').onclick = () => logout();
-    $('#b-menu').onclick = () => $('#side').classList.toggle('open');
+    // ecrã estreito: o menu abre por cima e fecha ao tocar fora; ecrã largo: esconde/mostra a coluna (fica memorizado)
+    $('#b-menu').onclick = () => {
+      if (matchMedia('(max-width:860px)').matches) { $('#side').classList.toggle('open'); return; }
+      const sh = $('.shell'), on = !sh.classList.contains('sem-menu'); sh.classList.toggle('sem-menu', on);
+      try { localStorage.setItem('ui-sem-menu', on ? '1' : '0'); } catch (e) { }
+    };
+    $('#side-veu').onclick = () => $('#side').classList.remove('open');
     if ($('#b-new')) $('#b-new').onclick = () => app.novoPedido();
     const view = $('#view');
     try { rt.render(view, app, params); }
