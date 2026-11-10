@@ -2039,7 +2039,7 @@ function configOrdenado() {
   EMP.forEach(e => { const pe = pagEnt(e.k), I = infoEnt(e.k); w['reg:' + e.k] = I.regime; w['pais:' + e.k] = I.pais; w['seg:' + e.k] = String(pe.seguinte); w['dia:' + e.k] = pe.dia; fmt['dia:' + e.k] = fmtDia; if (e.media) w['ref:' + e.k] = refConta({ entidade: e.k }); });
   const sw = (k, rot) => `<label class="pf-sw"><input type="checkbox" data-k="${esc(k)}"><span>${rot}</span></label>`;
   ui.modal({ title: 'Configurar ordenado', sub: 'Cada entidade pagadora paga à sua maneira: quando entra o dinheiro e como conta o subsídio de refeição.', wide: true,
-    body: `${PAR_CSS}<div class="pf-par" style="display:flex;flex-direction:column;gap:12px">${EMP.map(e => `<div class="card">
+    body: `${PAR_CSS}<div class="pf-par" style="display:flex;flex-direction:column;align-items:stretch;gap:12px">${EMP.map(e => `<div class="card">
         <div class="card-h"><h3>${icon('wallet')} ${esc(e.nome)}</h3><span class="sub">${e.n} ${e.n === 1 ? 'recibo' : 'recibos'} · último ${fmtMes(e.ult)}</span></div>
         ${cRow('Regime de trabalho', 'Em Portugal os aumentos seguem as regras do sistema; noutro país detetam-se pelos recibos.', cSeg('reg:' + e.k, REGIMES) + `<div style="margin-top:10px">${cSeg('pais:' + e.k, [['PT', 'Em Portugal'], ['outro', 'Noutro país']])}</div>`)}
         ${cRow('Quando paga', 'Ex.: o recibo de novembro entra em dezembro. E em que dia entra na conta.', ctlPagamento(e.k))}
