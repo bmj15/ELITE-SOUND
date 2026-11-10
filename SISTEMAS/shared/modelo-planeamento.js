@@ -1441,32 +1441,39 @@ function convDe(e) { if (!e || !e.partilha || !CC()) return null; return (CC().r
 function partilhaAceite(e, ym) { const c = e && e.partilha ? convDe(e) : null; return !!(c && c.estado === 'aceite' && (!c.despesa.inicio || ym >= c.despesa.inicio)); }
 const nomeMembro = (casa, id) => { const mb = ((CC() && CC().registo(casa).membros) || []).find(x => x.id === id); return mb ? mb.nome : '—'; };
 function badgePartilha(cv) {
-  if (!cv) return ''; const com = esc(semPessoal(cv.paraNome || '').split(' ')[0] || 'a outra pessoa');
-  return cv.estado === 'pendente' ? `<span class="badge info" data-tip="Aguarda que ${com} aceite na Caixa de entrada. Até lá conta por inteiro neste plano.">partilha proposta · aguarda ${com}</span>`
-    : cv.estado === 'aceite' ? `<span class="badge ok" data-tip="Desde ${fmtMes(cv.despesa.inicio)} conta só a sua parte, na página Partilhas.">partilhada com ${com}</span>`
-    : cv.estado === 'recusado' ? `<span class="badge warn">partilha recusada por ${com}</span>` : '';
+  if (!cv) return '';
+  const todos = cv.paraNomes ? cv.paraNomes.map(primeiro) : [primeiro(cv.paraNome)], rs = cv.respostas || {};
+  const faltam = cv.paraNomes ? cv.paraNomes.filter((n, i) => !rs[cv.paraSistemas[i]]).map(primeiro) : todos;
+  const recusou = cv.paraNomes ? cv.paraNomes.filter((n, i) => rs[cv.paraSistemas[i]] && rs[cv.paraSistemas[i]].aceite === false).map(primeiro) : todos;
+  const L = l => esc(l.join(', ') || 'a outra pessoa');
+  return cv.estado === 'pendente' ? `<span class="badge info" data-tip="Aguarda que ${L(faltam)} aceite na Caixa de entrada. Até lá conta por inteiro neste plano.">partilha proposta · aguarda ${L(faltam)}</span>`
+    : cv.estado === 'aceite' ? `<span class="badge ok" data-tip="Desde ${fmtMes(cv.despesa.inicio)} conta só a sua parte, na página Partilhas.">partilhada com ${L(todos)}</span>`
+    : cv.estado === 'recusado' ? `<span class="badge warn">partilha recusada por ${L(recusou)}</span>` : '';
 }
 const ehObj = c => !!c && c.tipo === 'objetivo';
 const ehAlt = c => !!c && c.tipo === 'alteracao';
 const nomeConv = c => ehAlt(c) ? 'alteração a ' + c.nome : ehObj(c) ? c.objetivo.nome : c.despesa.nome, valorConv = c => ehAlt(c) ? null : ehObj(c) ? c.objetivo.alvo : c.despesa.valor;
 // um pedido espera a minha resposta? (nas alterações respondem todos os outros participantes, um a um)
-const paraMim = c => ehAlt(c) ? (c.paraSistemas || []).includes(sub.key) && !(c.respostas || {})[sub.key] : c.paraSistema === sub.key;
+const paraMim = c => c.paraSistemas ? c.paraSistemas.includes(sub.key) && !(c.respostas || {})[sub.key] : c.paraSistema === sub.key;
+// o meu membro num pedido (com várias pessoas, cada uma tem o seu)
+const meuIdConv = c => c.paraMembros ? c.paraMembros[c.paraSistemas.indexOf(sub.key)] : c.para;
+const primeiro = n => semPessoal(n || '').split(' ')[0];
 const textoConviteObj = (casa, c) => ['PARTILHA-OBJETIVO', casa, c.id, c.de, c.para, c.deSistema, c.paraSistema, c.objetivo.nome, (+c.objetivo.alvo || 0).toFixed(2), c.objetivo.data || '', JSON.stringify(c.objetivo.partes), (+c.objetivo.inicial || 0).toFixed(2)].join('|');
 const textoAlteracao = (casa, c) => ['PARTILHA-ALTERACAO', casa, c.id, c.de, c.deSistema, c.despesaId, JSON.stringify(c.mudancas)].join('|');
 const textoConv = (casa, c) => ehAlt(c) ? textoAlteracao(casa, c) : ehObj(c) ? textoConviteObj(casa, c) : textoConvite(casa, c);
 const textoContrib = (casa, o, c) => ['PARTILHA-CONTRIBUICAO', casa, o.id, c.id, c.membro, (+c.valor || 0).toFixed(2), c.data || '', c.descricao || ''].join('|');
-const textoConvite = (casa, c) => ['PARTILHA', casa, c.id, c.de, c.para, c.deSistema, c.paraSistema, c.despesa.nome, (+c.despesa.valor || 0).toFixed(2), c.despesa.periodicidade, c.despesa.inicio || '', c.despesa.fim || '', c.despesa.pagaPor, JSON.stringify(c.despesa.partes)].join('|');
+const textoConvite = (casa, c) => ['PARTILHA', casa, c.id, c.de, c.para, c.deSistema, c.paraSistema, c.despesa.nome, (+c.despesa.valor || 0).toFixed(2), c.despesa.periodicidade, c.despesa.inicio || '', c.despesa.fim || '', c.despesa.pagaPor, JSON.stringify(c.despesa.partes), ...(c.paraSistemas ? [JSON.stringify(c.paraSistemas)] : [])].join('|');
 function partilharDespesa(e0) {
   const pessoas = pessoasGrupo(); if (!pessoas.length) { ui.toast('Não há outros planos pessoais no grupo com quem partilhar.', 'warn'); return; }
   const e = e0 || { categoria: 'Habitação', periodicidade: 'mensal', valor: 0, dia: 1 }, ini = e0 && e0.inicio && e0.inicio > ymHoje() ? e0.inicio : ymHoje();
-  ui.modal({ title: e0 ? 'Partilhar · ' + esc(e0.nome) : 'Nova despesa partilhada', wide: true, sub: 'A outra pessoa recebe o pedido na Caixa de entrada. A partilha só começa quando ela aceitar.',
-    body: `<form class="form"><div class="fld"><label>Partilhar com</label><select class="inp" name="com">${pessoas.map(x => `<option value="${x.key}">${esc(semPessoal(x.nome))}</option>`).join('')}</select></div>
+  ui.modal({ title: e0 ? 'Partilhar · ' + esc(e0.nome) : 'Nova despesa partilhada', wide: true, sub: 'Cada pessoa recebe o pedido na Caixa de entrada.',
+    body: `<form class="form"><div class="fld full"><label>Partilhar com</label><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:center;max-width:420px">${pessoas.map((x, i) => `<label class="check" style="margin:0"><input type="checkbox" data-com="${x.key}" ${i === 0 ? 'checked' : ''}> ${esc(semPessoal(x.nome))}</label><span style="display:inline-flex;gap:6px;align-items:center"><input class="inp inp-sm num" type="number" step="any" min="0" max="100" data-pc="${x.key}" style="width:80px"> %</span>`).join('')}</div><span class="hint">Escolha uma ou mais pessoas e a parte de cada uma. A partilha começa quando todas aceitarem.</span></div>
       <div class="fld"><label>Designação</label><input class="inp" name="nome" value="${esc(e.nome || '')}" placeholder="ex.: Renda"></div>
       <div class="fld"><label>Categoria</label><select class="inp" name="categoria">${CATS_DESP.map(c => `<option ${c === e.categoria ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
       <div class="fld"><label>Valor por cobrança (€)</label><input class="inp num" type="number" step="any" name="valor" value="${esc(e.valor || '')}"><span class="hint">Por compras: orçamento mensal, só para a previsão.</span></div>
       <div class="fld"><label>Periodicidade</label><select class="inp" name="periodicidade">${PER_PARTILHA.map(([k, l]) => `<option value="${k}" ${k === e.periodicidade ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
       <div class="fld"><label>Dia de cobrança</label><input class="inp num" type="number" min="1" max="28" name="dia" value="${esc(e.dia || 1)}"></div>
-      <div class="fld"><label>Quem paga</label><select class="inp" name="paga"><option value="eu">Eu (está em meu nome)</option><option value="outro">A outra pessoa</option></select><span class="hint">Quem paga adianta a parte do outro; acerta-se no fim do mês.</span></div>
+      <div class="fld"><label>Quem paga</label><select class="inp" name="paga"><option value="eu">Eu (está em meu nome)</option>${pessoas.map(x => `<option value="${x.key}">${esc(semPessoal(x.nome))}</option>`).join('')}</select><span class="hint">Quem paga adianta a parte dos outros; acerta-se no fim do mês.</span></div>
       <div class="fld"><label>A minha parte (%)</label><input class="inp num" type="number" step="any" min="0" max="100" name="minha" value="50"></div>
       <div class="fld"><label>Desde (mês)</label><input class="inp" type="month" name="inicio" value="${esc(ini)}"></div>
       <div class="fld"><label>Até (mês)</label><input class="inp" type="month" name="fim" value="${esc(e.fim || '')}"><span class="hint">Opcional.</span></div>
@@ -1474,7 +1481,17 @@ function partilharDespesa(e0) {
     actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('key') + 'Assinar e enviar', kind: 'primary', onClick: el => { const f = ui.formData(el);
       if (!f.nome) { ui.toast('Indique a designação', 'warn'); return false; } if (!(+f.valor > 0) && f.periodicidade !== 'compras') { ui.toast('Indique o valor', 'warn'); return false; }
       if (!(+f.minha >= 0 && +f.minha <= 100)) { ui.toast('A sua parte tem de estar entre 0% e 100%', 'warn'); return false; } if (!f.inicio) { ui.toast('Indique desde quando', 'warn'); return false; }
-      setTimeout(async () => { if (await enviarConvite(e0, f)) app.refresh(); }, 0); } }] });
+      f.com = [...el.querySelectorAll('[data-com]:checked')].map(c => c.dataset.com); f.pcs = {};
+      if (!f.com.length) { ui.toast('Escolha pelo menos uma pessoa', 'warn'); return false; }
+      for (const k of f.com) { const x = +el.querySelector(`[data-pc="${k}"]`).value; if (!(x > 0 && x <= 100)) { ui.toast('Indique a parte de cada pessoa', 'warn'); return false; } f.pcs[k] = x; }
+      const soma = +f.minha + Object.values(f.pcs).reduce((a, b) => a + b, 0); if (Math.abs(soma - 100) > 0.05) { ui.toast(`As partes somam ${r2(soma)}%: devem somar 100%`, 'warn'); return false; }
+      if (f.paga !== 'eu' && !f.com.includes(f.paga)) { ui.toast('Quem paga tem de fazer parte da partilha', 'warn'); return false; }
+      setTimeout(async () => { if (await enviarConvite(e0, f)) app.refresh(); }, 0); } }],
+    // divide em partes iguais sempre que se escolhe ou tira uma pessoa
+    onOpen: el => { const igual = () => { const sel = [...el.querySelectorAll('[data-com]')].filter(c => c.checked), q = r2(100 / (sel.length + 1));
+        el.querySelectorAll('[data-com]').forEach(c => { const i = el.querySelector(`[data-pc="${c.dataset.com}"]`); i.disabled = !c.checked; i.value = c.checked ? q : ''; const o = el.querySelector(`[name="paga"] option[value="${c.dataset.com}"]`); if (o) o.disabled = !c.checked; });
+        el.querySelector('[name="minha"]').value = r2(100 - q * sel.length); const pg = el.querySelector('[name="paga"]'); if (pg.selectedOptions[0] && pg.selectedOptions[0].disabled) pg.value = 'eu'; };
+      el.querySelectorAll('[data-com]').forEach(c => c.onchange = igual); igual(); } });
 }
 function livroCom(alvo) {
   const L = ligacaoCasa(), outroNome = semPessoal(alvo.nome); let casa, eu, outro;
@@ -1486,29 +1503,35 @@ function livroCom(alvo) {
   return { casa, eu, outro };
 }
 async function enviarConvite(e0, f) {
-  const alvo = pessoasGrupo().find(x => x.key === f.com); if (!alvo) return false;
-  const minha = r2(Math.min(100, Math.max(0, +f.minha || 0))) / 100, outroNome = semPessoal(alvo.nome);
+  const com = Array.isArray(f.com) ? f.com : [f.com], alvos = pessoasGrupo().filter(x => com.includes(x.key)); if (!alvos.length) return false;
+  const pcs = f.pcs || { [alvos[0].key]: 100 - (+f.minha || 0) };
+  const minha = r2(Math.min(100, Math.max(0, +f.minha || 0))) / 100, nomes = alvos.map(a => semPessoal(a.nome)), lista = nomes.map(esc).join(', ');
   let L = ligacaoCasa();
   if (L && !(CC().livro(L.casa) || {}).partilha) { ui.toast('Este plano ainda está ligado a uma casa antiga. Peça a migração para partilhas.', 'bad'); return false; }
-  const s = await app.assinar('Propor partilha', `<b>${esc(f.nome)}</b> · ${eur(+f.valor || 0)} (${esc(nomePer(f.periodicidade))}) com <b>${esc(outroNome)}</b><br>A sua parte: <b>${pct(minha)}</b> · paga: ${f.paga === 'eu' ? 'eu' : esc(outroNome)} · desde ${fmtMes(f.inicio)}<br><span style="font-size:12px">${esc(outroNome)} recebe o pedido na Caixa de entrada e a partilha começa quando aceitar.</span>`);
+  const pagaNome = f.paga === 'eu' ? 'eu' : esc(semPessoal((alvos.find(a => a.key === f.paga) || {}).nome));
+  const s = await app.assinar('Propor partilha', `<b>${esc(f.nome)}</b> · ${eur(+f.valor || 0)} (${esc(nomePer(f.periodicidade))}) com <b>${lista}</b><br>A sua parte: <b>${pct(minha)}</b>${alvos.length > 1 ? ' · ' + alvos.map(a => `${esc(primeiro(a.nome))} ${pct(pcs[a.key] / 100)}`).join(' · ') : ''} · paga: ${pagaNome} · desde ${fmtMes(f.inicio)}<br><span style="font-size:12px">${alvos.length > 1 ? 'Cada pessoa recebe o pedido na Caixa de entrada e a partilha começa quando todas aceitarem.' : `${lista} recebe o pedido na Caixa de entrada e a partilha começa quando aceitar.`}</span>`);
   if (!s) return false;
-  const { casa, eu, outro } = livroCom(alvo);
+  let casa, eu; const ids = {};
+  alvos.forEach(a => { const r = livroCom(a); casa = r.casa; eu = r.eu; ids[a.key] = r.outro; });
+  const partes = { [eu]: minha }; alvos.forEach(a => { partes[ids[a.key]] = r2((+pcs[a.key] || 0) * 100) / 10000; });
   const despesa = { id: 'C' + uid(), nome: f.nome.trim(), categoria: f.categoria, valor: r2(+f.valor || 0), periodicidade: f.periodicidade, dia: Math.min(28, Math.max(1, parseInt(f.dia, 10) || 1)), inicio: f.inicio, fim: f.fim || '',
-    variavel: f.periodicidade !== 'compras' && !!f.variavel, ativo: true, pagaPor: f.paga === 'eu' ? eu : outro, partes: { [eu]: minha, [outro]: r2((1 - minha) * 10000) / 10000 }, ...(e0 ? { origem: { sistema: sub.key, despesa: e0.id } } : {}) };
-  const c = { id: 'Cv' + uid(), tipo: 'despesa', de: eu, para: outro, deSistema: sub.key, paraSistema: alvo.key, deNome: app.user.nome, paraNome: outroNome, despesa, estado: 'pendente', criadoEm: new Date().toISOString() };
+    variavel: f.periodicidade !== 'compras' && !!f.variavel, ativo: true, pagaPor: f.paga === 'eu' || !ids[f.paga] ? eu : ids[f.paga], partes, ...(e0 ? { origem: { sistema: sub.key, despesa: e0.id } } : {}) };
+  const c = { id: 'Cv' + uid(), tipo: 'despesa', de: eu, para: ids[alvos[0].key], deSistema: sub.key, paraSistema: alvos[0].key, deNome: app.user.nome, paraNome: nomes.join(', '), despesa, estado: 'pendente', criadoEm: new Date().toISOString(),
+    ...(alvos.length > 1 ? { paraSistemas: alvos.map(a => a.key), paraMembros: alvos.map(a => ids[a.key]), paraNomes: nomes, respostas: {} } : {}) };
   c.proposta = { user: app.user.id, nome: app.user.nome, assinatura: await s.signer.texto('PROPOR_PARTILHA', textoConvite(casa, c)) };
   CC().alterar(casa, r => { r.convites = r.convites || []; r.convites.push(c); });
   if (e0) e0.partilha = { casa, convite: c.id };
-  audit('PF_PARTILHA_PROPOSTA', `${despesa.nome} · ${eur(despesa.valor)} com ${outroNome} · minha parte ${pct(minha)}`); app.save();
-  ui.toast(`Pedido enviado a ${outroNome.split(' ')[0]}`, 'ok'); return true;
+  audit('PF_PARTILHA_PROPOSTA', `${despesa.nome} · ${eur(despesa.valor)} com ${nomes.join(', ')} · minha parte ${pct(minha)}`); app.save();
+  ui.toast(`Pedido enviado a ${nomes.map(primeiro).join(', ')}`, 'ok'); return true;
 }
 // pedidos de partilha dirigidos a este plano, em todas as partilhas a que tem acesso
 const convitesParaMim = () => CC() ? CC().partilhas().flatMap(casa => (CC().registo(casa).convites || []).filter(c => c.estado === 'pendente' && paraMim(c)).map(c => ({ casa, c }))) : [];
 const resumoConvite = (casa, c) => { if (ehAlt(c)) return `<b>${esc(semPessoal(c.deNome))}</b> propõe alterar a despesa partilhada <b>${esc(c.nome)}</b>: ${descMudancas(casa, c)}`;
   if (ehObj(c)) { const o = c.objetivo, parte = +((o.partes || {})[c.para]) || 0;
     return `<b>${esc(semPessoal(c.deNome))}</b> propõe um objetivo em conjunto: <b>${esc(o.nome)}</b> · ${eur(o.alvo)}${o.data ? ' até ' + date(o.data) : ''} · a sua parte <b>${pct(parte)}</b> (${eur(o.alvo * parte)})${+o.inicial > 0 ? ` · ${esc(semPessoal(c.deNome).split(' ')[0])} já tem ${eur(o.inicial)} poupados` : ''}`; }
-  const d = c.despesa, parte = +((d.partes || {})[c.para]) || 0, quem = d.pagaPor === c.para ? 'paga você' : `paga ${esc(semPessoal(c.deNome).split(' ')[0])}`;
-  return `<b>${esc(semPessoal(c.deNome))}</b> propõe partilhar <b>${esc(d.nome)}</b> · ${d.periodicidade === 'compras' ? `orçamento ${eur(d.valor)}/mês, cada um regista as compras` : `${eur(d.valor)} ${esc(nomePer(d.periodicidade).toLowerCase())}`} · ${quem} · a sua parte <b>${pct(parte)}</b>${d.periodicidade !== 'compras' ? ` (${eur(d.valor * parte)})` : ''} · desde ${fmtMes(d.inicio)}${d.fim ? ' até ' + fmtMes(d.fim) : ''}`; };
+  const d = c.despesa, me = meuIdConv(c), parte = +((d.partes || {})[me]) || 0, quem = d.pagaPor === me ? 'paga você' : `paga ${esc(d.pagaPor === c.de ? primeiro(c.deNome) : primeiro(nomeMembro(casa, d.pagaPor)))}`;
+  const outros = c.paraNomes ? c.paraNomes.filter((n, i) => c.paraSistemas[i] !== sub.key).map(primeiro) : [];
+  return `<b>${esc(semPessoal(c.deNome))}</b> propõe partilhar <b>${esc(d.nome)}</b>${outros.length ? ` (também com ${esc(outros.join(', '))})` : ''} · ${d.periodicidade === 'compras' ? `orçamento ${eur(d.valor)}/mês, cada um regista as compras` : `${eur(d.valor)} ${esc(nomePer(d.periodicidade).toLowerCase())}`} · ${quem} · a sua parte <b>${pct(parte)}</b>${d.periodicidade !== 'compras' ? ` (${eur(d.valor * parte)})` : ''} · desde ${fmtMes(d.inicio)}${d.fim ? ' até ' + fmtMes(d.fim) : ''}`; };
 function responderConvite(casa, id) {
   const c = (CC().registo(casa).convites || []).find(x => x.id === id); if (!c) return false;
   return new Promise(res => ui.modal({ title: ehAlt(c) ? 'Alteração a despesa partilhada' : 'Pedido de partilha', sub: ehAlt(c) ? 'A alteração só é aplicada quando todos os participantes aprovarem. A sua resposta fica assinada.' : 'A sua resposta fica assinada.', body: `<p style="margin:0">${resumoConvite(casa, c)}</p>`,
@@ -1521,16 +1544,22 @@ async function decidirConvite(casa, id, aceitar) {
   const pl = M().plano; if (aceitar && pl.casa && pl.casa !== casa) { ui.toast('Este plano já partilha despesas noutro registo: não é possível juntar os dois.', 'bad'); return false; }
   const s = await app.assinar(aceitar ? 'Aceitar partilha' : 'Recusar partilha', resumoConvite(casa, c)); if (!s) return false;
   const resp = { user: app.user.id, nome: app.user.nome, em: new Date().toISOString(), assinatura: await s.signer.texto(aceitar ? 'ACEITAR_PARTILHA' : 'RECUSAR_PARTILHA', textoConv(casa, c)) };
+  const me = meuIdConv(c); let falta = false;
   CC().alterar(casa, r => { const x = (r.convites || []).find(y => y.id === id); if (!x || x.estado !== 'pendente') return;
+    if (x.paraSistemas) { x.respostas = x.respostas || {}; x.respostas[sub.key] = Object.assign({}, resp, { aceite: !!aceitar });
+      const mb = (r.membros || []).find(m => m.id === me); if (aceitar && mb) mb.nome = app.user.nome;
+      if (!aceitar) { x.estado = 'recusado'; return; }
+      if (!x.paraSistemas.every(k => (x.respostas[k] || {}).aceite)) { falta = true; return; }
+      x.estado = 'aceite'; r.despesas.push(Object.assign({}, x.despesa, { convite: x.id })); return; }
     x.estado = aceitar ? 'aceite' : 'recusado'; x.resposta = resp;
     if (aceitar && ehObj(x)) { const o = x.objetivo; r.objetivos = r.objetivos || [];
       r.objetivos.push({ id: o.id, nome: o.nome, categoria: o.categoria || 'outro', alvo: o.alvo, data: o.data || '', prioridade: o.prioridade || 3, partes: o.partes, convite: x.id, criadoPor: x.de,
         contribuicoes: +o.inicial > 0 ? [{ id: 'Ct' + uid(), membro: x.de, valor: r2(+o.inicial), data: String(x.criadoEm || '').slice(0, 10), descricao: 'Já poupado ao propor', inicial: true }] : [] }); }
     else if (aceitar) r.despesas.push(Object.assign({}, x.despesa, { convite: x.id }));
     if (aceitar) { const mb = (r.membros || []).find(m => m.id === x.para); if (mb) mb.nome = app.user.nome; } });
-  if (aceitar && !pl.casa) { pl.casa = casa; pl.membroCasa = c.para; }
+  if (aceitar && !pl.casa) { pl.casa = casa; pl.membroCasa = me; }
   audit(aceitar ? 'PF_PARTILHA_ACEITE' : 'PF_PARTILHA_RECUSADA', `${nomeConv(c)} · proposta de ${semPessoal(c.deNome)}`); app.save();
-  ui.toast(aceitar ? 'Partilha aceite' : 'Partilha recusada', 'ok'); return true;
+  ui.toast(!aceitar ? 'Partilha recusada' : falta ? 'Aceite: a partilha começa quando os outros participantes aceitarem' : 'Partilha aceite', 'ok'); return true;
 }
 async function cancelarConvite(casa, id) {
   const c = (CC().registo(casa).convites || []).find(x => x.id === id); if (!c || c.estado !== 'pendente' || c.deSistema !== sub.key) return false;
