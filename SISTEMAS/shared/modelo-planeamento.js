@@ -87,9 +87,9 @@ const refConta = p => { const pl = M().plano, o = pl.refeicaoRend || {}, k = cha
 const refReservada = p => refConta(p) ? 0 : +p.refeicao || 0;
 // empregos com subsídio de refeição nos recibos (para a escolha nos Parâmetros do plano)
 function empregosComRefeicao() {
-  const o = {}; M().recibos.filter(r => +r.refeicao > 0).forEach(r => { const k = chaveEnt(r), x = o[k] || (o[k] = { k, nome: r.entidade || (r.nifEntidade ? 'NIF ' + r.nifEntidade : 'Sem entidade indicada'), n: 0, tot: 0, ult: '' });
-    x.n++; x.tot += +r.refeicao; const ym = ymOf(+r.ano, +r.mes); if (ym > x.ult) { x.ult = ym; if (r.entidade) x.nome = r.entidade; } });
-  return Object.values(o).map(x => ({ ...x, media: r2(x.tot / x.n) })).sort((a, b) => b.ult.localeCompare(a.ult));
+  const o = {}; M().recibos.filter(r => +r.liquido > 0 || +r.refeicao > 0).forEach(r => { const k = chaveEnt(r), x = o[k] || (o[k] = { k, nome: r.entidade || (r.nifEntidade ? 'NIF ' + r.nifEntidade : 'Sem entidade indicada'), n: 0, tot: 0, nr: 0, ult: '' });
+    x.n++; if (+r.refeicao > 0) { x.nr++; x.tot += +r.refeicao; } const ym = ymOf(+r.ano, +r.mes); if (ym > x.ult) { x.ult = ym; if (r.entidade) x.nome = r.entidade; } });
+  return Object.values(o).map(x => ({ ...x, media: x.nr ? r2(x.tot / x.nr) : 0 })).sort((a, b) => b.ult.localeCompare(a.ult));
 }
 function refeicaoCobre(ym = ymHoje(), P = projecao) {
   const [ry, rm] = mesDoRecibo(+ym.slice(0, 4), +ym.slice(5, 7)), ref = +P(ry).linhas[rm - 1].refeicao || 0; if (ref <= 0) return 0;
@@ -852,6 +852,31 @@ function perfilPessoal() {
         irsMunicipio: f.irsMunicipio === '' ? 0.05 : (+f.irsMunicipio || 0) / 100, irsCoefB: f.irsCoefB === '' ? 0 : (+f.irsCoefB || 0) / 100 });
       audit('PF_PERFIL', 'Dados pessoais atualizados'); app.save(); ui.toast('Perfil guardado', 'ok'); app.refresh(); } }] : [])] });
 }
+/* Outros rendimentos (rendas, pensões, trabalhos extra…): uma lista de fontes com o valor por mês.
+   O plano usa a soma (plano.outrosRendimentos); um valor antigo sem lista aparece como uma fonte. */
+const TIPOS_OUTROS = ['Renda', 'Pensão', 'Trabalho extra', 'Prestação social', 'Pensão de alimentos', 'Outro'];
+function outrosLista() {
+  const pl = M().plano; if (!Array.isArray(pl.outrosLista)) pl.outrosLista = +pl.outrosRendimentos > 0 ? [{ id: 'O' + uid(), nome: 'Outros rendimentos', tipo: 'Outro', valor: r2(+pl.outrosRendimentos) }] : [];
+  return pl.outrosLista;
+}
+const somaOutros = () => r2(outrosLista().filter(o => o.ativo !== false).reduce((t, o) => t + (+o.valor || 0), 0));
+function rendOutros(v, T) {
+  const pl = M().plano, ed = podeEditar(), L = outrosLista(), tot = somaOutros();
+  v.innerHTML = `${T.html}<div class="grid g3">${kpi(`${icon('plus')} Outros rendimentos / mês`, eur(tot), `${L.filter(o => o.ativo !== false).length} ${L.length === 1 ? 'fonte' : 'fontes'} · somados ao ordenado no plano`, '', true, ed ? 'outros' : '')}${kpi('Por ano', eur(tot * 12))}${kpi('Peso no rendimento', rendimentoMensal() > 0 ? pct(tot / rendimentoMensal()) : '—', 'do rendimento líquido mensal')}</div>
+    <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Fontes de rendimento</h3><span class="sub">valor líquido por mês${ed ? ' · clique para alterar' : ''}</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Designação</th><th>Tipo</th><th class="r">Por mês</th><th class="r">Por ano</th></tr></thead><tbody>
+    ${L.map(o => `<tr class="${ed ? 'click' : ''}" data-o="${o.id}" style="${o.ativo === false ? 'opacity:.5' : ''}"><td><b>${esc(o.nome)}</b>${o.ativo === false ? ' <span class="faint">inativa</span>' : ''}${o.notas ? `<div class="faint" style="font-size:12px">${esc(o.notas)}</div>` : ''}</td><td>${esc(o.tipo || '')}</td><td class="r num">${eur(o.valor)}</td><td class="r num">${eur((+o.valor || 0) * 12)}</td></tr>`).join('')
+      || `<tr><td colspan="4" class="empty">Sem outros rendimentos.${ed ? ' Use o + para acrescentar uma renda, pensão ou trabalho extra.' : ''}</td></tr>`}</tbody></table></div></div>
+    <p class="faint" style="font-size:12px;margin-top:10px">Os recibos verdes (categoria B) registam-se em <a href="#/rendimentos" data-tab="pf-rend=catb">Recibos verdes</a>.</p>`;
+  bindTabs(v);
+  const ed1 = o => { const novo = !o, x = o || { tipo: 'Renda', valor: 0, ativo: true };
+    editar({ titulo: 'Outro rendimento', cols: [{ k: 'nome', label: 'Designação', ph: 'ex.: Renda do T1' }, { k: 'tipo', label: 'Tipo', type: 'select', opts: TIPOS_OUTROS.map(t => [t, t]) },
+      { k: 'valor', label: 'Valor líquido por mês', type: 'money' }, { k: 'ativo', label: 'Ativa', type: 'check' }, { k: 'notas', label: 'Notas', full: true }], x, novo,
+      validar: f => !f.nome ? 'Indique a designação' : !(f.valor > 0) ? 'Indique o valor' : null,
+      onSave: f => { Object.assign(x, f, { valor: r2(f.valor) }); if (novo) { x.id = 'O' + uid(); outrosLista().push(x); } M().plano.outrosRendimentos = somaOutros(); audit('PF_OUTRO_RENDIMENTO', `${x.nome} · ${eur(x.valor)}/mês`); },
+      onDelete: y => { M().plano.outrosLista = outrosLista().filter(z => z !== y); M().plano.outrosRendimentos = somaOutros(); audit('PF_OUTRO_RENDIMENTO_REMOVIDO', y.nome); } }); };
+  v.querySelectorAll('[data-o]').forEach(tr => tr.onclick = () => { if (ed) ed1(L.find(o => o.id === tr.dataset.o)); });
+  v.querySelectorAll('[data-add="outros"]').forEach(b => b.onclick = () => ed1());
+}
 function rendIRS(v, T) {
   const m = M(), pl = m.plano, ed = podeEditar(), y0 = +today().slice(0, 4), { out: regras, erros } = regrasIRS();
   const anos = [...new Set([y0, y0 + 1, ...Object.keys(regras).map(Number), ...m.recibos.map(r => +r.ano)])].sort((a, b) => b - a);
@@ -897,18 +922,19 @@ function rendIRS(v, T) {
 // menu de Rendimentos: só os quadrados; clicar abre essa área sozinha na página, com um botão Voltar para o menu
 function menuRend() {
   const t = tab('pf-rend', '');
-  const q = [['rec', 'wallet', 'Recibos de vencimento'], ['catb', 'file', 'Recibos verdes'], ['proj', 'chart', 'Projeção anual'], ['irs', 'shield', 'IRS']], sel = q.find(x => x[0] === t);
+  const q = [['rec', 'wallet', 'Recibos de vencimento'], ['catb', 'file', 'Recibos verdes'], ['outros', 'plus', 'Outros rendimentos'], ['proj', 'chart', 'Projeção anual'], ['irs', 'shield', 'IRS']], sel = q.find(x => x[0] === t);
   if (sel) return { t, html: `<div class="row" style="gap:14px;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line)">
       <button class="btn sm" data-tab="pf-rend=" title="Voltar ao menu de Rendimentos">‹ Voltar</button>
       <h2 style="margin:0;font-size:20px;display:flex;align-items:center;gap:10px"><span style="display:inline-flex;width:22px;height:22px;color:var(--accent)">${icon(sel[1]).replace('<svg ', '<svg width="22" height="22" ')}</span>${sel[2]}</h2></div>` };
   return { t: '', html: `<style>.pf-tile{cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:140px;text-align:center;font-weight:600;font-size:16px;transition:border-color .15s,transform .15s}.pf-tile svg{width:28px;height:28px;color:var(--muted)}.pf-tile:hover{border-color:var(--accent);transform:translateY(-2px)}.pf-tile:hover svg{color:var(--accent)}</style>
-    <div class="grid g4">${q.map(([k, ic, rot]) => `<div class="card pf-tile" data-tab="pf-rend=${k}" role="button" tabindex="0">${icon(ic)}<span>${rot}</span></div>`).join('')}</div>` };
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))">${q.map(([k, ic, rot]) => `<div class="card pf-tile" data-tab="pf-rend=${k}" role="button" tabindex="0">${icon(ic)}<span>${rot}</span></div>`).join('')}</div>` };
 }
 function rendimentos(v) {
   const T = menuRend(), m = M(), kn = app.kn, ed = podeEditar();
   if (!T.t) { v.innerHTML = T.html; bindTabs(v); return; }
   if (T.t === 'catb') return rendCatB(v, T);
   if (T.t === 'irs') return rendIRS(v, T);
+  if (T.t === 'outros') return rendOutros(v, T);
   const anoAtual = +today().slice(0, 4), futuros = [1, 2, 3, 4, 5].map(i => anoAtual + i);
   const anos = [...new Set([anoAtual, ...futuros, ...m.recibos.map(r => +r.ano)])].sort((a, b) => b - a);
   let ano = +tab('pf-ano', anoAtual); if (!(ano >= 2000 && ano <= anoAtual + 10)) ano = anoAtual;
@@ -1855,13 +1881,13 @@ function parametrosPlano(v, T) {
   const sec = (ic, tit, corpo) => `<div class="card"><div class="card-h"><h3>${icon(ic)} ${tit}</h3></div>${corpo}</div>`;
   const pv = id => `<span id="pv-${id}"></span>`;
   v.innerHTML = `${T.html}${PAR_CSS}
-    <div class="grid g4" style="margin-bottom:16px">${kpi('Rendimento do plano', pv('sal'), `líquido recorrente de <a href="#/rendimentos" data-aba="pf-rend=rec">Rendimentos</a>`)}${kpi('Fundo de emergência', pv('emg'), pv('emg-s'))}${kpi('Poupança por mês', pv('poup'), pv('poup-s'))}${kpi('Amortização extra', pv('div'), 'por mês, além do que sobrar')}</div>
+    <div class="grid g4" style="margin-bottom:16px">${kpi('Rendimento do plano', pv('sal'), `líquido recorrente${+pl.outrosRendimentos ? ' + outros rendimentos' : ''} de <a href="#/rendimentos" data-aba="pf-rend=rec">Rendimentos</a>`)}${kpi('Fundo de emergência', pv('emg'), pv('emg-s'))}${kpi('Poupança por mês', pv('poup'), pv('poup-s'))}${kpi('Amortização extra', pv('div'), 'por mês, além do que sobrar')}</div>
     <div class="pf-par">
     ${sec('wallet', 'Ordenado',
       row('Quando é pago', 'Ex.: o recibo de novembro entra a 1 de dezembro.', seg('pagoMesSeguinte', [['false', 'No próprio mês'], ['true', 'No mês seguinte']]))
       + row('Dia em que entra na conta', '', rng('diaSalario', 1, 28, 1))
-      + row('Outros rendimentos', 'Rendas, pensões, trabalhos extra… por mês.', eurIn('outrosRendimentos'))
-      + EMP.map(e => row(EMP.length > 1 ? `Subsídio de refeição · ${esc(e.nome)}` : 'Subsídio de refeição', `≈ ${eur(e.media)} por mês${EMP.length > 1 ? '' : ' · ' + esc(e.nome)}. Se não contar, fica reservado à alimentação.`, sw('ref:' + e.k, 'Contar como rendimento'))).join(''))}
+      + (EMP.length ? `<div class="pf-row" style="padding-bottom:6px"><div><b>Entidades pagadoras</b><span>Todas as que aparecem nos recibos. O subsídio de refeição que não contar fica reservado à alimentação.</span></div><div></div></div>` : '')
+      + EMP.map(e => row(esc(e.nome), `${e.n} ${e.n === 1 ? 'recibo' : 'recibos'} · último ${fmtMes(e.ult)}${e.media ? ` · refeição ≈ ${eur(e.media)}/mês` : ''}`, e.media ? sw('ref:' + e.k, 'Subsídio de refeição conta como rendimento') : '<span class="faint" style="font-size:13px">Sem subsídio de refeição nos recibos</span>')).join(''))}
     ${sec('chart', 'Aumentos',
       row('Como sobe o ordenado', 'Usado para projetar os próximos anos.', seg('aumentoTipo', [['smn', 'Como o salário mínimo'], ['fixo', 'Aumento fixo']]))
       + row('Aumento por ano', 'Mérito, categoria, contrato coletivo…', rng('aumentoSalarialPc', 0, 10, 0.5), 'aumentoTipo=fixo')
@@ -1886,7 +1912,7 @@ function parametrosPlano(v, T) {
     ${ed ? `<div class="pf-bar" id="pbar"><span style="flex:1">Tem alterações por guardar</span><button class="btn ghost sm" id="pdesc">Descartar</button><button class="btn primary sm" id="pgrd">${icon('check')} Guardar</button></div>` : ''}`;
   bindTabs(v);
   // valores do formulário <-> plano de trabalho (w)
-  EMP.forEach(e => { w['ref:' + e.k] = refConta({ entidade: e.k === '—' ? '' : e.k }); });
+  EMP.filter(e => e.media).forEach(e => { w['ref:' + e.k] = refConta({ entidade: e.k === '—' ? '' : e.k }); });
   w.aumentoSalarialPc = r2((+w.aumentoSalarial || 0) * 100); w.poupancaPc = r2((+w.poupancaPct || 0) * 100);
   w.pagoMesSeguinte = String(!!w.pagoMesSeguinte); w.horizonte = String([60, 120, 240, 360, 480].reduce((a, b) => Math.abs(b - (+w.horizonte || 240)) < Math.abs(a - (+w.horizonte || 240)) ? b : a));
   const fmtOut = { diaSalario: x => 'dia ' + x, aumentoSalarialPc: x => '+' + String(x).replace('.', ',') + '% / ano', emergMeses: x => +x === 0 ? 'sem fundo' : `${x} ${+x === 1 ? 'mês' : 'meses'} · ${eur(desp * x)}`,
@@ -1915,9 +1941,9 @@ function parametrosPlano(v, T) {
   preview();
   const pd = v.querySelector('#pdesc'); if (pd) pd.onclick = () => app.refresh();
   const pg = v.querySelector('#pgrd'); if (pg) pg.onclick = () => {
-    const rr = Object.assign({}, pl.refeicaoRend || {}); EMP.forEach(e => { rr[e.k] = !!w['ref:' + e.k]; });
+    const rr = Object.assign({}, pl.refeicaoRend || {}); EMP.filter(e => e.media).forEach(e => { rr[e.k] = !!w['ref:' + e.k]; });
     Object.assign(pl, { refeicaoRend: rr, pagoMesSeguinte: w.pagoMesSeguinte === 'true', diaSalario: Math.min(28, Math.max(1, +w.diaSalario || 1)),
-      outrosRendimentos: r2(+w.outrosRendimentos || 0), aumentoTipo: w.aumentoTipo === 'smn' ? 'smn' : 'fixo', aumentoSalarial: (+w.aumentoSalarialPc || 0) / 100,
+      aumentoTipo: w.aumentoTipo === 'smn' ? 'smn' : 'fixo', aumentoSalarial: (+w.aumentoSalarialPc || 0) / 100,
       atualizarSMN: !!w.atualizarSMN, brutoBase: r2(+w.brutoBase || 0), smnAumento: +w.smnAumento || 0, smnTabela: String(w.smnTabela || '').trim(),
       emergMeses: +w.emergMeses || 0, emergProgressivo: Math.max(0, +w.emergProgressivo || 0), fundoOrigem: w.fundoOrigem === 'manual' ? 'manual' : 'tesouraria', fundoInicial: r2(+w.fundoInicial || 0),
       poupancaTipo: w.poupancaTipo || 'none', poupancaFixa: r2(+w.poupancaFixa || 0), poupancaPct: (+w.poupancaPc || 0) / 100, extraFixo: r2(+w.extraFixo || 0), horizonte: Math.max(12, Math.min(480, +w.horizonte || 240)) });
