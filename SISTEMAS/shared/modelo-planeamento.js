@@ -205,12 +205,21 @@ function rendimentoMensal(ano = +today().slice(0, 4)) {
 
 // rendimento de um mês concreto: recibo real ou projeção desse ano (anos futuros atualizados pelo salário mínimo, se ativo)
 // recibo cujo ordenado entra no mês (y, m): o do próprio mês ou, se é pago no mês seguinte, o do mês anterior
-const mesDoRecibo = (y, m) => M().plano.pagoMesSeguinte ? (m === 1 ? [y - 1, 12] : [y, m - 1]) : [y, m];
+// cada entidade pagadora paga à sua maneira: plano.pagamentoEnt = { entidade: { seguinte: true/false, dia: 1–28 (0 = último dia do mês) } }
+// sem escolha valem as opções gerais antigas (pagoMesSeguinte, diaSalario)
+const pagEnt = k => { const pl = M().plano, o = (pl.pagamentoEnt || {})[k]; return o ? { seguinte: !!o.seguinte, dia: +o.dia || 0 } : { seguinte: !!pl.pagoMesSeguinte, dia: pl.pagoMesSeguinte ? +pl.diaSalario || 1 : 0 }; };
+// entidade do recibo mais recente: as projeções (meses sem recibo) seguem a forma de pagamento dela
+const entPrincipal = () => { const r = M().recibos.filter(x => +x.liquido > 0).sort((a, b) => b.ano - a.ano || b.mes - a.mes)[0]; return r ? chaveEnt(r) : ''; };
+const mesDoRecibo = (y, m, k = entPrincipal()) => pagEnt(k).seguinte ? (m === 1 ? [y - 1, 12] : [y, m - 1]) : [y, m];
 // mês em que entra o ordenado de um recibo (y, m)
-const mesDaEntrada = (y, m) => M().plano.pagoMesSeguinte ? (m === 12 ? [y + 1, 1] : [y, m + 1]) : [y, m];
+const mesDaEntrada = (y, m, k = entPrincipal()) => pagEnt(k).seguinte ? (m === 12 ? [y + 1, 1] : [y, m + 1]) : [y, m];
 function rendimentoDoMes(y, m, P = projecao) {
-  const pl = M().plano, [ry, rm] = mesDoRecibo(y, m), l = P(ry).linhas[rm - 1];
-  return r2(l.proj - l.refeicao + (+pl.outrosRendimentos || 0));
+  const pl = M().plano, outros = +pl.outrosRendimentos || 0;
+  // recibos que entram neste mês (cada um segundo a sua entidade); sem nenhum, usa a projeção
+  const rs = M().recibos.filter(r => +r.liquido > 0 && (([ey, em]) => ey === y && em === m)(mesDaEntrada(+r.ano, +r.mes, chaveEnt(r))));
+  if (rs.length) return r2(rs.reduce((t, r) => t + (+r.liquido || 0) - refReservada(r), 0) + outros);
+  const [ry, rm] = mesDoRecibo(y, m), l = P(ry).linhas[rm - 1];
+  return r2((l.real != null ? 0 : l.proj - l.refeicao) + outros);
 }
 
 /* ---------- Motor: simulador mês a mês (porta direta de simulator.py) ---------- */
@@ -424,8 +433,8 @@ function pedirAmortizacao(x, valor) {
     descricao: `Amortização antecipada ${x.nome}${+x.comissao ? ` (comissão ${pct(x.comissao)} incluída)` : ''}`, dataPrevista: today(), origem: { mod: 'dividas', key: `pf:amort:${x.id}:${uid()}` } });
 }
 // entrada do vencimento na tesouraria: data = fim do mês do recibo (ou hoje, se ainda não acabou)
-const entradaRecibo = r => { const pl = M().plano, [ey, em] = mesDaEntrada(+r.ano, +r.mes), fim = new Date(ey, em, 0);
-  const dia = pl.pagoMesSeguinte ? Math.min(Math.max(1, +pl.diaSalario || 1), fim.getDate()) : fim.getDate(), d = `${ey}-${String(em).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+const entradaRecibo = r => { const k = chaveEnt(r), pe = pagEnt(k), [ey, em] = mesDaEntrada(+r.ano, +r.mes, k), fim = new Date(ey, em, 0);
+  const dia = pe.dia > 0 ? Math.min(pe.dia, fim.getDate()) : fim.getDate(), d = `${ey}-${String(em).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
   return { contaDestino: CAIXA, valor: +r.liquido || 0, metodo: 'CAPITALIZAÇÃO', dataPrevista: d < today() ? d : today(),
     descricao: `Vencimento ${MESES[+r.mes - 1]} ${r.ano}${r.entidade ? ' · ' + r.entidade : ''}`, origem: { mod: 'rendimentos', key: chaveRec(r) } }; };
 // rendimentos não passam pelo circuito de aprovação: uma assinatura regista e executa a entrada
@@ -446,25 +455,27 @@ const contabAuto = () => !!(app.registarPagamentos && app.registarEntradas && ap
 function entidadesNovas(rs) {
   const pl = M().plano, todas = M().recibos, ant = todas.filter(x => !rs.includes(x));
   const novas = [...new Map(rs.filter(r => chaveEnt(r) && !ant.some(x => chaveEnt(x) === chaveEnt(r))).map(r => [chaveEnt(r), r])).values()];
-  const fila = novas.filter(r => +r.refeicao > 0 || ant.some(x => +x.liquido > 0)).map(r => () => configEntidade(r, ant.length > 0, fila));
+  const fila = novas.map(r => () => configEntidade(r, ant.some(x => +x.liquido > 0), fila));
   if (fila.length) setTimeout(() => fila.shift()(), 350);
 }
 function configEntidade(r, temAnterior, fila = []) {
-  const pl = M().plano, k = chaveEnt(r), nome = r.entidade || 'NIF ' + r.nifEntidade, ent = { modo: 'extra', ref: refConta(r) };
+  const pl = M().plano, k = chaveEnt(r), nome = r.entidade || 'NIF ' + r.nifEntidade, ent = { modo: 'extra', ref: refConta(r) }, pe = pagEnt(k), wp = { ['seg:' + k]: String(pe.seguinte), ['dia:' + k]: pe.dia };
   const seg = (id, ops) => `<div class="tabs" data-s="${id}" style="flex-wrap:wrap;width:max-content;max-width:100%">${ops.map(([v, l]) => `<button type="button" data-v="${v}">${l}</button>`).join('')}</div>`;
   ui.modal({ title: 'Nova entidade pagadora', sub: `<b>${esc(nome)}</b> aparece pela primeira vez no recibo de ${MESES[+r.mes - 1].toLowerCase()} de ${r.ano}. Configure como entra no seu plano.`,
-    body: `<div style="display:flex;flex-direction:column;gap:18px">
+    body: `${PAR_CSS}<div style="display:flex;flex-direction:column;gap:18px">
       ${temAnterior ? `<div><div style="font-weight:600;margin-bottom:8px">Este rendimento…</div>${seg('modo', [['novo', 'Substitui o emprego anterior'], ['extra', 'É um trabalho a mais']])}
         <div class="faint" style="font-size:12px;margin-top:6px">Novo emprego: as previsões passam a usar só os recibos desde ${fmtMes(ymOf(+r.ano, +r.mes))}. Trabalho a mais: soma ao que já recebe.</div></div>` : ''}
+      <div><div style="font-weight:600;margin-bottom:8px">Quando paga</div>${ctlPagamento(k)}<div class="faint" style="font-size:12px;margin-top:6px">Ex.: o recibo de novembro entra em dezembro, ao dia 1.</div></div>
       ${+r.refeicao > 0 ? `<div><div style="font-weight:600;margin-bottom:8px">Subsídio de refeição (${eur(r.refeicao)} neste recibo)</div>${seg('ref', [['1', 'Conta como rendimento'], ['0', 'Reservado à alimentação']])}
         <div class="faint" style="font-size:12px;margin-top:6px">Reservado: paga primeiro as despesas de alimentação e não entra no rendimento do plano.</div></div>` : ''}
-      <div class="faint" style="font-size:12px">Pode mudar depois em <a href="#/simulador" data-aba="pf-sim=par">Simulador › Parâmetros do plano</a>.</div></div>`,
-    onOpen: el => el.querySelectorAll('[data-s]').forEach(g => { const id = g.dataset.s, cur = () => id === 'ref' ? (ent.ref ? '1' : '0') : ent.modo;
+      <div class="faint" style="font-size:12px">Pode mudar depois em Rendimentos › Recibos de vencimento (botão de configuração ao lado do +).</div></div>`,
+    onOpen: el => { ligarControlos(el, wp, { ['dia:' + k]: fmtDia }, () => {}); el.querySelectorAll('[data-s]').forEach(g => { const id = g.dataset.s, cur = () => id === 'ref' ? (ent.ref ? '1' : '0') : ent.modo;
       const marca = () => g.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === cur())); marca();
-      g.querySelectorAll('button').forEach(b => b.onclick = () => { if (id === 'ref') ent.ref = b.dataset.v === '1'; else ent.modo = b.dataset.v; marca(); }); }),
+      g.querySelectorAll('button').forEach(b => b.onclick = () => { if (id === 'ref') ent.ref = b.dataset.v === '1'; else ent.modo = b.dataset.v; marca(); }); }); },
     actions: [{ label: 'Mais tarde', kind: 'ghost', onClick: () => { if (fila.length) setTimeout(() => fila.shift()(), 300); } },
       { label: icon('check') + 'Guardar', kind: 'primary', onClick: () => { const P = M().plano;
         if (+r.refeicao > 0) P.refeicaoRend = Object.assign({}, P.refeicaoRend || {}, { [k]: ent.ref });
+        P.pagamentoEnt = Object.assign({}, P.pagamentoEnt || {}, { [k]: { seguinte: wp['seg:' + k] === 'true', dia: Math.min(28, Math.max(0, +wp['dia:' + k] || 0)) } });
         if (temAnterior && ent.modo === 'novo') { P.empregoDesde = ymOf(+r.ano, +r.mes); P.salarioBase = 0; }
         audit('PF_ENTIDADE', `${nome}: ${temAnterior ? (ent.modo === 'novo' ? 'novo emprego desde ' + fmtMes(P.empregoDesde || '') : 'trabalho a mais') : 'primeiro emprego'}${+r.refeicao > 0 ? ` · refeição ${ent.ref ? 'conta como rendimento' : 'reservada à alimentação'}` : ''}`);
         app.save(); ui.toast('Configuração guardada', 'ok'); app.refresh(); if (fila.length) setTimeout(() => fila.shift()(), 300); } }] });
@@ -946,7 +957,7 @@ function rendimentos(v) {
     v.innerHTML = `${T.html}${EMP ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div style="flex:1"><b>Mudança de emprego detetada.</b> Desde ${fmtMes(EMP.desde)} há ${EMP.n} recibos de <b>${esc(EMP.ent)}</b>${EMP.entAnt ? ` (antes: ${esc(EMP.entAnt)})` : ', diferente dos anteriores'}.
         As previsões usam ${eur(salarioBase())} de líquido recorrente; com o novo emprego são <b>${eur(EMP.liquido)}</b>${EMP.bruto ? ` (vencimento sujeito a SS ≈ ${eur(EMP.bruto)})` : ''}.${EMP.parcial ? ` O recibo de ${MESES[EMP.parcial.mes - 1]} ${EMP.parcial.ano} (${eur(EMP.parcial.liquido)}) é de um mês incompleto e deixa de contar para as médias.` : ''}
         ${dica('Atualizar grava o novo líquido recorrente e o vencimento nos Parâmetros do plano e passa a usar só os recibos do novo emprego para as médias. Os valores recebidos continuam todos registados.')}</div>
-        ${ed ? `<button class="btn sm primary" id="emp">${icon('check')} Atualizar previsões</button><button class="btn sm ghost" id="empx">Dispensar</button>` : ''}</div>` : ''}${barraFita(anoSel, ed ? botaoMais(ATALHOS.rend) : '')}
+        ${ed ? `<button class="btn sm primary" id="emp">${icon('check')} Atualizar previsões</button><button class="btn sm ghost" id="empx">Dispensar</button>` : ''}</div>` : ''}${barraFita(anoSel, ed ? `<span style="display:inline-flex;gap:8px;justify-content:flex-end"><button class="btn sm" id="cford" title="Configurar ordenado: quando é pago e subsídio de refeição de cada entidade" style="${MAIS_CSS};width:34px;height:34px">${icon('settings')}</button>${botaoMais(ATALHOS.rend)}</span>` : '')}
       <div class="grid g4">${kpi(`${icon('wallet')} Líquido recebido ${ano}`, eur(sum(rs, 'liquido')), `${rs.length} ${rs.length === 1 ? 'recibo' : 'recibos'}`, '', true)}${kpi('Bruto ' + ano, eur(sum(rs, 'bruto')))}${kpi('IRS retido', eur(sum(rs, 'irs')), `SS ${eur(sum(rs, 'ss'))}`)}
         ${kpi(kn('pf_liqrec', 'Líquido recorrente'), eur(salarioBase()), +m.plano.salarioBase ? 'do novo emprego' : est.n ? esc(est.metodo) : 'sem recibos')}</div>
       <div class="card" style="margin-top:16px"><div class="card-h"><h3>${kn('pf_proj', 'Rendimento líquido')} ${ano}</h3><span class="sub">real ${eur(PR.ytd)} · projetado ${eur(PR.total)} · <a href="#/rendimentos" data-aba="pf-rend=proj">ver projeção</a></span></div><div id="chr"></div></div>
@@ -960,6 +971,7 @@ function rendimentos(v) {
       { name: 'Real', values: PR.linhas.map(l => l.real != null ? r2(l.real - l.refeicao) : 0) }, { name: 'Projetado', values: PR.linhas.map(l => l.real == null ? r2(l.proj - l.refeicao) : 0), color: 'var(--accent2)' },
 ] });
     v.querySelectorAll('[data-mais]').forEach(b => b.onclick = () => escolherAcao(ATALHOS.rend));
+    const cford = v.querySelector('#cford'); if (cford) cford.onclick = configOrdenado;
     correrAtalho(v);
     const emp = v.querySelector('#emp'); if (emp) emp.onclick = () => { const e = mudancaEmprego(); if (!e) return; const pl = m.plano;
       pl.salarioBase = e.liquido; if (e.bruto) pl.brutoBase = e.bruto; pl.empregoDesde = e.desde; if (e.parcial) e.parcial.parcial = true;
@@ -1886,11 +1898,6 @@ function parametrosPlano(v, T, modo = 'par') {
     <div class="grid ${POUP ? 'g3' : 'g2'}" style="margin-bottom:16px">${POUP ? `${kpi('Fundo de emergência', pv('emg'), pv('emg-s'))}${kpi('Poupança por mês', pv('poup'), pv('poup-s'))}${kpi('Amortização extra', pv('div'), 'por mês, além do que sobrar')}`
       : `${kpi('Rendimento do plano', pv('sal'), `líquido recorrente${+pl.outrosRendimentos ? ' + outros rendimentos' : ''} de <a href="#/rendimentos" data-aba="pf-rend=rec">Rendimentos</a>`)}${kpi('Aumento do ordenado', pv('aum'), pv('aum-s'))}`}</div>
     <div class="pf-par">
-    ${POUP ? '' : sec('wallet', 'Ordenado',
-      row('Quando é pago', 'Ex.: o recibo de novembro entra a 1 de dezembro.', seg('pagoMesSeguinte', [['false', 'No próprio mês'], ['true', 'No mês seguinte']]))
-      + row('Dia em que entra na conta', '', rng('diaSalario', 1, 28, 1))
-      + (EMP.length ? `<div class="pf-row" style="padding-bottom:6px"><div><b>Entidades pagadoras</b><span>Todas as que aparecem nos recibos. O subsídio de refeição que não contar fica reservado à alimentação.</span></div><div></div></div>` : '')
-      + EMP.map(e => row(esc(e.nome), `${e.n} ${e.n === 1 ? 'recibo' : 'recibos'} · último ${fmtMes(e.ult)}${e.media ? ` · refeição ≈ ${eur(e.media)}/mês` : ''}`, e.media ? sw('ref:' + e.k, 'Subsídio de refeição conta como rendimento') : '<span class="faint" style="font-size:13px">Sem subsídio de refeição nos recibos</span>')).join(''))}
     ${POUP ? '' : sec('chart', 'Aumentos',
       row('Como sobe o ordenado', 'Usado para projetar os próximos anos.', seg('aumentoTipo', [['smn', 'Como o salário mínimo'], ['fixo', 'Aumento fixo']]))
       + row('Aumento por ano', 'Mérito, categoria, contrato coletivo…', rng('aumentoSalarialPc', 0, 10, 0.5), 'aumentoTipo=fixo')
@@ -1945,9 +1952,7 @@ function parametrosPlano(v, T, modo = 'par') {
   preview();
   const pd = v.querySelector('#pdesc'); if (pd) pd.onclick = () => app.refresh();
   const pg = v.querySelector('#pgrd'); if (pg) pg.onclick = () => {
-    const rr = Object.assign({}, pl.refeicaoRend || {}); EMP.filter(e => e.media).forEach(e => { rr[e.k] = !!w['ref:' + e.k]; });
-    Object.assign(pl, { refeicaoRend: rr, pagoMesSeguinte: w.pagoMesSeguinte === 'true', diaSalario: Math.min(28, Math.max(1, +w.diaSalario || 1)),
-      aumentoTipo: w.aumentoTipo === 'smn' ? 'smn' : 'fixo', aumentoSalarial: (+w.aumentoSalarialPc || 0) / 100,
+    Object.assign(pl, { aumentoTipo: w.aumentoTipo === 'smn' ? 'smn' : 'fixo', aumentoSalarial: (+w.aumentoSalarialPc || 0) / 100,
       atualizarSMN: !!w.atualizarSMN, brutoBase: r2(+w.brutoBase || 0), smnAumento: +w.smnAumento || 0, smnTabela: String(w.smnTabela || '').trim(),
       emergMeses: +w.emergMeses || 0, emergProgressivo: Math.max(0, +w.emergProgressivo || 0), fundoOrigem: w.fundoOrigem === 'manual' ? 'manual' : 'tesouraria', fundoInicial: r2(+w.fundoInicial || 0),
       poupancaTipo: w.poupancaTipo || 'none', poupancaFixa: r2(+w.poupancaFixa || 0), poupancaPct: (+w.poupancaPc || 0) / 100, extraFixo: r2(+w.extraFixo || 0), horizonte: Math.max(12, Math.min(480, +w.horizonte || 240)) });
@@ -1965,8 +1970,8 @@ function ligarControlos(el, w, fmtOut, depois) {
   el.querySelectorAll('[data-seg]').forEach(g => { const k = g.dataset.seg, marca = () => g.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(w[k])));
     marca(); g.querySelectorAll('button').forEach(b => b.onclick = () => { w[k] = b.dataset.v; marca(); tudo(); }); });
   el.querySelectorAll('[data-k]').forEach(i => { const k = i.dataset.k, out = el.querySelector(`[data-out="${k}"]`);
-    i.value = w[k] == null || (i.type === 'number' && !+w[k]) ? '' : w[k]; if (i.type === 'range' && i.value === '') i.value = i.min;
-    const upd = () => { w[k] = i.type === 'range' || i.type === 'number' ? +i.value || 0 : i.value; if (out) out.textContent = (fmtOut[k] || String)(w[k]); };
+    if (i.type === 'checkbox') i.checked = !!w[k]; else i.value = w[k] == null || (i.type === 'number' && !+w[k]) ? '' : w[k]; if (i.type === 'range' && i.value === '') i.value = i.min;
+    const upd = () => { w[k] = i.type === 'checkbox' ? i.checked : i.type === 'range' || i.type === 'number' ? +i.value || 0 : i.value; if (out) out.textContent = (fmtOut[k] || String)(w[k]); };
     upd(); i.oninput = () => { upd(); tudo(); }; });
   tudo();
 }
@@ -2002,6 +2007,25 @@ function ajustarPoupanca(qual) {
     onOpen: el => ligarControlos(el, w, fmtOut, () => { el.querySelector('[data-res]').innerHTML = cfg[3](); }),
     actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('check') + 'Guardar', kind: 'primary', onClick: () => {
       Object.assign(M().plano, cfg[4]()); audit('PF_PLANO', `Poupanças: ${cfg[0]} alterado`); app.save(); ui.toast(`${cfg[0]} guardado`, 'ok'); app.refresh(); } }] });
+}
+const fmtDia = x => +x ? 'dia ' + x : 'último dia do mês';
+const ctlPagamento = k => cSeg('seg:' + k, [['false', 'No próprio mês'], ['true', 'No mês seguinte']]) + `<div style="margin-top:10px">${cRng('dia:' + k, 0, 28, 1)}</div>`;
+// como e quando paga cada entidade pagadora, e o subsídio de refeição de cada uma
+function configOrdenado() {
+  const pl = M().plano, w = {}, EMP = empregosComRefeicao(), fmt = {};
+  EMP.forEach(e => { const pe = pagEnt(e.k); w['seg:' + e.k] = String(pe.seguinte); w['dia:' + e.k] = pe.dia; fmt['dia:' + e.k] = fmtDia; if (e.media) w['ref:' + e.k] = refConta({ entidade: e.k }); });
+  const sw = (k, rot) => `<label class="pf-sw"><input type="checkbox" data-k="${esc(k)}"><span>${rot}</span></label>`;
+  ui.modal({ title: 'Configurar ordenado', sub: 'Cada entidade pagadora paga à sua maneira: quando entra o dinheiro e como conta o subsídio de refeição.', wide: true,
+    body: `${PAR_CSS}<div class="pf-par" style="display:flex;flex-direction:column;gap:12px">${EMP.map(e => `<div class="card">
+        <div class="card-h"><h3>${icon('wallet')} ${esc(e.nome)}</h3><span class="sub">${e.n} ${e.n === 1 ? 'recibo' : 'recibos'} · último ${fmtMes(e.ult)}</span></div>
+        ${cRow('Quando paga', 'Ex.: o recibo de novembro entra em dezembro. E em que dia entra na conta.', ctlPagamento(e.k))}
+        ${cRow('Subsídio de refeição', e.media ? `≈ ${eur(e.media)}/mês. O que não contar fica reservado à alimentação.` : '', e.media ? sw('ref:' + e.k, 'Conta como rendimento') : '<span class="faint" style="font-size:13px">Sem subsídio de refeição nos recibos</span>')}</div>`).join('')
+      || '<div class="empty">Ainda não há recibos de vencimento.</div>'}</div>`,
+    onOpen: el => ligarControlos(el, w, fmt, () => {}),
+    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('check') + 'Guardar', kind: 'primary', onClick: () => { const P = M().plano, rr = Object.assign({}, P.refeicaoRend || {}), pg = Object.assign({}, P.pagamentoEnt || {});
+      EMP.forEach(e => { pg[e.k] = { seguinte: w['seg:' + e.k] === 'true', dia: Math.min(28, Math.max(0, +w['dia:' + e.k] || 0)) }; if (e.media) rr[e.k] = !!w['ref:' + e.k]; });
+      Object.assign(P, { refeicaoRend: rr, pagamentoEnt: pg });
+      audit('PF_PLANO', 'Configuração do ordenado por entidade pagadora (pagamento e subsídio de refeição)'); app.save(); ui.toast('Configuração guardada', 'ok'); app.refresh(); } }] });
 }
 function poupancas(v) {
   const pl = M().plano, ed = podeEditar(), desp = despesasMensais(), rend = rendimentoMensal(), P = projPoupanca(24), p0 = P[0] || { poup: 0, fundoMes: 0 };
@@ -2488,7 +2512,7 @@ return {
     if (de <= hoje) atrasos().forEach(({ e, d }) => out.push({ conta: e.contaOrigem || CAIXA, data: hoje, valor: -(+e.valor || 0), tipo: 'Despesa vencida', descricao: `${e.nome} (vencida a ${date(d)})` }));
     M().despesas.filter(e => e.ativo !== false).forEach(e => ocorrencias(e, e.periodicidade, de, ate).forEach(d => { if (vigente(e, d.slice(0, 7)) && !vivos(chaveDesp(e, d)).length) out.push({ conta: e.contaOrigem || CAIXA, data: d, valor: -(+e.valor || 0), tipo: 'Despesa fixa', descricao: e.nome }); }));
     divAtivas().forEach(x => ocorrencias(x, 'mensal', de, ate).forEach(d => { if (!vivos(chaveDiv(x, d)).length) out.push({ conta: x.contaOrigem || CAIXA, data: d, valor: -(+x.prestacao || 0), tipo: 'Prestação', descricao: x.nome }); }));
-    ocorrencias({ dia: pl.diaSalario || 1 }, 'mensal', de, ate).forEach(d => {
+    ocorrencias({ dia: pagEnt(entPrincipal()).dia || 28 }, 'mensal', de, ate).forEach(d => {
       const y = +d.slice(0, 4), m = +d.slice(5, 7), [ry, rm] = mesDoRecibo(y, m), rs = M().recibos.filter(r => +r.ano === ry && +r.mes === rm);
       if (rs.some(r => vivos(chaveRec(r)).length)) return;
       const val = rendimentoDoMes(y, m);
