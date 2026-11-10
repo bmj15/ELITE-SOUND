@@ -2039,13 +2039,21 @@ function configOrdenado() {
   EMP.forEach(e => { const pe = pagEnt(e.k), I = infoEnt(e.k); w['reg:' + e.k] = I.regime; w['pais:' + e.k] = I.pais; w['seg:' + e.k] = String(pe.seguinte); w['dia:' + e.k] = pe.dia; fmt['dia:' + e.k] = fmtDia; if (e.media) w['ref:' + e.k] = refConta({ entidade: e.k }); });
   const sw = (k, rot) => `<label class="pf-sw"><input type="checkbox" data-k="${esc(k)}"><span>${rot}</span></label>`;
   ui.modal({ title: 'Configurar ordenado', sub: 'Cada entidade pagadora paga à sua maneira: quando entra o dinheiro e como conta o subsídio de refeição.', wide: true,
-    body: `${PAR_CSS}<div class="pf-par" style="display:flex;flex-direction:column;align-items:stretch;gap:12px">${EMP.map(e => `<div class="card">
-        <div class="card-h"><h3>${icon('wallet')} ${esc(e.nome)}</h3><span class="sub">${e.n} ${e.n === 1 ? 'recibo' : 'recibos'} · último ${fmtMes(e.ult)}</span></div>
+    body: `${PAR_CSS}<style>.pf-acc>.card-h{cursor:pointer;user-select:none}.pf-acc>.card-h:hover{background:rgba(127,127,127,.06)}.pf-acc .pf-chev{display:inline-block;transition:transform .15s;color:var(--muted);margin-left:10px}
+      .pf-acc.on .pf-chev{transform:rotate(90deg)}.pf-acc:not(.on)>.pf-acc-b{display:none}.pf-acc .pf-res{font-size:12px;color:var(--muted)}</style>
+      <div class="pf-par" style="display:flex;flex-direction:column;align-items:stretch;gap:10px">${EMP.map(e => `<div class="card pf-acc" data-acc="${esc(e.k)}">
+        <div class="card-h"><h3>${icon('wallet')} ${esc(e.nome)}</h3><span style="display:flex;align-items:center;gap:4px;text-align:right"><span><span class="sub">${e.n} ${e.n === 1 ? 'recibo' : 'recibos'} · último ${fmtMes(e.ult)}</span><br><span class="pf-res" data-res></span></span><span class="pf-chev">›</span></span></div>
+        <div class="pf-acc-b">
         ${cRow('Regime de trabalho', 'Em Portugal os aumentos seguem as regras do sistema; noutro país detetam-se pelos recibos.', cSeg('reg:' + e.k, REGIMES) + `<div style="margin-top:10px">${cSeg('pais:' + e.k, [['PT', 'Em Portugal'], ['outro', 'Noutro país']])}</div>`)}
         ${cRow('Quando paga', 'Ex.: o recibo de novembro entra em dezembro. E em que dia entra na conta.', ctlPagamento(e.k))}
-        ${cRow('Subsídio de refeição', e.media ? `≈ ${eur(e.media)}/mês. O que não contar fica reservado à alimentação.` : '', e.media ? sw('ref:' + e.k, 'Conta como rendimento') : '<span class="faint" style="font-size:13px">Sem subsídio de refeição nos recibos</span>')}</div>`).join('')
+        ${cRow('Subsídio de refeição', e.media ? `≈ ${eur(e.media)}/mês. O que não contar fica reservado à alimentação.` : '', e.media ? sw('ref:' + e.k, 'Conta como rendimento') : '<span class="faint" style="font-size:13px">Sem subsídio de refeição nos recibos</span>')}</div></div>`).join('')
       || '<div class="empty">Ainda não há recibos de vencimento.</div>'}</div>`,
-    onOpen: el => ligarControlos(el, w, fmt, () => {}),
+    onOpen: el => {
+      // acordeão: todas fechadas; abrir uma fecha as outras. O resumo de cada entidade fica visível no cabeçalho.
+      const resumo = () => el.querySelectorAll('[data-acc]').forEach(c => { const k = EMP.find(e => esc(e.k) === c.dataset.acc).k;
+        c.querySelector('[data-res]').textContent = `${nomeRegime(w['reg:' + k])} · ${w['pais:' + k] === 'outro' ? 'outro país' : 'Portugal'} · ${w['seg:' + k] === 'true' ? 'mês seguinte' : 'próprio mês'}, ${fmtDia(w['dia:' + k])}`; });
+      el.querySelectorAll('[data-acc]').forEach(c => c.querySelector('.card-h').onclick = () => { const abrir = !c.classList.contains('on'); el.querySelectorAll('[data-acc]').forEach(x => x.classList.remove('on')); if (abrir) c.classList.add('on'); });
+      ligarControlos(el, w, fmt, resumo); },
     actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: icon('check') + 'Guardar', kind: 'primary', onClick: () => { const P = M().plano, rr = Object.assign({}, P.refeicaoRend || {}), pg = Object.assign({}, P.pagamentoEnt || {}), ei = Object.assign({}, P.entInfo || {});
       EMP.forEach(e => { ei[e.k] = { regime: w['reg:' + e.k] || 'inteiro', pais: w['pais:' + e.k] === 'outro' ? 'outro' : 'PT' }; pg[e.k] = { seguinte: w['seg:' + e.k] === 'true', dia: Math.min(28, Math.max(0, +w['dia:' + e.k] || 0)) }; if (e.media) rr[e.k] = !!w['ref:' + e.k]; });
       Object.assign(P, { refeicaoRend: rr, pagamentoEnt: pg, entInfo: ei });
