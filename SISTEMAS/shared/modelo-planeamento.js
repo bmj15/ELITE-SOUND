@@ -2007,7 +2007,8 @@ const GLOSS = {
 return {
   seed, alcadaPadrao: 5000, tagline: sub.setor || 'Planeamento financeiro', home: 'visao',
   // relatórios de empresa só fazem sentido com atividade independente (categoria B): aparecem quando há recibos verdes emitidos
-  navVisivel: id => !['indicadores', 'financeiro', 'investimentos', 'relatorios'].includes(id) || temCatB(),
+  // intercompany e delegação de alçadas são coisas de empresa: um plano pessoal não os mostra
+  navVisivel: id => !['intercompany', 'delegacoes'].includes(id) && (!['indicadores', 'financeiro', 'investimentos', 'relatorios'].includes(id) || temCatB()),
   // a receita da atividade são os recibos verdes (valor sem IVA); os custos continuam a vir dos pagamentos classificados
   analiseTexto: ' e dos recibos verdes (categoria B)', analiseOrigem: 'A receita vem dos recibos verdes emitidos (<a href="#/rendimentos" data-aba="pf-rend=catb">Rendimentos › Recibos verdes</a>), sem IVA.',
   analise: (a, ano) => { if (!temCatB()) return null; const z = () => Array(12).fill(0), r = { receitas: z(), custosVar: z(), unidades: z(), n: z(), rotUnidade: 'recibos', cvPedidos: true };
