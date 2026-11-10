@@ -816,8 +816,25 @@ function rendIRS(v, T) {
     audit('PF_IRS_CONFIG', 'Configuração de IRS atualizada'); app.save(); ui.toast('Configuração de IRS guardada', 'ok'); app.refresh(); };
   const rr = v.querySelector('#rirs'); if (rr) rr.onclick = () => { pl.irsRegras = ''; app.save(); app.refresh(); };
 }
+// menu de Rendimentos: um quadrado por área com o valor principal; clicar abre essa área (clicar de novo fecha)
+function menuRend() {
+  const t = tab('pf-rend', ''), m = M(), y0 = +today().slice(0, 4), refOn = !!m.plano.incluirRefeicao;
+  const yR = +tab('pf-ano', y0) || y0, rs = m.recibos.filter(r => +r.ano === yR), yB = +tab('pf-anob', y0) || y0, B = catBIRS(yB), P = projecao(yR), yI = +tab('pf-anoirs', y0) || y0;
+  let X = null; try { X = calcIRS(yI); } catch (e) { X = null; }
+  const irsOk = X && !X.erro && isFinite(X.acerto);
+  const q = [
+    ['rec', 'wallet', `Líquido recebido ${yR}`, eur(sum(rs, 'liquido')), `${rs.length} ${rs.length === 1 ? 'recibo' : 'recibos'} de vencimento`],
+    ['catb', 'file', `Recibos verdes ${yB}`, eur(B.bruto), `${B.n} ${B.n === 1 ? 'fatura-recibo' : 'faturas-recibo'} (Cat. B)`],
+    ['proj', 'chart', `Projeção anual ${yR}`, eur(P.total - (refOn ? 0 : P.refeicaoTotal)), 'líquido previsto no ano'],
+    ['irs', 'shield', `IRS ${yI}`, irsOk ? eur(Math.abs(X.acerto)) : '—', irsOk ? (X.acerto >= 0 ? 'a receber (estimativa)' : 'a pagar (estimativa)') : 'simulação do IRS'],
+  ];
+  return { t, html: `<style>.pf-tile{cursor:pointer;transition:border-color .15s,transform .15s}.pf-tile:hover{border-color:var(--line2);transform:translateY(-1px)}.pf-tile.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}.pf-tile .foot{margin-top:4px}</style>
+    <div class="grid g4" style="margin-bottom:${t ? 18 : 8}px">${q.map(([k, ic, rot, val, foot]) => `<div class="card kpi pf-tile ${t === k ? 'on' : ''}" data-tab="pf-rend=${t === k ? '' : k}" role="button" tabindex="0" title="${t === k ? 'Fechar' : 'Abrir'}"><div class="lbl">${icon(ic)} ${rot}</div><div class="val num">${val}</div><div class="foot">${foot}</div></div>`).join('')}</div>
+    ${t ? '' : '<div class="faint" style="text-align:center;font-size:13px;margin-top:14px">Escolha uma área para ver o detalhe.</div>'}` };
+}
 function rendimentos(v) {
-  const T = tabs('pf-rend', 'rec', [['rec', 'Recibos de vencimento'], ['catb', 'Recibos verdes (Cat. B)'], ['proj', 'Projeção anual'], ['irs', 'IRS']]), m = M(), kn = app.kn, ed = podeEditar();
+  const T = menuRend(), m = M(), kn = app.kn, ed = podeEditar();
+  if (!T.t) { v.innerHTML = T.html; bindTabs(v); return; }
   if (T.t === 'catb') return rendCatB(v, T);
   if (T.t === 'irs') return rendIRS(v, T);
   const anoAtual = +today().slice(0, 4), futuros = [1, 2, 3, 4, 5].map(i => anoAtual + i);
