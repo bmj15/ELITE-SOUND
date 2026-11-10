@@ -972,8 +972,8 @@ function rendimentos(v) {
     const proximos = [anoAtual, ...futuros].map(y => ({ y, p: projecao(y), S: salarioAno(y) }));
     const smnCard = `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Próximos anos</h3><span class="sub">${smnOn ? `vencimento base ${eur(BB.valor)} (${esc(BB.origem)}) comparado com o salário mínimo de cada ano` : 'sem atualização do salário mínimo: os anos futuros repetem o atual'}</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ano</th><th class="r">Salário mínimo</th><th class="r">Vencimento usado</th><th></th><th class="r">Líquido/mês (sem subsídios)</th><th class="r">Projeção anual líquida</th></tr></thead><tbody>
       ${proximos.map(({ y, p, S }) => `<tr class="click" data-ano="${y}"${y === ano ? ' style="background:rgba(127,127,127,.10)"' : ''}><td><b>${y}</b></td><td class="r num">${eur(S.smn)}</td><td class="r num">${eur(y === anoAtual ? S.bruto : S.usado)}</td><td>${y === anoAtual ? '<span class="badge ok">recibos</span>' : !smnOn ? '<span class="badge">igual ao atual</span>' : S.minimo ? '<span class="badge warn">salário mínimo</span>' : '<span class="badge info">valor efetivo</span>'}</td><td class="r num">${eur(p.media)}</td><td class="r num"><b>${eur(p.total - (refOn ? 0 : p.refeicaoTotal))}</b></td></tr>`).join('')}</tbody></table></div></div>`;
-    v.innerHTML = `${T.html}${barraFita(anoSel, ed ? `<label class="check"><input type="checkbox" id="smn" ${smnOn ? 'checked' : ''}> Atualizar pelo salário mínimo</label>` : '')}
-      ${P.futuro ? `<div class="alert info" style="margin-bottom:16px">${icon('chart')}<div>Projeção de ${ano}: ${P.salario.minimo ? `o salário mínimo previsto (<b>${eur(P.salario.smn)}</b>) é superior ao seu vencimento ${+m.plano.aumentoSalarial ? `${m.plano.aumentoTipo === 'smn' ? 'atualizado como o mínimo' : 'com o aumento anual'} (${eur(P.salario.efetivo)})` : `base (${eur(P.salario.bruto)})`}, por isso usa-se o mínimo` : `usa-se o seu vencimento ${m.plano.aumentoTipo === 'smn' ? `atualizado na mesma % que o salário mínimo (<b>${eur(P.salario.efetivo)}</b>)` : +m.plano.aumentoSalarial ? `com o aumento anual de ${pct(+m.plano.aumentoSalarial)} (<b>${eur(P.salario.efetivo)}</b>)` : `base (<b>${eur(P.salario.bruto)}</b>)`}${smnOn ? `, superior ao salário mínimo previsto (${eur(P.salario.smn)})` : ' (atualização pelo salário mínimo desligada)'}`}: <b>${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)}</b> sobre o líquido atual sem refeição. Ajuste em <a href="#/simulador" data-aba="pf-sim=par">Parâmetros do plano</a>.</div></div>` : ''}
+    v.innerHTML = `${T.html}${barraFita(anoSel, ed ? `<style>${SW_CSS}</style><label class="pf-sw" style="justify-self:end"><input type="checkbox" id="smn" ${smnOn ? 'checked' : ''}><span>Atualizar pelo salário mínimo</span></label>` : '')}
+      ${P.futuro ? `<div class="alert info" style="margin-bottom:16px">${icon('chart')}<div>Projeção de ${ano}: ${P.salario.minimo ? `o salário mínimo previsto (<b>${eur(P.salario.smn)}</b>) é superior ao seu vencimento ${+m.plano.aumentoSalarial ? `${m.plano.aumentoTipo === 'smn' ? 'atualizado como o mínimo' : 'com o aumento anual'} (${eur(P.salario.efetivo)})` : `base (${eur(P.salario.bruto)})`}, por isso usa-se o mínimo` : `usa-se o seu vencimento ${m.plano.aumentoTipo === 'smn' ? `atualizado na mesma % que o salário mínimo (<b>${eur(P.salario.efetivo)}</b>)` : +m.plano.aumentoSalarial ? `com o aumento anual de ${pct(+m.plano.aumentoSalarial)} (<b>${eur(P.salario.efetivo)}</b>)` : `base (<b>${eur(P.salario.bruto)}</b>)`}${smnOn ? `, superior ao salário mínimo previsto (${eur(P.salario.smn)})` : ' (atualização pelo salário mínimo desligada)'}`}: <b>${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)}</b> sobre o líquido atual sem refeição. Ajuste em <a href="#/poupancas">Poupanças</a>.</div></div>` : ''}
       <div class="grid g4">${kpi(`${icon('chart')} ${kn('pf_proj', 'Projeção anual líquida')}`, eur(P.total - P.refeicaoTotal), P.refeicaoTotal ? `sem ${eur(P.refeicaoTotal)} de refeição reservados à alimentação` : 'inclui o subsídio de refeição', '', true)}
         ${P.futuro ? kpi('Vencimento base previsto', eur(P.salario.usado), `${P.salario.minimo ? 'salário mínimo' : 'o seu salário'} · ${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)} face a hoje`) : kpi('Recebido até agora (YTD)', eur(P.ytd), `${P.n} meses com recibo`)}${kpi('Média mensal (sem subsídios)', eur(P.media), `inclui ${eur(P.mediaRefAll)} de refeição`)}
         ${kpi(P.futuro ? 'Subsídios previstos' : 'Subsídios por receber', eur(P.subF + P.subN), `${P.temF ? 'férias recebido' : 'férias ' + eur(P.subF)} · ${P.temN ? 'Natal recebido' : 'Natal ' + eur(P.subN)}`)}</div>
@@ -1857,7 +1857,9 @@ const COLS_PLANO = () => [
   { k: 'horizonte', label: 'Horizonte da simulação (meses)', type: 'int', min: 12, max: 480 }];
 /* Parâmetros do plano: perguntas simples, escolhas por botões e barras, e o efeito de cada escolha mostrado logo.
    Nada fica gravado até carregar em Guardar. */
-const PAR_CSS = `<style>.pf-par{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:16px;align-items:start}
+const SW_CSS = `.pf-sw{display:inline-flex;gap:10px;align-items:center;cursor:pointer;font-size:13px;color:var(--muted)}.pf-sw input{appearance:none;width:36px;height:20px;border-radius:10px;background:var(--line2);position:relative;cursor:pointer;flex:none;transition:background .15s;margin:0}
+.pf-sw input::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--text);transition:left .15s}.pf-sw input:checked{background:var(--accent)}.pf-sw input:checked::after{left:19px;background:#fff}`;
+const PAR_CSS = `<style>${SW_CSS}.pf-par{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:16px;align-items:start}
 .pf-par .card{padding:0;overflow:hidden}.pf-par .card-h{padding:16px 20px 12px;margin:0}.pf-par .card-h h3{display:flex;gap:9px;align-items:center}.pf-par .card-h h3 svg{width:17px;height:17px;color:var(--muted)}
 .pf-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:24px;align-items:center;padding:14px 20px;border-top:1px solid var(--line)}
 .pf-row>div:first-child b{display:block;font-weight:600;font-size:13.5px}.pf-row>div:first-child span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
@@ -1865,11 +1867,10 @@ const PAR_CSS = `<style>.pf-par{display:grid;grid-template-columns:repeat(auto-f
 .pf-par .tabs{flex-wrap:wrap;width:max-content;max-width:100%}.pf-par .tabs button:disabled{cursor:default}
 .pf-rng{display:flex;gap:16px;align-items:center}.pf-rng input[type=range]{flex:1;accent-color:var(--accent);height:4px}.pf-rng output{min-width:130px;text-align:right;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .pf-eur{position:relative;display:inline-block}.pf-eur input{width:180px;padding-right:30px}.pf-eur::after{content:'€';position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px}
-.pf-sw{display:inline-flex;gap:10px;align-items:center;cursor:pointer;font-size:13px;color:var(--muted)}.pf-sw input{appearance:none;width:36px;height:20px;border-radius:10px;background:var(--line2);position:relative;cursor:pointer;flex:none;transition:background .15s;margin:0}
-.pf-sw input::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--text);transition:left .15s}.pf-sw input:checked{background:var(--accent)}.pf-sw input:checked::after{left:19px;background:#fff}
 .pf-par details>summary{cursor:pointer;padding:12px 20px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);list-style:none}.pf-par details>summary::before{content:'›';display:inline-block;margin-right:8px;transition:transform .15s}.pf-par details[open]>summary::before{transform:rotate(90deg)}
 .pf-bar{position:sticky;bottom:12px;z-index:5;display:none;margin-top:16px;padding:10px 12px 10px 18px;border:1px solid var(--line2);border-radius:12px;background:var(--panel2);box-shadow:0 10px 30px -10px rgba(0,0,0,.5);align-items:center;gap:10px;font-size:13px}.pf-bar.on{display:flex}</style>`;
-function parametrosPlano(v, T) {
+function parametrosPlano(v, T, modo = 'par') {
+  const POUP = modo === 'poup';
   const m = M(), pl = m.plano, ed = podeEditar(), w = JSON.parse(JSON.stringify(pl)), dis = ed ? '' : 'disabled';
   const est = salarioBase(), EMP = empregosComRefeicao(), desp = despesasMensais(), prest = prestacoesMensais(), saldoT = r2(tesouraria().reduce((t, c) => t + app.saldo(c.id), 0));
   // escolhas com o mesmo aspeto dos separadores do sistema
@@ -1881,33 +1882,35 @@ function parametrosPlano(v, T) {
   const sec = (ic, tit, corpo) => `<div class="card"><div class="card-h"><h3>${icon(ic)} ${tit}</h3></div>${corpo}</div>`;
   const pv = id => `<span id="pv-${id}"></span>`;
   v.innerHTML = `${T.html}${PAR_CSS}
-    <div class="grid g4" style="margin-bottom:16px">${kpi('Rendimento do plano', pv('sal'), `líquido recorrente${+pl.outrosRendimentos ? ' + outros rendimentos' : ''} de <a href="#/rendimentos" data-aba="pf-rend=rec">Rendimentos</a>`)}${kpi('Fundo de emergência', pv('emg'), pv('emg-s'))}${kpi('Poupança por mês', pv('poup'), pv('poup-s'))}${kpi('Amortização extra', pv('div'), 'por mês, além do que sobrar')}</div>
+    ${POUP ? `<p class="muted" style="margin:0 0 16px">O que separa todos os meses antes de pensar nos <a href="#/objetivos">objetivos</a>: a reserva para imprevistos, a poupança e o que vai a mais para as dívidas.</p>` : ''}
+    <div class="grid ${POUP ? 'g3' : 'g2'}" style="margin-bottom:16px">${POUP ? `${kpi('Fundo de emergência', pv('emg'), pv('emg-s'))}${kpi('Poupança por mês', pv('poup'), pv('poup-s'))}${kpi('Amortização extra', pv('div'), 'por mês, além do que sobrar')}`
+      : `${kpi('Rendimento do plano', pv('sal'), `líquido recorrente${+pl.outrosRendimentos ? ' + outros rendimentos' : ''} de <a href="#/rendimentos" data-aba="pf-rend=rec">Rendimentos</a>`)}${kpi('Aumento do ordenado', pv('aum'), pv('aum-s'))}`}</div>
     <div class="pf-par">
-    ${sec('wallet', 'Ordenado',
+    ${POUP ? '' : sec('wallet', 'Ordenado',
       row('Quando é pago', 'Ex.: o recibo de novembro entra a 1 de dezembro.', seg('pagoMesSeguinte', [['false', 'No próprio mês'], ['true', 'No mês seguinte']]))
       + row('Dia em que entra na conta', '', rng('diaSalario', 1, 28, 1))
       + (EMP.length ? `<div class="pf-row" style="padding-bottom:6px"><div><b>Entidades pagadoras</b><span>Todas as que aparecem nos recibos. O subsídio de refeição que não contar fica reservado à alimentação.</span></div><div></div></div>` : '')
       + EMP.map(e => row(esc(e.nome), `${e.n} ${e.n === 1 ? 'recibo' : 'recibos'} · último ${fmtMes(e.ult)}${e.media ? ` · refeição ≈ ${eur(e.media)}/mês` : ''}`, e.media ? sw('ref:' + e.k, 'Subsídio de refeição conta como rendimento') : '<span class="faint" style="font-size:13px">Sem subsídio de refeição nos recibos</span>')).join(''))}
-    ${sec('chart', 'Aumentos',
+    ${POUP ? '' : sec('chart', 'Aumentos',
       row('Como sobe o ordenado', 'Usado para projetar os próximos anos.', seg('aumentoTipo', [['smn', 'Como o salário mínimo'], ['fixo', 'Aumento fixo']]))
       + row('Aumento por ano', 'Mérito, categoria, contrato coletivo…', rng('aumentoSalarialPc', 0, 10, 0.5), 'aumentoTipo=fixo')
       + row('Salário mínimo', '', sw('atualizarSMN', 'Nunca abaixo do mínimo nos anos futuros'))
       + `<details><summary>Opções avançadas</summary>
         ${row('Vencimento base bruto', (b => b.valor ? `Estimado: ${eur(b.valor)} (${esc(b.origem)}).` : 'Para comparar com o salário mínimo.')(brutoBase()), eurIn('brutoBase', 'estimar'))}
         ${row('Subida do mínimo depois de ' + Math.max(...Object.keys(SMN_PADRAO).map(Number)), 'Por ano.', eurIn('smnAumento'))}
-        ${row('Corrigir o salário mínimo', `Tabela: ${Object.entries(SMN_PADRAO).map(([a, x]) => a + ' ' + x).join(' · ')} €`, `<input class="inp" data-k="smnTabela" placeholder="ex.: 2027: 980; 2030: 1150" ${dis}>`)}</details>`)}
-    ${sec('shield', 'Fundo de emergência',
+        ${row('Corrigir o salário mínimo', `Tabela: ${Object.entries(SMN_PADRAO).map(([a, x]) => a + ' ' + x).join(' · ')} €`, `<input class="inp" data-k="smnTabela" placeholder="ex.: 2027: 980; 2030: 1150" ${dis}>`)}
+        ${row('Simular até', 'Horizonte do simulador e do plano mês a mês.', seg('horizonte', [[60, '5 anos'], [120, '10 anos'], [240, '20 anos'], [360, '30 anos'], [480, '40 anos']]))}</details>`)}
+    ${!POUP ? '' : sec('shield', 'Fundo de emergência',
       row('Reserva', `Em meses das suas despesas fixas (${eur(desp)}/mês).`, rng('emergMeses', 0, 12, 1))
       + row('Prazo para lá chegar', '', rng('emergProgressivo', 0, 60, 3))
       + row('Já tem guardado', '', seg('fundoOrigem', [['tesouraria', `Saldo das contas · ${eur(saldoT)}`], ['manual', 'Outro valor']]))
       + row('Valor guardado', '', eurIn('fundoInicial'), 'fundoOrigem=manual'))}
-    ${sec('target', 'Poupança mensal',
+    ${!POUP ? '' : sec('target', 'Poupança mensal',
       row('Pôr de parte todos os meses', 'Sai primeiro, antes dos objetivos e da amortização extra.', seg('poupancaTipo', [['none', 'Não'], ['fixed', 'Valor fixo'], ['percentage', '% do que ganho'], ['percentage_surplus', '% do que sobra'], ['percentage_after_min_payments', '% após prestações']]))
       + row('Valor por mês', '', eurIn('poupancaFixa'), 'poupancaTipo=fixed')
       + row('Percentagem', '', rng('poupancaPc', 0, 50, 1), 'poupancaTipo=percentage,percentage_surplus,percentage_after_min_payments'))}
-    ${sec('credit', 'Dívidas',
-      row('Amortização extra por mês', 'Somada ao que sobrar em cada mês.', eurIn('extraFixo'))
-      + `<details><summary>Opções avançadas</summary>${row('Simular até', '', seg('horizonte', [[60, '5 anos'], [120, '10 anos'], [240, '20 anos'], [360, '30 anos'], [480, '40 anos']]))}</details>`)}
+    ${!POUP ? '' : sec('credit', 'Pagar as dívidas mais depressa',
+      row('Amortização extra por mês', 'Somada ao que sobrar em cada mês. A ordem de pagamento escolhe-se no <a href="#/simulador">Simulador de estratégias</a>.', eurIn('extraFixo')))}
     </div>
     ${ed ? `<div class="pf-bar" id="pbar"><span style="flex:1">Tem alterações por guardar</span><button class="btn ghost sm" id="pdesc">Descartar</button><button class="btn primary sm" id="pgrd">${icon('check')} Guardar</button></div>` : ''}`;
   bindTabs(v);
@@ -1919,8 +1922,9 @@ function parametrosPlano(v, T) {
     emergProgressivo: x => +x === 0 ? 'o mais depressa possível' : `${x} meses`, poupancaPc: x => x + '%' };
   const rendM = () => est + (+w.outrosRendimentos || 0);
   const preview = () => {
-    const pv = (id, val, sub) => { v.querySelector('#pv-' + id).textContent = val; if (sub != null) v.querySelector('#pv-' + id + '-s').textContent = sub; };
+    const pv = (id, val, sub) => { const a = v.querySelector('#pv-' + id), b = v.querySelector('#pv-' + id + '-s'); if (a) a.textContent = val; if (b && sub != null) b.textContent = sub; };
     pv('sal', eur(rendM()));
+    pv('aum', w.aumentoTipo === 'smn' ? 'como o mínimo' : '+' + String(w.aumentoSalarialPc).replace('.', ',') + '%', w.aumentoTipo === 'smn' ? 'sobe na mesma % que o salário mínimo' : 'por ano' + (w.atualizarSMN ? ', nunca abaixo do mínimo' : ''));
     const alvo = desp * (+w.emergMeses || 0), ja = w.fundoOrigem === 'manual' ? +w.fundoInicial || 0 : saldoT, falta = Math.max(0, alvo - ja);
     const porMes = falta <= 0 ? 0 : +w.emergProgressivo > 0 ? falta / +w.emergProgressivo : alvo / 12;
     pv('emg', eur(alvo), falta <= 0 ? (alvo ? 'completo' : +w.emergMeses ? 'ainda sem despesas fixas' : 'sem reserva') : `faltam ${eur(falta)} · ${eur(porMes)}/mês`);
@@ -1947,8 +1951,9 @@ function parametrosPlano(v, T) {
       atualizarSMN: !!w.atualizarSMN, brutoBase: r2(+w.brutoBase || 0), smnAumento: +w.smnAumento || 0, smnTabela: String(w.smnTabela || '').trim(),
       emergMeses: +w.emergMeses || 0, emergProgressivo: Math.max(0, +w.emergProgressivo || 0), fundoOrigem: w.fundoOrigem === 'manual' ? 'manual' : 'tesouraria', fundoInicial: r2(+w.fundoInicial || 0),
       poupancaTipo: w.poupancaTipo || 'none', poupancaFixa: r2(+w.poupancaFixa || 0), poupancaPct: (+w.poupancaPc || 0) / 100, extraFixo: r2(+w.extraFixo || 0), horizonte: Math.max(12, Math.min(480, +w.horizonte || 240)) });
-    audit('PF_PLANO', 'Parâmetros do plano financeiro alterados'); app.save(); ui.toast('Parâmetros guardados', 'ok'); app.refresh(); };
+    audit('PF_PLANO', POUP ? 'Poupanças (fundo de emergência, poupança mensal, amortização extra) alteradas' : 'Parâmetros do plano financeiro alterados'); app.save(); ui.toast(POUP ? 'Poupanças guardadas' : 'Parâmetros guardados', 'ok'); app.refresh(); };
 }
+const poupancas = v => parametrosPlano(v, { html: '' }, 'poup');
 function simulador(v) {
   const T = tabs('pf-sim', 'est', [['est', 'Comparar estratégias'], ['plano', 'Plano mês a mês'], ['par', 'Parâmetros do plano']]), m = M(), kn = app.kn;
   if (T.t === 'par') { parametrosPlano(v, T); return; }
@@ -1961,7 +1966,7 @@ function simulador(v) {
   if (T.t === 'est') {
     const n = Math.max(...ks.map(k => R[k].meses.length)), passo = Math.max(1, Math.ceil(n / 30)), idx = [...Array(n).keys()].filter(i => i % passo === 0 || i === n - 1);
     const lab = idx.map(i => { const t = R.baseline.meses[i] || R[ks.find(k => R[k].meses[i])].meses[i]; return `${MES3[t.m - 1]} ${String(t.y).slice(2)}`; });
-    v.innerHTML = `${T.html}<div class="alert info" style="margin-bottom:16px">${icon('target')}<div>Todos os meses: paga as prestações, separa a poupança, o que vai para os <a href="#/objetivos">objetivos</a> e o ${kn('pf_emerg', 'fundo de emergência')}, e usa o resto (${eur(Math.max(0, I.exc))}${+m.plano.extraFixo ? ` + ${eur(m.plano.extraFixo)} fixos` : ''}) para amortizar a dívida escolhida pela estratégia. Ajuste em <a href="#/simulador" data-aba="pf-sim=par">Parâmetros do plano</a>.</div></div>
+    v.innerHTML = `${T.html}<div class="alert info" style="margin-bottom:16px">${icon('target')}<div>Todos os meses: paga as prestações, separa a poupança, o que vai para os <a href="#/objetivos">objetivos</a> e o ${kn('pf_emerg', 'fundo de emergência')}, e usa o resto (${eur(Math.max(0, I.exc))}${+m.plano.extraFixo ? ` + ${eur(m.plano.extraFixo)} fixos` : ''}) para amortizar a dívida escolhida pela estratégia. Ajuste em <a href="#/poupancas">Poupanças</a>.</div></div>
       <div class="grid g4">${ks.map(k => { const r = R[k]; return `<div class="card kpi ${k === melhor ? 'hero' : ''}"><div class="lbl">${k === 'baseline' ? 'Só prestações' : kn('pf_' + k, nomeEstr(k))}${k === melhor ? ' · <b>melhor</b>' : ''}</div>
         <div class="val" style="font-size:20px">${r.livre ? fmtMes(r.livre) : 'além do horizonte'}</div><div class="foot">${r.livre ? r.meses.length + ' meses · ' : ''}juros ${eur(r.juros)}${k !== 'baseline' ? `<br>poupa <b class="pos">${eur(r.poupado)}</b> em juros · comissões ${eur(r.comissoes)}` : ''}</div></div>`; }).join('')}</div>
       <div class="card" style="margin-top:16px"><div class="card-h"><h3>Dívida total ao longo do tempo</h3></div><div id="ch"></div></div>
@@ -2288,7 +2293,7 @@ function objetivos(v) {
   const L = ligacaoCasa(), pend = L ? (CC().registo(L.casa).convites || []).filter(c => c.estado === 'pendente' && ehObj(c)) : [];
   const recebidos = convitesParaMim().filter(({ c }) => ehObj(c));
   const EXPLICA = 'Um objetivo é algo para que quer juntar dinheiro até uma data. O sistema faz a conta mês a mês: rendimento desse mês (com subsídios) − despesas fixas − prestações − poupança mensal do plano. O que sobra paga os objetivos pela ordem da fila. Um objetivo de pagamento de dívidas baixa a prestação depois de feito, e essa folga passa a contar para os seguintes. Um objetivo partilhado é feito a meias: cada um junta a sua parte.';
-  v.innerHTML = `<div class="row between" style="margin-bottom:16px;gap:12px;flex-wrap:wrap"><span class="muted">Pagos com o que sobra em cada mês, por ordem de prioridade ${dica(EXPLICA)}${poup12 > 0.005 ? `<br><span style="font-size:12px">A <a href="#/simulador" data-aba="pf-sim=par">poupança mensal do plano</a> (${eur(poup12)} em 12 meses) sai primeiro, como um objetivo fixo.</span>` : ''}</span>
+  v.innerHTML = `<div class="row between" style="margin-bottom:16px;gap:12px;flex-wrap:wrap"><span class="muted">Pagos com o que sobra em cada mês, por ordem de prioridade ${dica(EXPLICA)}${poup12 > 0.005 ? `<br><span style="font-size:12px">A <a href="#/poupancas">poupança mensal</a> (${eur(poup12)} em 12 meses) sai primeiro, como um objetivo fixo.</span>` : ''}</span>
       ${ed ? botaoMais([['Novo objetivo'], ['Objetivo partilhado'], ['Amortizar dívida']]) + escondidos(['no', 'nj', 'na']) : ''}</div>
     <div class="grid g4">${kpi(`${icon('target')} Livre em 12 meses ${dica('O que fica livre daqui a 12 meses, depois de pagar todos os objetivos planeados.')}`, eur(livre12), 'depois dos objetivos', livre12 < 0 ? 'neg' : 'pos', true)}
       ${kpi(`Falta juntar ${dica('Soma do que falta a cada objetivo (nos partilhados, só a sua parte).')}`, eur(sum(lista, 'falta')), `${lista.length} objetivo${lista.length === 1 ? '' : 's'}`)}
@@ -2406,6 +2411,7 @@ return {
     { id: 'despesas', label: 'Despesas fixas', title: 'Despesas fixas', icon: 'list', render: despesas },
     { id: 'dividas', label: 'Dívidas e créditos', title: 'Dívidas e créditos', icon: 'credit', render: dividas },
     { id: 'simulador', label: 'Simulador de estratégias', title: 'Simulador de estratégias', icon: 'target', render: simulador },
+    { id: 'poupancas', label: 'Poupanças', title: 'Poupanças', icon: 'shield', render: poupancas },
     { id: 'objetivos', label: 'Objetivos', title: 'Objetivos e compras', icon: 'pie', render: objetivos },
     { id: 'casa', label: 'Partilhas', title: 'Despesas partilhadas · conta corrente', icon: 'users', render: casaPessoal },
   ],
