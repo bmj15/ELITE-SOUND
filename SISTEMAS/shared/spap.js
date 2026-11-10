@@ -118,6 +118,7 @@ const ICONS = {
   sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
   moon: 'M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z',
   menu: 'M3 6h18M3 12h18M3 18h18',
+  user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   arrow: 'M5 12h14M13 5l7 7-7 7',
   alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
   layers: 'M12 2 2 7l10 5 10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
@@ -883,6 +884,7 @@ SPAP.createApp = function (cfg) {
           <div class="user-chip"><span class="avatar">${initials(app.user.nome)}</span><div class="who"><b>${esc(app.user.nome)}</b><span>${ROLES[app.user.role].label}</span></div></div>
           <div class="row" style="padding:4px 4px 0">
             <button class="btn ghost sm" id="b-theme" title="Tema">${icon(theme === 'light' ? 'moon' : 'sun')}</button>
+            ${cfg.perfil ? `<button class="btn ghost sm" id="b-perfil" title="O meu perfil">${icon('user')}</button>` : ''}
             <button class="btn ghost sm" id="b-sig" title="A minha assinatura eletrónica">${icon('pen')}</button>
             <button class="btn ghost sm" id="b-pin" title="Alterar PIN">${icon('key')}</button>
             <button class="btn ghost sm" id="b-lock" title="Bloquear">${icon('lock')}</button>
@@ -900,6 +902,7 @@ SPAP.createApp = function (cfg) {
     $('#b-theme').onclick = toggleTheme;
     $('#b-pin').onclick = () => changePin(false);
     $('#b-sig').onclick = () => perfilAssinatura();
+    if (cfg.perfil) { $('#b-perfil').onclick = () => cfg.perfil(app); const uc = root.querySelector('.user-chip'); if (uc) { uc.style.cursor = 'pointer'; uc.title = 'O meu perfil'; uc.onclick = () => cfg.perfil(app); } }
     $('#b-lock').onclick = () => logout('bloqueio manual');
     $('#b-out').onclick = () => logout();
     // ecrã estreito: o menu abre por cima e fecha ao tocar fora; ecrã largo: esconde/mostra a coluna (fica memorizado)
