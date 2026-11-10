@@ -816,12 +816,15 @@ function rendIRS(v, T) {
     audit('PF_IRS_CONFIG', 'Configuração de IRS atualizada'); app.save(); ui.toast('Configuração de IRS guardada', 'ok'); app.refresh(); };
   const rr = v.querySelector('#rirs'); if (rr) rr.onclick = () => { pl.irsRegras = ''; app.save(); app.refresh(); };
 }
-// menu de Rendimentos: um quadrado por área (só o nome); clicar abre essa área, clicar de novo fecha
+// menu de Rendimentos: só os quadrados; clicar abre essa área sozinha na página, com um botão Voltar para o menu
 function menuRend() {
   const t = tab('pf-rend', '');
-  const q = [['rec', 'wallet', 'Recibos de vencimento'], ['catb', 'file', 'Recibos verdes'], ['proj', 'chart', 'Projeção anual'], ['irs', 'shield', 'IRS']];
-  return { t, html: `<style>.pf-tile{cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:96px;text-align:center;font-weight:600;font-size:15px;transition:border-color .15s,transform .15s}.pf-tile svg{width:22px;height:22px;color:var(--muted)}.pf-tile:hover{border-color:var(--line2);transform:translateY(-1px)}.pf-tile.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}.pf-tile.on svg{color:var(--accent)}</style>
-    <div class="grid g4" style="margin-bottom:${t ? 18 : 8}px">${q.map(([k, ic, rot]) => `<div class="card pf-tile ${t === k ? 'on' : ''}" data-tab="pf-rend=${t === k ? '' : k}" role="button" tabindex="0" title="${t === k ? 'Fechar' : 'Abrir'}">${icon(ic)}<span>${rot}</span></div>`).join('')}</div>` };
+  const q = [['rec', 'wallet', 'Recibos de vencimento'], ['catb', 'file', 'Recibos verdes'], ['proj', 'chart', 'Projeção anual'], ['irs', 'shield', 'IRS']], sel = q.find(x => x[0] === t);
+  if (sel) return { t, html: `<div class="row" style="gap:14px;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line)">
+      <button class="btn sm" data-tab="pf-rend=" title="Voltar ao menu de Rendimentos">‹ Voltar</button>
+      <h2 style="margin:0;font-size:20px;display:flex;align-items:center;gap:10px"><span style="display:inline-flex;width:22px;height:22px;color:var(--accent)">${icon(sel[1]).replace('<svg ', '<svg width="22" height="22" ')}</span>${sel[2]}</h2></div>` };
+  return { t: '', html: `<style>.pf-tile{cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:140px;text-align:center;font-weight:600;font-size:16px;transition:border-color .15s,transform .15s}.pf-tile svg{width:28px;height:28px;color:var(--muted)}.pf-tile:hover{border-color:var(--accent);transform:translateY(-2px)}.pf-tile:hover svg{color:var(--accent)}</style>
+    <div class="grid g4">${q.map(([k, ic, rot]) => `<div class="card pf-tile" data-tab="pf-rend=${k}" role="button" tabindex="0">${icon(ic)}<span>${rot}</span></div>`).join('')}</div>` };
 }
 function rendimentos(v) {
   const T = menuRend(), m = M(), kn = app.kn, ed = podeEditar();
