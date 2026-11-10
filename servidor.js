@@ -1,10 +1,14 @@
 // servidor.js — servidor local do Grupo BXB (sem dependências: só Node.js)
 // Serve a pasta do repositório em http://localhost:8080 e guarda os dados dos sistemas
 // numa pasta deste computador (fora do repositório, que é público), com contas de acesso.
-// Só aceita ligações deste computador (127.0.0.1). Para aceder de outros aparelhos,
-// use o Tailscale: "tailscale serve --bg 8080" (HTTPS, só para a sua rede privada).
+// Em http://localhost:8080 só aceita ligações deste computador (127.0.0.1).
+// Rede de casa (opcional): se existir um certificado em DADOS-SERVIDOR\tls (cert.pem e key.pem),
+// abre também https://<IP deste computador>:8443 para o telemóvel e outros aparelhos.
+// Tem de ser HTTPS: fora do localhost o browser só permite as assinaturas eletrónicas em ligações seguras.
 'use strict';
 const http = require('http');
+const https = require('https');
+const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -22,6 +26,8 @@ const PASTA_COPIAS = path.join(DADOS, 'copias');
 const FICH_CONTAS = path.join(DADOS, 'contas.json');
 const LIMITE_CORPO = 25 * 1024 * 1024;
 const DURACAO_SESSAO = 12 * 3600 * 1000;
+const PASTA_TLS = path.join(DADOS, 'tls');
+const PORT_REDE = +process.env.PORT_REDE || 8443;
 
 const TIPOS = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -196,7 +202,7 @@ async function api(req, res, caminho) {
   return json(404, { erro: 'Não encontrado' });
 }
 
-const servidor = http.createServer((req, res) => {
+function atender(req, res) {
   const enviar = (codigo, corpo, tipo = 'text/plain; charset=utf-8') => {
     res.writeHead(codigo, { 'Content-Type': tipo, 'Cache-Control': 'no-cache', 'X-Servidor': ASSINATURA });
     res.end(corpo);
@@ -226,7 +232,22 @@ const servidor = http.createServer((req, res) => {
       res.end(req.method === 'HEAD' ? undefined : dados);
     });
   });
-});
+}
+const servidor = http.createServer(atender);
+
+// acesso na rede de casa: HTTPS com o certificado de DADOS-SERVIDOR\tls (se existir)
+function abrirRede() {
+  const cert = path.join(PASTA_TLS, 'cert.pem'), key = path.join(PASTA_TLS, 'key.pem');
+  if (!fs.existsSync(cert) || !fs.existsSync(key)) return;
+  const ips = Object.values(os.networkInterfaces()).flat().filter(x => x && x.family === 'IPv4' && !x.internal).map(x => x.address);
+  https.createServer({ cert: fs.readFileSync(cert), key: fs.readFileSync(key) }, atender)
+    .on('error', e => console.error(`  [rede] Nao foi possivel abrir a porta ${PORT_REDE}: ${e.message}`))
+    .listen(PORT_REDE, '0.0.0.0', () => {
+      console.log('  Rede de casa (telemovel, outros computadores):');
+      ips.forEach(ip => console.log(`    https://${ip}:${PORT_REDE}/SISTEMAS/index.html`));
+      console.log('');
+    });
+}
 
 servidor.on('error', erro => {
   if (erro.code !== 'EADDRINUSE') {
@@ -254,8 +275,8 @@ servidor.listen(PORT, HOST, () => {
   console.log('  Grupo BXB - servidor local a correr');
   console.log(`  Abra: ${URL_PORTAL}`);
   console.log(`  Dados guardados em: ${DADOS}`);
-  console.log('  Acesso de outros aparelhos: tailscale serve --bg ' + PORT);
   console.log('');
+  abrirRede();
   console.log('  Nao feche esta janela enquanto usa o sistema.');
   abrirBrowser(URL_PORTAL);
 });

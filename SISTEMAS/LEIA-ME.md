@@ -9,6 +9,8 @@ O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). 
 3. abre **http://localhost:8080** no Chrome.
 
 - O servidor só aceita ligações deste computador. Se o abrir outra vez com o servidor já ligado, apenas abre o browser.
+- **Rede de casa (telemóvel, outros computadores):** se existir um certificado em `DADOS-SERVIDOR	ls` (`cert.pem` e `key.pem`), o servidor abre também `https://<IP deste computador>:8443/SISTEMAS/index.html` (a janela do servidor mostra os endereços). Tem de ser HTTPS: fora do `localhost` o browser só permite as assinaturas eletrónicas em ligações seguras. O certificado é próprio (não de uma entidade certificadora): no primeiro acesso o browser avisa que a ligação não é privada; escolha avançar. Entra-se com o utilizador e a palavra-passe do servidor. Para criar o certificado (com o Git instalado):
+  `"C:\Program Files\Git\mingw64in\openssl.exe" req -x509 -newkey rsa:2048 -nodes -sha256 -days 825 -keyout key.pem -out cert.pem -subj "/CN=Grupo BXB" -addext "subjectAltName=IP:<IP deste computador>,DNS:localhost"` (dentro de `DADOS-SERVIDOR	ls`). A firewall do Windows tem de permitir a porta 8443 na rede privada.
 - Os dados **não** vão para o repositório: ficam no Chrome deste computador, associados ao endereço `localhost:8080`. Atualizar o código não apaga nem altera dados.
 - **Mudança do arranque antigo (uma única vez):** os dados de quando o sistema era aberto diretamente como ficheiro (`index.html`) não aparecem em `localhost:8080`. Abra a versão antiga (duplo clique em `SISTEMAS\index.html`), faça **Definições → Exportar cópia (.json)** na BXB Investimentos e na Elite Sound, e restaure cada cópia no sistema correspondente em http://localhost:8080.
 
