@@ -501,17 +501,21 @@ const rotMes = ref => x => { const n = MES3[+x.slice(5, 7) - 1], c = n[0] + n.sl
 /* ---------- Atalhos [+] do Painel ---------- */
 // [rótulo, rota, botão a acionar na página (ou função), separador]
 const ATALHOS = {
-  rend: [['Registar recibo', null, () => editarRecibo()], ['Ler recibos (PDF/foto)', null, () => escolherRecibos()]],
+  rend: [['Ler recibo', null, () => escolherRecibos(), null, 'upload', 'PDF ou fotografia do recibo de vencimento'], ['Adicionar manualmente', null, () => editarRecibo(), null, 'edit', 'Introduzir os valores do recibo']],
   desp: [['Nova despesa fixa', 'despesas', 'nd']],
-  div: [['Nova dívida ou crédito', 'dividas', 'nv'], ['Ler extrato de cartão (PDF)', null, () => escolherExtratos()]],
+  div: [['Ler extrato', null, () => escolherExtratos(), null, 'upload', 'PDF do extrato do cartão de crédito'], ['Adicionar manualmente', 'dividas', 'nv', null, 'edit', 'Novo crédito, empréstimo ou cartão']],
 };
 let atalhoPend = null;
 const correrAtalho = v => { const id = atalhoPend; atalhoPend = null; const b = id && v.querySelector('#' + id); if (b) setTimeout(() => b.click(), 0); };
 const usarAtalho = k => escolherAcao(ATALHOS[k] || []);
-function escolherAcao(ops) {
+function escolherAcao(ops, titulo = 'Adicionar') {
   const fazer = ([, rota, alvo, aba]) => { if (typeof alvo === 'function') return alvo(); if (aba) setTab(aba[0], aba[1]); atalhoPend = alvo; app.go(rota); };
   if (ops.length === 1) return fazer(ops[0]);
-  ui.modal({ title: 'Adicionar', body: '<div class="faint">Escolha o que quer adicionar.</div>', actions: [{ label: 'Cancelar', kind: 'ghost' }, ...ops.map((o, i) => ({ label: o[0], kind: i ? '' : 'primary', onClick: () => { setTimeout(() => fazer(o), 0); } }))] });
+  // opções em quadrados: clicar num faz logo a ação
+  ui.modal({ title: titulo, body: `<style>.pf-op{cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:150px;padding:18px;text-align:center;border:1px solid var(--line2);border-radius:14px;background:var(--panel2);transition:border-color .15s,transform .15s}.pf-op:hover{border-color:var(--accent);transform:translateY(-2px)}.pf-op svg{width:30px;height:30px;color:var(--accent)}.pf-op b{font-size:15px}.pf-op span{font-size:12px;color:var(--muted)}</style>
+      <div style="display:grid;grid-template-columns:repeat(${Math.min(3, ops.length)},minmax(0,1fr));gap:12px">${ops.map((o, i) => `<div class="pf-op" data-op="${i}" role="button" tabindex="0">${icon(o[4] || 'plus')}<b>${esc(o[0])}</b>${o[5] ? `<span>${esc(o[5])}</span>` : ''}</div>`).join('')}</div>`,
+    onOpen: (el, fechar) => el.querySelectorAll('[data-op]').forEach(t => { const go = () => { const o = ops[+t.dataset.op]; fechar(); fazer(o); }; t.onclick = go; t.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }; }),
+    actions: [{ label: 'Cancelar', kind: 'ghost' }] });
 }
 
 /* ---------- Painel ---------- */
@@ -751,7 +755,7 @@ function rendCatB(v, T) {
   const m = M(), ed = podeEditar(), y0 = +today().slice(0, 4), anos = [...new Set([y0, ...m.recibosB.map(x => +String(x.data).slice(0, 4))])].sort((a, b) => b - a);
   let ano = +tab('pf-anob', y0); if (!(ano >= 2000 && ano <= y0 + 10)) ano = y0;
   const rs = m.recibosB.filter(x => +String(x.data).slice(0, 4) === ano).sort((a, b) => String(b.data).localeCompare(String(a.data))), B = catBIRS(ano), lim = 15000;
-  v.innerHTML = `${T.html}${barraFita(fita('pfb', anos, ano, { atual: y0, unidade: 'ano', sm: true }), ed ? botaoMais([['Novo recibo verde'], ['Importar do Portal (CSV)']]) : '')}
+  v.innerHTML = `${T.html}${barraFita(fita('pfb', anos, ano, { atual: y0, unidade: 'ano', sm: true }), ed ? botaoMais([['Importar do Portal'], ['Adicionar manualmente']]) : '')}
     <div class="grid g4">${kpi(`${icon('wallet')} Recebido em ${ano} (Cat. B)`, eur(B.bruto), `${B.n} faturas-recibo / recibos`, '', true)}${kpi('IRS retido', eur(B.irs))}${kpi('IVA liquidado', eur(B.iva))}
       ${kpi('Limite de isenção de IVA (art. 53.º)', pct(B.bruto / lim), `${eur(B.bruto)} de ${eur(lim)}`, B.bruto >= lim ? 'neg' : B.bruto >= lim * 0.8 ? 'neg' : '')}</div>
     <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Recibos verdes ${ano}</h3><span class="sub">FR e RG contam como rendimento; uma FT sozinha é só informativa · clique para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Documento</th><th>Cliente</th><th class="r">Valor</th><th class="r">IVA</th><th class="r">Retenção IRS</th><th class="r">Total</th><th></th></tr></thead><tbody>
@@ -766,7 +770,7 @@ function rendCatB(v, T) {
         { label: 'Cancelar', kind: 'ghost' }, { label: 'Guardar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!f.data || !(+f.bruto > 0)) { ui.toast('Indique a data e o valor', 'warn'); return false; }
           const y = x0 || { id: 'B' + uid(), criadoEm: new Date().toISOString() }; Object.assign(y, { data: f.data, tipo: f.tipo, numero: f.numero.trim(), cliente: f.cliente.trim(), nif: f.nif.trim(), bruto: r2(+f.bruto), iva: r2(+f.iva || 0), irs: r2(+f.irs || 0) });
           if (!x0) m.recibosB.push(y); audit('PF_CATB', `${y.tipo} ${y.numero} · ${y.data} · ${eur(y.bruto)}`); app.save(); app.refresh(); } }] }); };
-  v.querySelectorAll('[data-mais]').forEach(b => b.onclick = () => escolherAcao([['Novo recibo verde', null, () => editarB()], ['Importar do Portal (CSV) · Portal das Finanças › Faturas e Recibos › Consultar › Exportar', null, importarSIRE]]));
+  v.querySelectorAll('[data-mais]').forEach(b => b.onclick = () => escolherAcao([['Importar do Portal', null, importarSIRE, null, 'upload', 'CSV do Portal das Finanças (Faturas e Recibos › Consultar › Exportar)'], ['Adicionar manualmente', null, () => editarB(), null, 'edit', 'Introduzir uma fatura-recibo']]));
   v.querySelectorAll('[data-b]').forEach(tr => tr.onclick = () => { if (ed) editarB(m.recibosB.find(x => x.id === tr.dataset.b)); });
 }
 function rendIRS(v, T) {
