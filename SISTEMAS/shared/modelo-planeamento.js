@@ -426,6 +426,18 @@ async function registarEntradas(rs) {
   } catch (e) { ui.toast(esc(e.message), 'bad'); }
 }
 const registarEntrada = r => registarEntradas([r]);
+// plano pessoal: o recibo só fica gravado com a entrada do líquido contabilizada na tesouraria (uma assinatura)
+const contabAuto = () => !!(app.registarPagamentos && app.registarEntradas && app.podeRegistarEntrada());
+async function gravarComEntrada(rs, aposGravar) {
+  rs = rs.filter(r => (+r.liquido || 0) > 0);
+  try {
+    const feitos = await app.registarEntradas(rs.map(entradaRecibo), rs.length === 1 ? 'Gravar recibo' : `Gravar ${rs.length} recibos`,
+      `${rs.map(r => `${MESES[+r.mes - 1]} ${r.ano} · <b>${eur(r.liquido)}</b>`).join('<br>')}<br><span style="font-size:12px">O líquido entra na tesouraria e fica contabilizado com esta assinatura.</span>`);
+    if (!feitos) { ui.toast('Recibo não gravado: a entrada na tesouraria precisa da sua assinatura.', 'warn'); return false; }
+    rs.forEach(r => M().recibos.push(r)); if (aposGravar) aposGravar(rs);
+    app.save(); ui.toast(rs.length === 1 ? 'Recibo gravado e contabilizado' : `${rs.length} recibos gravados e contabilizados`, 'ok'); app.refresh(); return true;
+  } catch (e) { ui.toast(esc(e.message), 'bad'); return false; }
+}
 const estadoPed = key => { const ps = vivos(key); return ps.length ? `${linkPeds(ps)} ${SPAP.ui.estadoBadge(ps[0].estado)}` : ''; };
 
 /* ---------- Formulários ---------- */
@@ -476,6 +488,8 @@ function fita(id, itens, sel, { rot = String, rotSel, atual, nome = rot, unidade
     <button class="pf-mes" data-fv="${i < itens.length - 1 ? itens[i + 1] : ''}" ${i < itens.length - 1 ? '' : 'disabled'} title="${seg}" aria-label="${seg}">›</button>
     ${atual != null && itens.includes(atual) && !vis.includes(atual) ? `<button class="pf-chip vh" data-fv="${atual}" title="Voltar a ${esc(nome(atual))}">${ano ? 'Este ano' : 'Hoje'}</button>` : ''}</div>`;
 }
+// barra com a fita ao centro e as ações à direita (em ecrã estreito fica tudo empilhado e centrado)
+const barraFita = (htmlFita, direita = '', esquerda = '') => `<div class="pf-barra">${FITA_CSS.replace('<style>', '<style>.pf-barra{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;margin-bottom:16px}.pf-barra>.pf-dir{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}@media (max-width:1250px){.pf-barra{grid-template-columns:1fr}.pf-barra>*{justify-self:center}.pf-barra>.pf-dir{justify-content:center}}')}<div>${esquerda}</div>${htmlFita}<div class="pf-dir">${direita}</div></div>`;
 const ligarFita = (v, id, fn) => v.querySelectorAll(`[data-fita="${id}"] [data-fv]`).forEach(b => { if (b.dataset.fv && !b.disabled && !b.classList.contains('on')) b.onclick = () => fn(b.dataset.fv); });
 // rótulo curto de um mês (com o ano só quando é diferente do de referência)
 const rotMes = ref => x => { const n = MES3[+x.slice(5, 7) - 1], c = n[0] + n.slice(1).toLowerCase(); return x.slice(0, 4) !== String(ref).slice(0, 4) ? `${c} ${x.slice(2, 4)}` : c; };
@@ -543,9 +557,11 @@ const COLS_REC = () => [
 function editarRecibo(x) {
   const novo = !x, m = M(), ult = m.recibos.slice().sort((a, b) => b.ano - a.ano || b.mes - a.mes)[0];
   const r = x || (() => { const hoje = today(); return { ano: +hoje.slice(0, 4), mes: +hoje.slice(5, 7), entidade: ult ? ult.entidade : '', nifEntidade: ult ? ult.nifEntidade : '', refeicao: ult ? ult.refeicao : 0 }; })();
-  editar({ titulo: 'Recibo de vencimento', sub: 'Introduza os valores do recibo. A entrada do dinheiro na tesouraria é feita por pedido SPAP.', cols: COLS_REC(), x: r, novo,
+  editar({ titulo: 'Recibo de vencimento', sub: contabAuto() ? 'Introduza os valores do recibo. Ao gravar, o líquido entra na tesouraria com a sua assinatura.' : 'Introduza os valores do recibo. A entrada do dinheiro na tesouraria é feita por pedido SPAP.', cols: COLS_REC(), x: r, novo,
     validar: f => !(f.liquido > 0) ? 'Indique o líquido recebido' : !(f.ano >= 2000) ? 'Ano inválido' : null,
-    onSave: f => { f.mes = +f.mes; Object.assign(r, f); if (novo) { r.id = 'R' + uid(); r.criadoEm = new Date().toISOString(); m.recibos.push(r); }
+    onSave: f => { f.mes = +f.mes; Object.assign(r, f);
+      if (novo && contabAuto()) { r.id = 'R' + uid(); r.criadoEm = new Date().toISOString(); setTimeout(() => gravarComEntrada([r], () => audit('PF_RECIBO', `${MESES[r.mes - 1]} ${r.ano} · líquido ${eur(r.liquido)}`)), 0); return; }
+      if (novo) { r.id = 'R' + uid(); r.criadoEm = new Date().toISOString(); m.recibos.push(r); }
       audit('PF_RECIBO', `${MESES[r.mes - 1]} ${r.ano} · líquido ${eur(r.liquido)}`); },
     onDelete: novo ? null : y => { m.recibos = m.recibos.filter(z => z !== y); audit('PF_RECIBO_REMOVIDO', `${MESES[y.mes - 1]} ${y.ano}`); } });
 }
@@ -609,7 +625,9 @@ function reverRecibos(lidos) {
         novos.push(r);
       }
       if (!novos.length) { ui.toast('Nenhum recibo marcado para gravar', 'warn'); return false; }
-      novos.forEach(r => { m.recibos.push(r); audit('PF_RECIBO', `${MESES[r.mes - 1]} ${r.ano} · líquido ${eur(r.liquido)} · lido de ${r.ficheiro} (${r.lidoPor})`); });
+      const auditar = rs => rs.forEach(r => audit('PF_RECIBO', `${MESES[r.mes - 1]} ${r.ano} · líquido ${eur(r.liquido)} · lido de ${r.ficheiro} (${r.lidoPor})`));
+      if (contabAuto()) { setTab('pf-ano', String(novos[novos.length - 1].ano)); setTimeout(() => gravarComEntrada(novos, auditar), 0); return; }
+      novos.forEach(r => m.recibos.push(r)); auditar(novos);
       app.save(); ui.toast(`${novos.length} ${novos.length === 1 ? 'recibo gravado' : 'recibos gravados'}`, 'ok');
       setTab('pf-ano', String(novos[novos.length - 1].ano)); app.refresh();
       // logo a seguir, uma só assinatura regista a entrada dos vencimentos na tesouraria (pode cancelar e fazê-lo depois)
@@ -728,7 +746,7 @@ function rendCatB(v, T) {
   const m = M(), ed = podeEditar(), y0 = +today().slice(0, 4), anos = [...new Set([y0, ...m.recibosB.map(x => +String(x.data).slice(0, 4))])].sort((a, b) => b - a);
   let ano = +tab('pf-anob', y0); if (!anos.includes(ano)) ano = y0;
   const rs = m.recibosB.filter(x => +String(x.data).slice(0, 4) === ano).sort((a, b) => String(b.data).localeCompare(String(a.data))), B = catBIRS(ano), lim = 15000;
-  v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px">${fita('pfb', anos.slice().sort((a, b) => a - b), ano, { atual: y0, unidade: 'ano', sm: true })}${ed ? `<div class="row"><button class="btn" id="ib" data-tip="Portal das Finanças › Faturas e Recibos › Consultar › Exportar (CSV)">${icon('upload')} Importar do Portal (CSV)</button><button class="btn primary" id="nb">${icon('plus')} Novo recibo verde</button></div>` : ''}</div>
+  v.innerHTML = `${T.html}${barraFita(fita('pfb', anos.slice().sort((a, b) => a - b), ano, { atual: y0, unidade: 'ano', sm: true }), ed ? `<button class="btn" id="ib" data-tip="Portal das Finanças › Faturas e Recibos › Consultar › Exportar (CSV)">${icon('upload')} Importar do Portal (CSV)</button><button class="btn primary" id="nb">${icon('plus')} Novo recibo verde</button>` : '')}
     <div class="grid g4">${kpi(`${icon('wallet')} Recebido em ${ano} (Cat. B)`, eur(B.bruto), `${B.n} faturas-recibo / recibos`, '', true)}${kpi('IRS retido', eur(B.irs))}${kpi('IVA liquidado', eur(B.iva))}
       ${kpi('Limite de isenção de IVA (art. 53.º)', pct(B.bruto / lim), `${eur(B.bruto)} de ${eur(lim)}`, B.bruto >= lim ? 'neg' : B.bruto >= lim * 0.8 ? 'neg' : '')}</div>
     <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Recibos verdes ${ano}</h3><span class="sub">FR e RG contam como rendimento; uma FT sozinha é só informativa · clique para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Documento</th><th>Cliente</th><th class="r">Valor</th><th class="r">IVA</th><th class="r">Retenção IRS</th><th class="r">Total</th><th></th></tr></thead><tbody>
@@ -753,7 +771,7 @@ function rendIRS(v, T) {
   let ano = +tab('pf-anoirs', y0); if (!anos.includes(ano)) ano = y0;
   const X = calcIRS(ano), linha = (rot, val, nota = '', forte = false) => `<tr><td>${forte ? `<b>${rot}</b>` : rot}${nota ? `<div class="faint" style="font-size:11px">${nota}</div>` : ''}</td><td class="r num">${forte ? `<b>${val}</b>` : val}</td></tr>`;
   const dErr = despesasIRS().erros;
-  v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px"><div class="row" style="gap:10px"><span class="muted">Ano fiscal</span>${fita('pfi', anos.slice().sort((a, b) => a - b), ano, { atual: y0, unidade: 'ano', sm: true })}</div><span class="faint" style="font-size:12px">Liquidação estimada · a declaração entrega-se no ano seguinte</span></div>
+  v.innerHTML = `${T.html}${barraFita(fita('pfi', anos.slice().sort((a, b) => a - b), ano, { atual: y0, unidade: 'ano', sm: true }), '<span class="faint" style="font-size:12px;text-align:right">Liquidação estimada · a declaração entrega-se no ano seguinte</span>', '<span class="muted">Ano fiscal</span>')}
     ${[...erros, ...dErr].length ? `<div class="alert bad" style="margin-bottom:12px">${icon('alert')}<div>Erros na configuração: ${[...erros, ...dErr].map(esc).join(' · ')}</div></div>` : ''}
     ${X.erro ? `<div class="empty">${esc(X.erro)}</div>` : `
     ${X.avisos.length ? `<div class="alert warn" style="margin-bottom:12px">${icon('info')}<div>${X.avisos.map(esc).join('<br>')}</div></div>` : ''}
@@ -813,14 +831,14 @@ function rendimentos(v) {
     v.innerHTML = `${T.html}${EMP ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div style="flex:1"><b>Mudança de emprego detetada.</b> Desde ${fmtMes(EMP.desde)} há ${EMP.n} recibos de <b>${esc(EMP.ent)}</b>${EMP.entAnt ? ` (antes: ${esc(EMP.entAnt)})` : ', diferente dos anteriores'}.
         As previsões usam ${eur(salarioBase())} de líquido recorrente; com o novo emprego são <b>${eur(EMP.liquido)}</b>${EMP.bruto ? ` (vencimento sujeito a SS ≈ ${eur(EMP.bruto)})` : ''}.${EMP.parcial ? ` O recibo de ${MESES[EMP.parcial.mes - 1]} ${EMP.parcial.ano} (${eur(EMP.parcial.liquido)}) é de um mês incompleto e deixa de contar para as médias.` : ''}
         ${dica('Atualizar grava o novo líquido recorrente e o vencimento nos Parâmetros do plano e passa a usar só os recibos do novo emprego para as médias. Os valores recebidos continuam todos registados.')}</div>
-        ${ed ? `<button class="btn sm primary" id="emp">${icon('check')} Atualizar previsões</button><button class="btn sm ghost" id="empx">Dispensar</button>` : ''}</div>` : ''}<div class="row between" style="margin-bottom:16px">${anoSel}${ed ? `<div class="row"><button class="btn" id="lr">${icon('upload')} Ler recibos (PDF/foto)</button><button class="btn primary" id="nr">${icon('plus')} Registar recibo</button></div>` : ''}</div>
+        ${ed ? `<button class="btn sm primary" id="emp">${icon('check')} Atualizar previsões</button><button class="btn sm ghost" id="empx">Dispensar</button>` : ''}</div>` : ''}${barraFita(anoSel, ed ? `<button class="btn" id="lr">${icon('upload')} Ler recibos (PDF/foto)</button><button class="btn primary" id="nr">${icon('plus')} Registar recibo</button>` : '')}
       <div class="grid g4">${kpi(`${icon('wallet')} Líquido recebido ${ano}`, eur(sum(rs, 'liquido')), `${rs.length} ${rs.length === 1 ? 'recibo' : 'recibos'}`, '', true)}${kpi('Bruto ' + ano, eur(sum(rs, 'bruto')))}${kpi('IRS retido', eur(sum(rs, 'irs')), `SS ${eur(sum(rs, 'ss'))}`)}
         ${kpi(kn('pf_liqrec', 'Líquido recorrente'), eur(salarioBase()), +m.plano.salarioBase ? 'definido nos parâmetros' : est.n ? esc(est.metodo) : 'sem recibos')}</div>
       <div class="card" style="margin-top:16px"><div class="card-h"><h3>${kn('pf_proj', 'Rendimento líquido')} ${ano}</h3><span class="sub">real ${eur(PR.ytd)} · projetado ${eur(PR.total)} · <a href="#/rendimentos" data-aba="pf-rend=proj">ver projeção</a></span></div><div id="chr"></div></div>
       <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Recibos ${ano}</h3><span class="sub">clique numa linha para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Mês</th><th>Entidade</th><th class="r">Bruto</th><th class="r">IRS</th><th class="r">SS</th><th class="r">Refeição</th><th class="r">Líquido</th><th>Subsídios</th><th>Entrada na tesouraria</th></tr></thead><tbody>
       ${rs.map(r => { const ps = estadoPed(chaveRec(r)); return `<tr class="${ed ? 'click' : ''}" data-r="${r.id}"><td><b>${MESES[r.mes - 1]}</b></td><td>${esc(r.entidade || '—')}</td><td class="r num">${eur(r.bruto)}</td><td class="r num">${eur(r.irs)}</td><td class="r num">${eur(r.ss)}</td><td class="r num">${eur(r.refeicao)}</td><td class="r num"><b>${eur(r.liquido)}</b></td>
         <td>${r.subFerias ? '<span class="badge info">Férias</span> ' : ''}${r.subNatal ? '<span class="badge info">Natal</span>' : ''}${r.parcial ? '<span class="badge plain" data-tip="Mês incompleto: não conta para as médias">mês incompleto</span>' : ''}</td>
-        <td>${ps || (app.can('criar') ? `<button class="btn sm" data-e="${r.id}">${icon('download')} Registar entrada</button>` : '<span class="faint">—</span>')}</td></tr>`; }).join('') || '<tr><td colspan="9" class="empty">Sem recibos neste ano.</td></tr>'}</tbody></table></div></div>`;
+        <td>${ps || (app.can('criar') && !contabAuto() ? `<button class="btn sm" data-e="${r.id}">${icon('download')} Registar entrada</button>` : '<span class="faint" data-tip="Recibo anterior ao registo automático: sem entrada na tesouraria">—</span>')}</td></tr>`; }).join('') || '<tr><td colspan="9" class="empty">Sem recibos neste ano.</td></tr>'}</tbody></table></div></div>`;
     v.querySelectorAll('[data-r]').forEach(tr => tr.onclick = e => { if (e.target.closest('button,a') || !ed) return; editarRecibo(m.recibos.find(r => r.id === tr.dataset.r)); });
     v.querySelectorAll('[data-e]').forEach(b => b.onclick = () => registarEntrada(m.recibos.find(r => r.id === b.dataset.e)));
     chart.bars(v.querySelector('#chr'), { labels: MES3, stacked: true, height: 190, series: [
@@ -839,7 +857,7 @@ function rendimentos(v) {
     const proximos = [anoAtual, ...futuros].map(y => ({ y, p: projecao(y), S: salarioAno(y) }));
     const smnCard = `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Próximos anos</h3><span class="sub">${smnOn ? `vencimento base ${eur(BB.valor)} (${esc(BB.origem)}) comparado com o salário mínimo de cada ano` : 'sem atualização do salário mínimo: os anos futuros repetem o atual'}</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ano</th><th class="r">Salário mínimo</th><th class="r">Vencimento usado</th><th></th><th class="r">Líquido/mês (sem subsídios)</th><th class="r">Projeção anual líquida</th></tr></thead><tbody>
       ${proximos.map(({ y, p, S }) => `<tr class="click" data-ano="${y}"${y === ano ? ' style="background:rgba(127,127,127,.10)"' : ''}><td><b>${y}</b></td><td class="r num">${eur(S.smn)}</td><td class="r num">${eur(y === anoAtual ? S.bruto : S.usado)}</td><td>${y === anoAtual ? '<span class="badge ok">recibos</span>' : !smnOn ? '<span class="badge">igual ao atual</span>' : S.minimo ? '<span class="badge warn">salário mínimo</span>' : '<span class="badge info">valor efetivo</span>'}</td><td class="r num">${eur(p.media)}</td><td class="r num"><b>${eur(p.total - (refOn ? 0 : p.refeicaoTotal))}</b></td></tr>`).join('')}</tbody></table></div></div>`;
-    v.innerHTML = `${T.html}<div class="row between" style="margin-bottom:16px">${anoSel}${ed ? `<label class="check"><input type="checkbox" id="smn" ${smnOn ? 'checked' : ''}> Atualizar pelo salário mínimo</label>` : ''}</div>
+    v.innerHTML = `${T.html}${barraFita(anoSel, ed ? `<label class="check"><input type="checkbox" id="smn" ${smnOn ? 'checked' : ''}> Atualizar pelo salário mínimo</label>` : '')}
       ${P.futuro ? `<div class="alert info" style="margin-bottom:16px">${icon('chart')}<div>Projeção de ${ano}: ${P.salario.minimo ? `o salário mínimo previsto (<b>${eur(P.salario.smn)}</b>) é superior ao seu vencimento ${+m.plano.aumentoSalarial ? `${m.plano.aumentoTipo === 'smn' ? 'atualizado como o mínimo' : 'com o aumento anual'} (${eur(P.salario.efetivo)})` : `base (${eur(P.salario.bruto)})`}, por isso usa-se o mínimo` : `usa-se o seu vencimento ${m.plano.aumentoTipo === 'smn' ? `atualizado na mesma % que o salário mínimo (<b>${eur(P.salario.efetivo)}</b>)` : +m.plano.aumentoSalarial ? `com o aumento anual de ${pct(+m.plano.aumentoSalarial)} (<b>${eur(P.salario.efetivo)}</b>)` : `base (<b>${eur(P.salario.bruto)}</b>)`}${smnOn ? `, superior ao salário mínimo previsto (${eur(P.salario.smn)})` : ' (atualização pelo salário mínimo desligada)'}`}: <b>${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)}</b> sobre o líquido atual sem refeição. Ajuste em <a href="#/simulador" data-aba="pf-sim=par">Parâmetros do plano</a>.</div></div>` : ''}
       <div class="grid g4">${kpi(`${icon('chart')} ${kn('pf_proj', 'Projeção anual líquida')}`, eur(P.total - (refOn ? 0 : P.refeicaoTotal)), refOn ? `inclui ${eur(P.refeicaoTotal)} de refeição` : `sem os ${eur(P.refeicaoTotal)} de refeição`, '', true)}
         ${P.futuro ? kpi('Vencimento base previsto', eur(P.salario.usado), `${P.salario.minimo ? 'salário mínimo' : 'o seu salário'} · ${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)} face a hoje`) : kpi('Recebido até agora (YTD)', eur(P.ytd), `${P.n} meses com recibo`)}${kpi('Média mensal (sem subsídios)', eur(P.media), `inclui ${eur(P.mediaRef)} de refeição`)}
