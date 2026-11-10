@@ -477,7 +477,7 @@ function usarAtalho(k) {
 /* ---------- Painel ---------- */
 function visao(v) {
   // mês do Painel: despesas próprias em vigor e parte na casa desse mês (valores reais, médias ou plano do cartão)
-  const hojeYm = ymHoje(), mesesSel = Array.from({ length: 12 }, (_, i) => SPAP.addMonths(hojeYm + '-01', i).slice(0, 7));
+  const hojeYm = ymHoje(), mesesSel = Array.from({ length: 24 }, (_, i) => SPAP.addMonths(hojeYm + '-01', i - 12).slice(0, 7));
   let ym = tab('pf-painel-mes', hojeYm); if (!mesesSel.includes(ym)) ym = hojeYm;
   const nomeYm = x => `${MESES[+x.slice(5, 7) - 1]} ${x.slice(0, 4)}`;
   const I = indicadores(ym, true), ano = +today().slice(0, 4), P = projecao(ano), kn = app.kn;
@@ -488,7 +488,8 @@ function visao(v) {
   Object.entries((casaParte(ym) || {}).cats || {}).forEach(([c, val]) => divCat[c] = r2((divCat[c] || 0) + val));
   if (I.prest > 0) divCat['Prestações de dívidas'] = r2((divCat['Prestações de dívidas'] || 0) + I.prest);
   const divItens = Object.entries(divCat).filter(([, val]) => val > 0.005).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value })), divTot = r2(divItens.reduce((t, x) => t + x.value, 0));
-  v.innerHTML = `<div class="row" style="justify-content:flex-end;gap:8px;margin-bottom:10px"><span class="muted">Mês</span><select class="inp inp-sm" id="pfm">${mesesSel.map(x => `<option value="${x}" ${x === ym ? 'selected' : ''}>${nomeYm(x)}${x === hojeYm ? ' (atual)' : ''}</option>`).join('')}</select>${podeEditar() ? `<button class="btn sm" id="imp">${icon('download')} Importar do Planeador</button>` : ''}</div>${I.alertas.map(([k, t]) => `<div class="alert ${k}" style="margin-bottom:10px">${icon('alert')}<div>${t}</div></div>`).join('')}
+  v.innerHTML = `<div class="row" style="justify-content:flex-end;gap:8px;margin-bottom:10px">${(() => { const i = mesesSel.indexOf(ym), seta = (id, txt, on, tip) => `<button class="btn sm" id="${id}" ${on ? '' : 'disabled'} title="${tip}" style="width:30px;height:30px;padding:0;justify-content:center;font-size:18px;line-height:1">${txt}</button>`;
+      return `<div class="row" style="gap:6px;align-items:center">${ym !== hojeYm ? `<button class="btn sm ghost" id="pfm-h">Mês atual</button>` : ''}${seta('pfm-p', '‹', i > 0, 'Mês anterior')}<b style="min-width:150px;text-align:center;font-size:15px">${nomeYm(ym)}${ym === hojeYm ? ' <span class="faint" style="font-weight:400;font-size:12px">(atual)</span>' : ''}</b>${seta('pfm-n', '›', i < mesesSel.length - 1, 'Mês seguinte')}</div>`; })()}${podeEditar() ? `<button class="btn sm" id="imp">${icon('download')} Importar do Planeador</button>` : ''}</div>${I.alertas.map(([k, t]) => `<div class="alert ${k}" style="margin-bottom:10px">${icon('alert')}<div>${t}</div></div>`).join('')}
     <style>.pf-kpis .kpi .foot{max-height:0;opacity:0;overflow:hidden;margin-top:0;transition:max-height .2s,opacity .2s,margin-top .2s}.pf-kpis .kpi:hover .foot,.pf-kpis .kpi:focus-within .foot{max-height:160px;opacity:1;margin-top:8px}</style>
     <div class="grid g4 pf-kpis" style="margin-top:${I.alertas.length ? 6 : 0}px">
       ${kpi(`${icon('wallet')} ${kn('pf_rend', 'Rendimento líquido do mês')}`, eur(I.rend), `${linhaYm.real != null ? 'Recibo' : 'Previsto'} de ${MES3[rmY - 1].toLowerCase()}.${ymRec !== ym ? ` · pago em ${MES3[+ym.slice(5, 7) - 1].toLowerCase()}.` : ''}${linhaYm.subValor > 0.004 ? `<br>Inclui ${eur(linhaYm.subValor)} sub. de ${linhaYm.subTipo}` : subYm ? '<br>Com subsídio' : ''}${linhaYm.refeicao > 0.004 ? (M().plano.incluirRefeicao ? `<br>Inclui ${eur(linhaYm.refeicao)} de refeição` : `<br>+ ${eur(linhaYm.refeicao)} de refeição (alimentação)`) : ''}<br>Média 12 meses: ${eur(rendimentoMensal())}`, '', true, podeEditar() ? 'rend' : '')}
@@ -506,7 +507,8 @@ function visao(v) {
         ${divItens.length ? `<div id="chdiv"></div><div class="faint" style="font-size:12px;margin-top:8px">${divItens.slice(0, 3).map(x => `${esc(x.label)} ${pct(x.value / divTot)}`).join(' · ')}</div>` : '<div class="empty">Sem despesas nem prestações neste mês. Registe-as em <a href="#/despesas">Despesas fixas</a>.</div>'}</div>
     </div>`;
   const imp = v.querySelector('#imp'); if (imp) imp.onclick = importarPlaneador;
-  v.querySelector('#pfm').onchange = e => { setTab('pf-painel-mes', e.target.value); app.refresh(); };
+  const irMes = x => { setTab('pf-painel-mes', x); app.refresh(); }, iM = mesesSel.indexOf(ym);
+  [['#pfm-p', mesesSel[iM - 1]], ['#pfm-n', mesesSel[iM + 1]], ['#pfm-h', hojeYm]].forEach(([q, x]) => { const b = v.querySelector(q); if (b && x) b.onclick = () => irMes(x); });
   v.querySelectorAll('[data-add]').forEach(b => b.onclick = () => usarAtalho(b.dataset.add));
   const chdiv = v.querySelector('#chdiv'); if (chdiv) chart.donut(chdiv, { items: divItens, center: eur(divTot), sub: 'no mês' });
 }
