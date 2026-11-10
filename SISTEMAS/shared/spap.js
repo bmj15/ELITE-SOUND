@@ -676,20 +676,20 @@ SPAP.createApp = function (cfg) {
      tira dinheiro de nenhuma conta, por isso não passa pelo circuito de aprovação: com uma só
      assinatura de quem o regista fica criado, autorizado e executado (movimento lançado). */
   app.podeRegistarEntrada = () => can('criar') && can('executar');
-  app.registarEntradas = async (lista, titulo, resumo) => {
-    if (!app.podeRegistarEntrada()) throw new Error('O seu perfil não pode registar entradas diretamente');
-    const s = await app.assinar(titulo || 'Registar entrada', resumo || `${lista.length} entrada(s) · total <b>${eur(lista.reduce((a, d) => a + r2(d.valor), 0))}</b>`);
+  async function registoDireto(lista, titulo, resumo, { entrada, nota, tipoLog }) {
+    if (!app.podeRegistarEntrada()) throw new Error('O seu perfil não pode registar operações diretamente');
+    const s = await app.assinar(titulo, resumo || `${lista.length} operação(ões) · total <b>${eur(lista.reduce((a, d) => a + r2(d.valor), 0))}</b>`);
     if (!s) return null;
     const criados = [], seqs = { ...db.meta };
     try {
-      lista.forEach(d => criados.push(app.criarPedido({ ...d, categoria: ENTRADA, contaOrigem: null })));
+      lista.forEach(d => criados.push(app.criarPedido(entrada ? { ...d, categoria: ENTRADA, contaOrigem: null } : d)));
       for (const p of criados) {
         await s.signer(p, 'SUBMETER');
-        p.aprovacoes.push({ user: app.user.id, em: new Date().toISOString(), decisao: 'APROVADO', nota: 'Entrada de fundos: registo direto (sem circuito de aprovação)' });
+        p.aprovacoes.push({ user: app.user.id, em: new Date().toISOString(), decisao: 'APROVADO', nota });
         p.estado = 'APROVADO'; p.autorizacao = nextAut(); p.aprovadoEm = new Date().toISOString(); p.registoDireto = true;
         await s.signer(p, 'EXECUTAR');
         app.executar(p, { data: p.dataPrevista });
-        log('ENTRADA_REGISTO_DIRETO', `${p.numero} · ${eur(p.valor)} → ${nomeConta(p.contaDestino)}${p.descricao ? ' · ' + p.descricao : ''}`, p.id);
+        log(tipoLog, `${p.numero} · ${eur(p.valor)}${p.contaOrigem ? ' ' + nomeConta(p.contaOrigem) : ''} → ${nomeConta(p.contaDestino)}${p.descricao ? ' · ' + p.descricao : ''}`, p.id);
       }
     } catch (e) {
       const ids = new Set(criados.map(p => p.id));
@@ -697,7 +697,11 @@ SPAP.createApp = function (cfg) {
       db.meta.seqReq = seqs.seqReq; db.meta.seqAut = seqs.seqAut; throw e;
     }
     save(); return criados;
-  };
+  }
+  app.registarEntradas = (lista, titulo, resumo) => registoDireto(lista, titulo || 'Registar entrada', resumo, { entrada: true, nota: 'Entrada de fundos: registo direto (sem circuito de aprovação)', tipoLog: 'ENTRADA_REGISTO_DIRETO' });
+  /* Pagamentos com registo direto: só em sistemas que o declaram (cfg.pagamentoDireto, ex.: plano pessoal com um único
+     titular, em que um circuito de aprovação não acrescenta controlo). Uma assinatura regista, autoriza e executa. */
+  app.registarPagamentos = cfg.pagamentoDireto ? (lista, titulo, resumo) => registoDireto(lista, titulo || 'Registar pagamento', resumo, { entrada: false, nota: 'Pagamento: registo direto do titular (sem circuito de aprovação)', tipoLog: 'PAGAMENTO_REGISTO_DIRETO' }) : null;
 
   /* Perfil de assinatura do utilizador */
   function perfilAssinatura() {
@@ -852,7 +856,7 @@ SPAP.createApp = function (cfg) {
   function allRoutes() { const m = {}; cfg.modules.forEach(x => m[x.id] = x); return Object.assign(m, coreRoutes); }
 
   // o modelo pode esconder itens do núcleo que não se aplicam (ex.: relatórios empresariais num plano pessoal sem atividade)
-  const navVisivel = id => !cfg.navVisivel || cfg.navVisivel(id) !== false;
+  const navVisivel = (id, rota) => { const v = cfg.navVisivel ? cfg.navVisivel(id) : true; return rota ? v !== false : v !== false && v !== 'menu'; };
   function navHtml(cur) {
     const nIn = app.caixaEntrada().length + app.caixaModulos().length, nAlt = app.alteracoesParaMim().length, nRec = can('criar') ? app.recorrentesDevidos().length : 0;
     const item = (it) => `<a href="#/${it.id}" class="${cur === it.id ? 'active' : ''}">${icon(it.icon)}<span>${it.label}</span>${it.id === 'aprovacoes' && nIn ? `<span class="count">${nIn}</span>` : ''}${it.id === 'alteracoes' && nAlt ? `<span class="count">${nAlt}</span>` : ''}${it.id === 'recorrentes' && nRec ? `<span class="count">${nRec}</span>` : ''}</a>`;
@@ -870,7 +874,7 @@ SPAP.createApp = function (cfg) {
     const { r, params } = parseHash();
     const routes = allRoutes();
     const rt = routes[r] || routes[cfg.home];
-    if ((rt.perm && !can(rt.perm)) || (coreRoutes[r] && !navVisivel(r))) { location.hash = '#/' + cfg.home; return; }
+    if ((rt.perm && !can(rt.perm)) || (coreRoutes[r] && !navVisivel(r, true))) { location.hash = '#/' + cfg.home; return; }
     const theme = document.documentElement.getAttribute('data-theme');
     root.innerHTML = `<div class="shell">
       <aside class="side" id="side">${brandHtml()}${navHtml(rt.id || r)}

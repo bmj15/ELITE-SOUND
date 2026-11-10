@@ -20,11 +20,11 @@
 <div id="app"></div>
 <script src="../shared/vendor/qrcode.min.js"></script>
 <script src="../shared/vendor/jsQR.min.js"></script>
-<script src="../shared/spap.js?v=22"></script>
+<script src="../shared/spap.js?v=23"></script>
 <script src="../shared/grupo.js?v=5"></script>
 <script src="../shared/modelos.js?v=3"></script>
 <script src="../shared/conta-casa.js?v=9"></script>
-<script src="../shared/modelo-planeamento.js?v=58"></script>
+<script src="../shared/modelo-planeamento.js?v=59"></script>
 <script src="../shared/leitor-recibos.js?v=3"></script>
 <script src="../shared/leitor-extratos.js?v=3"></script>
 <script>
@@ -50,7 +50,7 @@
   const app = SPAP.createApp({
     key: sub.key, nome: sub.nome, sigla: sub.sigla, tagline: m.tagline, logo: m.logo, heroTitle: m.heroTitle, heroText: m.heroText,
     home: m.home, grupoModulos: sub.nome, alcadaPadrao: m.alcadaPadrao, migrarV3: m.migrarV3, seed: m.seed, modules: m.modules,
-    previsao: m.previsao, navVisivel: m.navVisivel, analiseTexto: m.analiseTexto, analiseOrigem: m.analiseOrigem, movimentoValido: m.movimentoValido, provaExtra: m.provaExtra, analise: m.analise, caixa: m.caixa,
+    previsao: m.previsao, navVisivel: m.navVisivel, pagamentoDireto: m.pagamentoDireto, analiseTexto: m.analiseTexto, analiseOrigem: m.analiseOrigem, movimentoValido: m.movimentoValido, provaExtra: m.provaExtra, analise: m.analise, caixa: m.caixa,
     contaPropria: c => c.categoria === 'TESOURARIA',
     outroSistema: { href: '../bxb-investimentos/index.html', label: 'Ir para a holding BXB' },
     // ligação à holding: o que a BXB transfere para a conta desta subsidiária, e o que esta envia para a holding
