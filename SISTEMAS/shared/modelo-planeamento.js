@@ -488,13 +488,16 @@ function visao(v) {
   Object.entries((casaParte(ym) || {}).cats || {}).forEach(([c, val]) => divCat[c] = r2((divCat[c] || 0) + val));
   if (I.prest > 0) divCat['Prestações de dívidas'] = r2((divCat['Prestações de dívidas'] || 0) + I.prest);
   const divItens = Object.entries(divCat).filter(([, val]) => val > 0.005).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value })), divTot = r2(divItens.reduce((t, x) => t + x.value, 0));
-  v.innerHTML = `<style>.pf-mes{background:none;border:0;padding:0 10px;height:30px;display:inline-flex;align-items:center;cursor:pointer;color:inherit;font-size:26px;font-weight:300;line-height:30px}.pf-mes:disabled{opacity:.25;cursor:default}.pf-mes:not(:disabled):hover{transform:scale(1.15)}</style>
-    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:30px"><div></div>
-      ${(() => { const i = mesesSel.indexOf(ym); return `<div class="row" style="gap:14px;align-items:center;justify-content:center">
-        <button class="pf-mes" id="pfm-p" ${i > 0 ? '' : 'disabled'} title="Mês anterior" aria-label="Mês anterior">&lt;</button>
-        <div style="min-width:220px;text-align:center;position:relative"><div style="font-size:26px;font-weight:700;line-height:30px">${nomeYm(ym)}</div>
-          <div style="font-size:12px;position:absolute;left:0;right:0;top:100%;margin-top:2px">${ym === hojeYm ? '<span class="faint">mês atual</span>' : '<a href="javascript:void 0" id="pfm-h">voltar ao mês atual</a>'}</div></div>
-        <button class="pf-mes" id="pfm-n" ${i < mesesSel.length - 1 ? '' : 'disabled'} title="Mês seguinte" aria-label="Mês seguinte">&gt;</button></div>`; })()}
+  v.innerHTML = `<style>.pf-mes{background:none;border:0;width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;color:var(--muted);font-size:20px;line-height:1}.pf-mes:disabled{opacity:.25;cursor:default}.pf-mes:not(:disabled):hover{color:inherit;background:var(--line)}
+      .pf-chip{background:none;border:1px solid transparent;border-radius:999px;padding:5px 13px;font-size:13px;line-height:18px;color:var(--muted);cursor:pointer;white-space:nowrap;position:relative}.pf-chip:hover{color:inherit;border-color:var(--line)}
+      .pf-chip.on{color:inherit;font-weight:600;border-color:var(--line2);background:var(--panel2);cursor:default}.pf-chip.hoje::after{content:'';position:absolute;left:50%;bottom:-3px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--accent)}</style>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:16px"><div></div>
+      ${(() => { const i = mesesSel.indexOf(ym), a = Math.max(0, Math.min(i - 2, mesesSel.length - 5)), vis = mesesSel.slice(a, a + 5), y0 = ym.slice(0, 4);
+        const rot = x => { const n = MES3[+x.slice(5, 7) - 1], c = n[0] + n.slice(1).toLowerCase(); return x === ym ? `${MESES[+x.slice(5, 7) - 1]} ${x.slice(0, 4)}` : x.slice(0, 4) !== y0 ? `${c} ${x.slice(2, 4)}` : c; };
+        return `<div class="row" style="gap:4px;align-items:center;justify-content:center;flex-wrap:nowrap">
+        <button class="pf-mes" id="pfm-p" ${i > 0 ? '' : 'disabled'} title="Mês anterior" aria-label="Mês anterior">‹</button>
+        ${vis.map(x => `<button class="pf-chip ${x === ym ? 'on' : ''} ${x === hojeYm ? 'hoje' : ''}" data-mes="${x}" title="${nomeYm(x)}${x === hojeYm ? ' (mês atual)' : ''}">${rot(x)}</button>`).join('')}
+        <button class="pf-mes" id="pfm-n" ${i < mesesSel.length - 1 ? '' : 'disabled'} title="Mês seguinte" aria-label="Mês seguinte">›</button>${vis.includes(hojeYm) ? '' : `<button class="pf-chip" id="pfm-h" style="border-color:var(--line)" title="Voltar a ${nomeYm(hojeYm)}">Hoje</button>`}</div>`; })()}
       <div class="row" style="justify-content:flex-end">${podeEditar() ? `<button class="btn sm" id="imp">${icon('download')} Importar do Planeador</button>` : ''}</div></div>${I.alertas.map(([k, t]) => `<div class="alert ${k}" style="margin-bottom:10px">${icon('alert')}<div>${t}</div></div>`).join('')}
     <style>.pf-kpis .kpi .foot{max-height:0;opacity:0;overflow:hidden;margin-top:0;transition:max-height .2s,opacity .2s,margin-top .2s}.pf-kpis .kpi:hover .foot,.pf-kpis .kpi:focus-within .foot{max-height:160px;opacity:1;margin-top:8px}</style>
     <div class="grid g4 pf-kpis" style="margin-top:${I.alertas.length ? 6 : 0}px">
@@ -515,6 +518,7 @@ function visao(v) {
   const imp = v.querySelector('#imp'); if (imp) imp.onclick = importarPlaneador;
   const irMes = x => { setTab('pf-painel-mes', x); app.refresh(); }, iM = mesesSel.indexOf(ym);
   [['#pfm-p', mesesSel[iM - 1]], ['#pfm-n', mesesSel[iM + 1]], ['#pfm-h', hojeYm]].forEach(([q, x]) => { const b = v.querySelector(q); if (b && x) b.onclick = () => irMes(x); });
+  v.querySelectorAll('[data-mes]').forEach(b => { if (b.dataset.mes !== ym) b.onclick = () => irMes(b.dataset.mes); });
   v.querySelectorAll('[data-add]').forEach(b => b.onclick = () => usarAtalho(b.dataset.add));
   const chdiv = v.querySelector('#chdiv'); if (chdiv) chart.donut(chdiv, { items: divItens, center: eur(divTot), sub: 'no mês' });
 }
