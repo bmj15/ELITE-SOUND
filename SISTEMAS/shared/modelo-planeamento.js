@@ -468,7 +468,9 @@ const podeEditar = () => app.can('criar');
 const aviso = txt => `<div class="alert info" style="margin-bottom:16px">${icon('alert')}<div>${txt}</div></div>`;
 const tabs = (k, def, lista) => { const t = tab(k, def); return { t, html: `<div class="tabs" style="margin-bottom:16px">${lista.map(([id, l]) => `<button data-tab="${k}=${id}" class="${t === id ? 'on' : ''}">${l}</button>`).join('')}</div>` }; };
 const bindTabs = v => v.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { const [k, val] = b.dataset.tab.split('='); setTab(k, val); app.refresh(); });
-const kpi = (rot, val, foot = '', cls = '', hero = false, add = '') => `<div class="card kpi ${hero ? 'hero' : ''}"${add ? ' style="position:relative"' : ''}>${add ? `<button class="btn sm" data-add="${add}" title="${esc((ATALHOS[add] || []).map(x => x[0]).join(' · '))}" style="position:absolute;top:10px;right:10px;width:28px;height:28px;padding:0;justify-content:center;font-size:16px;line-height:1;font-weight:400;border-radius:6px;border:1px solid var(--line2);background:transparent;color:var(--muted)">+</button>` : ''}<div class="lbl"${add ? ' style="padding-right:34px"' : ''}>${rot}</div><div class="val num ${cls}">${val}</div>${foot ? `<div class="foot">${foot}</div>` : ''}</div>`;
+const MAIS_CSS = 'width:28px;height:28px;padding:0;justify-content:center;font-size:16px;line-height:1;font-weight:400;border-radius:6px;border:1px solid var(--line2);background:transparent;color:var(--muted)';
+const botaoMais = (ops, titulo) => `<button class="btn sm" data-mais title="${esc(titulo || ops.map(x => x[0]).join(' · '))}" style="${MAIS_CSS};width:34px;height:34px;font-size:19px">+</button>`;
+const kpi = (rot, val, foot = '', cls = '', hero = false, add = '') => `<div class="card kpi ${hero ? 'hero' : ''}"${add ? ' style="position:relative"' : ''}>${add ? `<button class="btn sm" data-add="${add}" title="${esc((ATALHOS[add] || []).map(x => x[0]).join(' · '))}" style="position:absolute;top:10px;right:10px;${MAIS_CSS}">+</button>` : ''}<div class="lbl"${add ? ' style="padding-right:34px"' : ''}>${rot}</div><div class="val num ${cls}">${val}</div>${foot ? `<div class="foot">${foot}</div>` : ''}</div>`;
 const fmtMes = k => k ? `${MESES[+k.slice(5, 7) - 1]} ${k.slice(0, 4)}` : '—';
 
 /* ---------- Seletor em fita (meses e anos) ---------- */
@@ -479,6 +481,8 @@ const FITA_CSS = `<style>.pf-fita{display:flex;gap:8px;align-items:center;flex-w
   .pf-fita.sm{gap:4px}.pf-fita.sm .pf-mes{width:32px;height:32px;font-size:22px}.pf-fita.sm .pf-chip{padding:6px 14px;font-size:14px}.pf-fita.sm .pf-chip.on{font-size:15px;padding:6px 16px}
   @media (max-width:640px){.pf-chip.longe{display:none}.pf-chip,.pf-fita.sm .pf-chip{padding:6px 9px;font-size:13px}.pf-chip.on,.pf-fita.sm .pf-chip.on{font-size:14px;padding:6px 12px}.pf-mes,.pf-fita.sm .pf-mes{width:30px;height:30px;font-size:20px}}</style>`;
 function fita(id, itens, sel, { rot = String, rotSel, atual, nome = rot, unidade = 'mês', sm = false, n = 5 } = {}) {
+  // anos: a fita é sempre centrada no ano escolhido (dois de cada lado; no telemóvel um)
+  if (unidade === 'ano') { const y = +sel; itens = [y - 2, y - 1, y, y + 1, y + 2]; }
   itens = itens.map(String); sel = String(sel); atual = atual == null ? null : String(atual);
   const i = itens.indexOf(sel), a = Math.max(0, Math.min(i - Math.floor(n / 2), itens.length - n)), vis = itens.slice(a, a + n), ano = unidade === 'ano';
   const ant = ano ? 'Ano anterior' : 'Mês anterior', seg = ano ? 'Ano seguinte' : 'Mês seguinte';
@@ -486,7 +490,7 @@ function fita(id, itens, sel, { rot = String, rotSel, atual, nome = rot, unidade
     <button class="pf-mes" data-fv="${i > 0 ? itens[i - 1] : ''}" ${i > 0 ? '' : 'disabled'} title="${ant}" aria-label="${ant}">‹</button>
     ${vis.map(x => `<button class="pf-chip ${x === sel ? 'on' : ''} ${x === atual ? 'hoje' : ''} ${Math.abs(itens.indexOf(x) - i) > 1 ? 'longe' : ''}" data-fv="${x}" title="${esc(nome(x))}${x === atual ? (ano ? ' (ano atual)' : ' (mês atual)') : ''}">${esc(x === sel ? (rotSel || rot)(x) : rot(x))}</button>`).join('')}
     <button class="pf-mes" data-fv="${i < itens.length - 1 ? itens[i + 1] : ''}" ${i < itens.length - 1 ? '' : 'disabled'} title="${seg}" aria-label="${seg}">›</button>
-    ${atual != null && itens.includes(atual) && !vis.includes(atual) ? `<button class="pf-chip vh" data-fv="${atual}" title="Voltar a ${esc(nome(atual))}">${ano ? 'Este ano' : 'Hoje'}</button>` : ''}</div>`;
+    ${atual != null && (ano || itens.includes(atual)) && !vis.includes(atual) ? `<button class="pf-chip vh" data-fv="${atual}" title="Voltar a ${esc(nome(atual))}">${ano ? 'Este ano' : 'Hoje'}</button>` : ''}</div>`;
 }
 // barra com a fita ao centro e as ações à direita (em ecrã estreito fica tudo empilhado e centrado)
 const barraFita = (htmlFita, direita = '', esquerda = '') => `<div class="pf-barra">${FITA_CSS.replace('<style>', '<style>.pf-barra{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;margin-bottom:16px}.pf-barra>.pf-dir{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}@media (max-width:1250px){.pf-barra{grid-template-columns:1fr}.pf-barra>*{justify-self:center}.pf-barra>.pf-dir{justify-content:center}}')}<div>${esquerda}</div>${htmlFita}<div class="pf-dir">${direita}</div></div>`;
@@ -497,15 +501,16 @@ const rotMes = ref => x => { const n = MES3[+x.slice(5, 7) - 1], c = n[0] + n.sl
 /* ---------- Atalhos [+] do Painel ---------- */
 // [rótulo, rota, botão a acionar na página (ou função), separador]
 const ATALHOS = {
-  rend: [['Registar recibo', 'rendimentos', 'nr', ['pf-rend', 'rec']], ['Ler recibos (PDF/foto)', null, () => escolherRecibos()]],
+  rend: [['Registar recibo', null, () => editarRecibo()], ['Ler recibos (PDF/foto)', null, () => escolherRecibos()]],
   desp: [['Nova despesa fixa', 'despesas', 'nd']],
   div: [['Nova dívida ou crédito', 'dividas', 'nv'], ['Ler extrato de cartão (PDF)', null, () => escolherExtratos()]],
 };
 let atalhoPend = null;
 const correrAtalho = v => { const id = atalhoPend; atalhoPend = null; const b = id && v.querySelector('#' + id); if (b) setTimeout(() => b.click(), 0); };
-function usarAtalho(k) {
+const usarAtalho = k => escolherAcao(ATALHOS[k] || []);
+function escolherAcao(ops) {
   const fazer = ([, rota, alvo, aba]) => { if (typeof alvo === 'function') return alvo(); if (aba) setTab(aba[0], aba[1]); atalhoPend = alvo; app.go(rota); };
-  const ops = ATALHOS[k] || []; if (ops.length === 1) return fazer(ops[0]);
+  if (ops.length === 1) return fazer(ops[0]);
   ui.modal({ title: 'Adicionar', body: '<div class="faint">Escolha o que quer adicionar.</div>', actions: [{ label: 'Cancelar', kind: 'ghost' }, ...ops.map((o, i) => ({ label: o[0], kind: i ? '' : 'primary', onClick: () => { setTimeout(() => fazer(o), 0); } }))] });
 }
 
@@ -744,9 +749,9 @@ function importarSIRE() {
 }
 function rendCatB(v, T) {
   const m = M(), ed = podeEditar(), y0 = +today().slice(0, 4), anos = [...new Set([y0, ...m.recibosB.map(x => +String(x.data).slice(0, 4))])].sort((a, b) => b - a);
-  let ano = +tab('pf-anob', y0); if (!anos.includes(ano)) ano = y0;
+  let ano = +tab('pf-anob', y0); if (!(ano >= 2000 && ano <= y0 + 10)) ano = y0;
   const rs = m.recibosB.filter(x => +String(x.data).slice(0, 4) === ano).sort((a, b) => String(b.data).localeCompare(String(a.data))), B = catBIRS(ano), lim = 15000;
-  v.innerHTML = `${T.html}${barraFita(fita('pfb', anos.slice().sort((a, b) => a - b), ano, { atual: y0, unidade: 'ano', sm: true }), ed ? `<button class="btn" id="ib" data-tip="Portal das Finanças › Faturas e Recibos › Consultar › Exportar (CSV)">${icon('upload')} Importar do Portal (CSV)</button><button class="btn primary" id="nb">${icon('plus')} Novo recibo verde</button>` : '')}
+  v.innerHTML = `${T.html}${barraFita(fita('pfb', anos, ano, { atual: y0, unidade: 'ano', sm: true }), ed ? botaoMais([['Novo recibo verde'], ['Importar do Portal (CSV)']]) : '')}
     <div class="grid g4">${kpi(`${icon('wallet')} Recebido em ${ano} (Cat. B)`, eur(B.bruto), `${B.n} faturas-recibo / recibos`, '', true)}${kpi('IRS retido', eur(B.irs))}${kpi('IVA liquidado', eur(B.iva))}
       ${kpi('Limite de isenção de IVA (art. 53.º)', pct(B.bruto / lim), `${eur(B.bruto)} de ${eur(lim)}`, B.bruto >= lim ? 'neg' : B.bruto >= lim * 0.8 ? 'neg' : '')}</div>
     <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Recibos verdes ${ano}</h3><span class="sub">FR e RG contam como rendimento; uma FT sozinha é só informativa · clique para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Documento</th><th>Cliente</th><th class="r">Valor</th><th class="r">IVA</th><th class="r">Retenção IRS</th><th class="r">Total</th><th></th></tr></thead><tbody>
@@ -761,14 +766,13 @@ function rendCatB(v, T) {
         { label: 'Cancelar', kind: 'ghost' }, { label: 'Guardar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!f.data || !(+f.bruto > 0)) { ui.toast('Indique a data e o valor', 'warn'); return false; }
           const y = x0 || { id: 'B' + uid(), criadoEm: new Date().toISOString() }; Object.assign(y, { data: f.data, tipo: f.tipo, numero: f.numero.trim(), cliente: f.cliente.trim(), nif: f.nif.trim(), bruto: r2(+f.bruto), iva: r2(+f.iva || 0), irs: r2(+f.irs || 0) });
           if (!x0) m.recibosB.push(y); audit('PF_CATB', `${y.tipo} ${y.numero} · ${y.data} · ${eur(y.bruto)}`); app.save(); app.refresh(); } }] }); };
-  const nb = v.querySelector('#nb'); if (nb) nb.onclick = () => editarB();
-  const ib = v.querySelector('#ib'); if (ib) ib.onclick = importarSIRE;
+  v.querySelectorAll('[data-mais]').forEach(b => b.onclick = () => escolherAcao([['Novo recibo verde', null, () => editarB()], ['Importar do Portal (CSV) · Portal das Finanças › Faturas e Recibos › Consultar › Exportar', null, importarSIRE]]));
   v.querySelectorAll('[data-b]').forEach(tr => tr.onclick = () => { if (ed) editarB(m.recibosB.find(x => x.id === tr.dataset.b)); });
 }
 function rendIRS(v, T) {
   const m = M(), pl = m.plano, ed = podeEditar(), y0 = +today().slice(0, 4), { out: regras, erros } = regrasIRS();
   const anos = [...new Set([y0, y0 + 1, ...Object.keys(regras).map(Number), ...m.recibos.map(r => +r.ano)])].sort((a, b) => b - a);
-  let ano = +tab('pf-anoirs', y0); if (!anos.includes(ano)) ano = y0;
+  let ano = +tab('pf-anoirs', y0); if (!(ano >= 2000 && ano <= y0 + 10)) ano = y0;
   const X = calcIRS(ano), linha = (rot, val, nota = '', forte = false) => `<tr><td>${forte ? `<b>${rot}</b>` : rot}${nota ? `<div class="faint" style="font-size:11px">${nota}</div>` : ''}</td><td class="r num">${forte ? `<b>${val}</b>` : val}</td></tr>`;
   const dErr = despesasIRS().erros;
   v.innerHTML = `${T.html}${barraFita(fita('pfi', anos.slice().sort((a, b) => a - b), ano, { atual: y0, unidade: 'ano', sm: true }), '<span class="faint" style="font-size:12px;text-align:right">Liquidação estimada · a declaração entrega-se no ano seguinte</span>', '<span class="muted">Ano fiscal</span>')}
@@ -833,7 +837,7 @@ function rendimentos(v) {
   if (T.t === 'irs') return rendIRS(v, T);
   const anoAtual = +today().slice(0, 4), futuros = [1, 2, 3, 4, 5].map(i => anoAtual + i);
   const anos = [...new Set([anoAtual, ...futuros, ...m.recibos.map(r => +r.ano)])].sort((a, b) => b - a);
-  let ano = +tab('pf-ano', anoAtual); if (!anos.includes(ano)) ano = anoAtual;
+  let ano = +tab('pf-ano', anoAtual); if (!(ano >= 2000 && ano <= anoAtual + 10)) ano = anoAtual;
   const anoSel = fita('pfa', anos.slice().sort((a, b) => a - b), ano, { atual: anoAtual, unidade: 'ano', sm: true });
   const est = estimarLiquido(m.recibos);
   if (T.t === 'rec') {
@@ -842,7 +846,7 @@ function rendimentos(v) {
     v.innerHTML = `${T.html}${EMP ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div style="flex:1"><b>Mudança de emprego detetada.</b> Desde ${fmtMes(EMP.desde)} há ${EMP.n} recibos de <b>${esc(EMP.ent)}</b>${EMP.entAnt ? ` (antes: ${esc(EMP.entAnt)})` : ', diferente dos anteriores'}.
         As previsões usam ${eur(salarioBase())} de líquido recorrente; com o novo emprego são <b>${eur(EMP.liquido)}</b>${EMP.bruto ? ` (vencimento sujeito a SS ≈ ${eur(EMP.bruto)})` : ''}.${EMP.parcial ? ` O recibo de ${MESES[EMP.parcial.mes - 1]} ${EMP.parcial.ano} (${eur(EMP.parcial.liquido)}) é de um mês incompleto e deixa de contar para as médias.` : ''}
         ${dica('Atualizar grava o novo líquido recorrente e o vencimento nos Parâmetros do plano e passa a usar só os recibos do novo emprego para as médias. Os valores recebidos continuam todos registados.')}</div>
-        ${ed ? `<button class="btn sm primary" id="emp">${icon('check')} Atualizar previsões</button><button class="btn sm ghost" id="empx">Dispensar</button>` : ''}</div>` : ''}${barraFita(anoSel, ed ? `<button class="btn" id="lr">${icon('upload')} Ler recibos (PDF/foto)</button><button class="btn primary" id="nr">${icon('plus')} Registar recibo</button>` : '')}
+        ${ed ? `<button class="btn sm primary" id="emp">${icon('check')} Atualizar previsões</button><button class="btn sm ghost" id="empx">Dispensar</button>` : ''}</div>` : ''}${barraFita(anoSel, ed ? botaoMais(ATALHOS.rend) : '')}
       <div class="grid g4">${kpi(`${icon('wallet')} Líquido recebido ${ano}`, eur(sum(rs, 'liquido')), `${rs.length} ${rs.length === 1 ? 'recibo' : 'recibos'}`, '', true)}${kpi('Bruto ' + ano, eur(sum(rs, 'bruto')))}${kpi('IRS retido', eur(sum(rs, 'irs')), `SS ${eur(sum(rs, 'ss'))}`)}
         ${kpi(kn('pf_liqrec', 'Líquido recorrente'), eur(salarioBase()), +m.plano.salarioBase ? 'definido nos parâmetros' : est.n ? esc(est.metodo) : 'sem recibos')}</div>
       <div class="card" style="margin-top:16px"><div class="card-h"><h3>${kn('pf_proj', 'Rendimento líquido')} ${ano}</h3><span class="sub">real ${eur(PR.ytd)} · projetado ${eur(PR.total)} · <a href="#/rendimentos" data-aba="pf-rend=proj">ver projeção</a></span></div><div id="chr"></div></div>
@@ -855,14 +859,14 @@ function rendimentos(v) {
     chart.bars(v.querySelector('#chr'), { labels: MES3, stacked: true, height: 190, series: [
       { name: 'Real', values: PR.linhas.map(l => l.real != null ? r2(l.real - l.refeicao) : 0) }, { name: 'Projetado', values: PR.linhas.map(l => l.real == null ? r2(l.proj - l.refeicao) : 0), color: 'var(--accent2)' },
       ...(m.plano.incluirRefeicao && PR.refeicaoTotal ? [{ name: 'Subsídio de refeição', values: PR.linhas.map(l => l.refeicao), color: 'var(--info)' }] : [])] });
-    const nr = v.querySelector('#nr'); if (nr) nr.onclick = () => editarRecibo();
+    v.querySelectorAll('[data-mais]').forEach(b => b.onclick = () => escolherAcao(ATALHOS.rend));
     correrAtalho(v);
     const emp = v.querySelector('#emp'); if (emp) emp.onclick = () => { const e = mudancaEmprego(); if (!e) return; const pl = m.plano;
       pl.salarioBase = e.liquido; if (e.bruto) pl.brutoBase = e.bruto; pl.empregoDesde = e.desde; if (e.parcial) e.parcial.parcial = true;
       audit('PF_PLANO', `Mudança de emprego: ${e.ent} desde ${fmtMes(e.desde)} · líquido recorrente ${eur(e.liquido)}${e.bruto ? ` · vencimento ${eur(e.bruto)}` : ''}${e.parcial ? ` · ${MESES[e.parcial.mes - 1]} ${e.parcial.ano} marcado como mês incompleto` : ''}`);
       app.save(); ui.toast('Previsões atualizadas para o novo emprego', 'ok'); app.refresh(); };
     const empx = v.querySelector('#empx'); if (empx) empx.onclick = () => { const e = mudancaEmprego(); if (!e) return; m.plano.sugDispensadas = [...new Set([...(m.plano.sugDispensadas || []), e.chave])]; app.save(); app.refresh(); };
-    const lr = v.querySelector('#lr'); if (lr) lr.onclick = escolherRecibos;
+
   } else {
     const P = projecao(ano), refOn = m.plano.incluirRefeicao, smnOn = m.plano.atualizarSMN !== false, BB = brutoBase();
     const proximos = [anoAtual, ...futuros].map(y => ({ y, p: projecao(y), S: salarioAno(y) }));
