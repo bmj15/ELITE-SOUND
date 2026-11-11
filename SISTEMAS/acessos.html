@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Acessos ao servidor · Grupo BXB</title>
-<script src="shared/servidor-dados.js?v=4"></script>
+<script src="shared/servidor-dados.js?v=5"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/spap.css?v=29">
@@ -46,17 +46,21 @@
     });
   }
   if (locais.length) verMigracao();
+  var donos = {};
   api('GET', '/api/dados').then(function (r) {
     try { (JSON.parse(((r.j || {})['spap:grupo'] || {}).valor || '[]') || []).forEach(function (s) { sistemas.push({ key: s.key, nome: s.nome }); }); } catch (e) { }
     if (sistemas.length === 1) sistemas.push({ key: 'elite', nome: 'Elite Sound' });
-    carregar();
+    api('GET', '/api/donos').then(function (rd) { donos = (rd.ok && rd.j) || {};
+      // planos pessoais criados no site também entram na lista (só o nome)
+      Object.keys(donos).forEach(function (k) { if (!sistemas.some(function (s) { return s.key === k; })) sistemas.push({ key: k, nome: (donos[k] && donos[k].plano) || k }); });
+      carregar(); });
   });
   function carregar() {
     api('GET', '/api/contas').then(function (r) {
       if (!r.ok) { c.innerHTML = '<div class="alert bad"><div>' + esc(r.j.erro) + '</div></div>'; return; }
       var nomeSis = function (k) { var s = sistemas.find(function (x) { return x.key === k; }); return s ? s.nome : k; };
       c.innerHTML = '<div class="card flush"><div class="card-h"><h3>Contas</h3><button class="btn sm primary" id="nova">+ Nova conta</button></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Email · utilizador</th><th>Acesso</th><th></th></tr></thead><tbody>' +
-        r.j.map(function (x) { return '<tr><td><b>' + esc(x.nome) + '</b>' + (x.tipo ? ' <span class="badge plain">' + (x.tipo === 'empresa' ? 'Empresa' : 'Particular') + '</span>' : '') + '</td><td class="mono">' + esc(x.email || '—') + (x.utilizador && x.utilizador !== x.email ? '<div class="faint">' + esc(x.utilizador) + '</div>' : '') + '</td><td>' + (x.admin || x.sistemas.indexOf('*') >= 0 ? '<span class="badge acc">administrador · todos os sistemas</span>' : x.sistemas.map(function (k) { return '<span class="badge plain" style="margin:2px">' + esc(nomeSis(k)) + '</span>'; }).join('') || '<span class="faint">nenhum</span>') + '</td><td class="r"><button class="btn sm" data-ed="' + x.id + '">Editar</button>' + (x.id !== S.sessao.id ? ' <button class="btn sm ghost" data-rm="' + x.id + '">Remover</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div></div><div id="form"></div>';
+        r.j.map(function (x) { return '<tr><td><b>' + esc(x.nome) + '</b>' + (x.tipo ? ' <span class="badge plain">' + (x.tipo === 'empresa' ? 'Empresa' : 'Particular') + '</span>' : '') + '</td><td class="mono">' + esc(x.email || '—') + (x.utilizador && x.utilizador !== x.email ? '<div class="faint">' + esc(x.utilizador) + '</div>' : '') + '</td><td>' + (x.admin || x.sistemas.indexOf('*') >= 0 ? '<span class="badge acc">administrador · empresas</span>' : x.sistemas.map(function (k) { return '<span class="badge plain" style="margin:2px">' + esc(nomeSis(k)) + '</span>'; }).join('') || '<span class="faint">nenhum</span>') + '</td><td class="r"><button class="btn sm" data-ed="' + x.id + '">Editar</button>' + (x.id !== S.sessao.id ? ' <button class="btn sm ghost" data-rm="' + x.id + '">Remover</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div></div><div id="form"></div>';
       document.getElementById('nova').onclick = function () { form(null); };
       c.querySelectorAll('[data-ed]').forEach(function (b) { b.onclick = function () { form(r.j.find(function (x) { return x.id === b.dataset.ed; })); }; });
       c.querySelectorAll('[data-rm]').forEach(function (b) { b.onclick = function () { if (confirm('Remover esta conta? Deixa de conseguir entrar no servidor.')) api('DELETE', '/api/contas/' + b.dataset.rm).then(carregar); }; });
@@ -89,8 +93,11 @@
       '<div class="fld"><label>Nome</label><input class="inp" name="nome" value="' + esc(x.nome) + '"></div><div class="fld"><label>Utilizador</label><input class="inp mono" name="utilizador" value="' + esc(x.utilizador) + '"></div>' +
       '<div class="fld"><label>Email (para entrar no site)</label><input class="inp mono" type="email" name="email" value="' + esc(x.email || '') + '"></div>' +
       '<div class="fld"><label>Palavra-passe' + (novo ? ' (mín. 8)' : ' (deixe vazio para manter)') + '</label><input class="inp" type="password" name="palavra" autocomplete="new-password"></div>' +
-      '<div class="fld"><label>&nbsp;</label><label class="check"><input type="checkbox" name="admin" ' + (x.admin ? 'checked' : '') + '> Administrador (todos os sistemas e gestão de contas)</label></div>' +
-      '<div class="fld full"><label>Sistemas a que tem acesso</label><div class="stack" style="gap:6px">' + sistemas.map(function (s) { return '<label class="check"><input type="checkbox" data-sis="' + esc(s.key) + '" ' + (x.sistemas.indexOf(s.key) >= 0 ? 'checked' : '') + '> ' + esc(s.nome) + '</label>'; }).join('') + '</div><span class="hint">Os planos pessoais são privados: dê a cada pessoa só o seu plano e os sistemas partilhados (ex.: a Casa).</span></div>' +
+      '<div class="fld"><label>&nbsp;</label><label class="check"><input type="checkbox" name="admin" ' + (x.admin ? 'checked' : '') + '> Administrador (sistemas de empresa e gestão de contas; os planos pessoais são só do dono)</label></div>' +
+      '<div class="fld full"><label>Sistemas a que tem acesso</label><div class="stack" style="gap:6px">' + sistemas.map(function (s) { var pes = Object.prototype.hasOwnProperty.call(donos, s.key), d = donos[s.key];
+        if (pes && d && d.id !== x.id) return '<label class="check" style="opacity:.55"><input type="checkbox" disabled> ' + esc(s.nome) + ' <span class="faint">· plano pessoal de ' + esc(d.nome) + '</span></label>';
+        if (pes && d) return '<label class="check"><input type="checkbox" data-sis="' + esc(s.key) + '" checked disabled> ' + esc(s.nome) + ' <span class="faint">· plano pessoal (dono)</span></label>';
+        return '<label class="check"><input type="checkbox" data-sis="' + esc(s.key) + '" ' + (x.sistemas.indexOf(s.key) >= 0 ? 'checked' : '') + '> ' + esc(s.nome) + (pes ? ' <span class="faint">· plano pessoal sem dono: quem o receber fica dono para sempre</span>' : '') + '</label>'; }).join('') + '</div><span class="hint">Cada plano pessoal tem um só dono e só ele o vê, nem o administrador (RGPD). O dono não se muda depois de atribuído.</span></div>' +
       '<div class="fld full"><button class="btn primary" type="submit">Guardar</button> <button class="btn ghost" type="button" id="cx">Cancelar</button> <span id="em"></span></div></form></div>';
     document.getElementById('cx').onclick = function () { f.innerHTML = ''; };
     document.getElementById('fc').onsubmit = function (e) { e.preventDefault(); var d = Object.fromEntries(new FormData(e.target));

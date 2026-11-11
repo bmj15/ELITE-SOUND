@@ -25,6 +25,7 @@ const DADOS = path.resolve(process.env.BXB_DADOS || path.join(RAIZ, '..', '..', 
 const PASTA_CHAVES = path.join(DADOS, 'dados');
 const PASTA_COPIAS = path.join(DADOS, 'copias');
 const FICH_CONTAS = path.join(DADOS, 'contas.json');
+const FICH_DONOS = path.join(DADOS, 'donos.json'); // plano pessoal -> id da conta dona (RGPD: só o dono o vê)
 const LIMITE_CORPO = 25 * 1024 * 1024;
 const DURACAO_SESSAO = 12 * 3600 * 1000;
 const PASTA_TLS = path.join(DADOS, 'tls');
@@ -44,7 +45,8 @@ for (const p of [DADOS, PASTA_CHAVES, PASTA_COPIAS]) fs.mkdirSync(p, { recursive
 const ficheiroChave = k => path.join(PASTA_CHAVES, encodeURIComponent(k) + '.json');
 const lerJSON = (f, def) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { return def; } };
 // escrita atómica: grava num temporário e troca, para nunca deixar um ficheiro a meio
-function gravarJSON(f, obj) { const tmp = f + '.' + process.pid + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(obj)); fs.renameSync(tmp, f); }
+let geracao = 0; // muda a cada escrita (invalida caches)
+function gravarJSON(f, obj) { geracao++; const tmp = f + '.' + process.pid + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(obj)); fs.renameSync(tmp, f); }
 const todasChaves = () => fs.readdirSync(PASTA_CHAVES).filter(n => n.endsWith('.json')).map(n => decodeURIComponent(n.slice(0, -5)));
 // cópia de segurança diária: na primeira escrita de cada dia copia a pasta dos dados (mantém 60 dias)
 let ultimoDiaCopia = '';
@@ -64,7 +66,8 @@ const gravarContas = l => gravarJSON(FICH_CONTAS, l);
 function hashPalavra(palavra, sal = crypto.randomBytes(16).toString('hex')) { return sal + ':' + crypto.scryptSync(String(palavra), sal, 64).toString('hex'); }
 function confere(palavra, guardado) { const [sal, h] = String(guardado || '').split(':'); if (!sal || !h) return false;
   const a = Buffer.from(h, 'hex'), b = crypto.scryptSync(String(palavra), sal, 64); return a.length === b.length && crypto.timingSafeEqual(a, b); }
-const publica = c => ({ id: c.id, nome: c.nome, utilizador: c.utilizador, email: c.email || '', tipo: c.tipo || '', admin: !!c.admin, sistemas: c.sistemas || [], proprios: c.proprios || [] });
+const publica = c => ({ id: c.id, nome: c.nome, utilizador: c.utilizador, email: c.email || '', tipo: c.tipo || '', admin: !!c.admin, sistemas: c.sistemas || [], proprios: c.proprios || [],
+  privados: (() => { const d = donos(); return [...pessoais()].filter(s => d[s] !== c.id); })() }); // planos pessoais de outras pessoas: escondidos
 // clientes do site (particulares e empresas que criaram conta): só veem os seus sistemas, não o registo do grupo
 const cliente = c => !!c && !c.admin && (c.tipo === 'particular' || c.tipo === 'empresa');
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -85,12 +88,39 @@ function abrirSessao(res, c) { const t = crypto.randomBytes(32).toString('hex');
 // que chaves cada conta pode ler e gravar: "spap:<sistema>" e "spap:<sistema>:..." dos sistemas da conta; o registo do grupo é de leitura para todos
 const sistemaDaChave = k => { const m = /^spap:([^:]+)/.exec(k); return m ? m[1] : null; };
 // partilhas entre planos pessoais ("spap:partilha:<id>:conta"): acessíveis a quem tem acesso a um dos planos que são membros
-const membroDaPartilha = (c, valor) => { try { const v = typeof valor === 'string' ? JSON.parse(valor) : valor; return ((v && v.membros) || []).some(m => m && m.sistema && (c.sistemas || []).includes(m.sistema)); } catch (e) { return false; } };
+const membroDaPartilha = (c, valor) => { try { const v = typeof valor === 'string' ? JSON.parse(valor) : valor; return ((v && v.membros) || []).some(m => m && m.sistema && temSistema(c, m.sistema)); } catch (e) { return false; } };
 const partilhaGuardada = k => { const r = lerJSON(ficheiroChave(k), null); return r ? r.valor : null; };
-const ve = (c, k) => !!c && (c.admin || (c.sistemas || []).includes('*') || (k === 'spap:grupo' && !cliente(c)) || (c.sistemas || []).includes(sistemaDaChave(k)) || (sistemaDaChave(k) === 'partilha' && membroDaPartilha(c, partilhaGuardada(k))));
+/* RGPD: um plano pessoal (modelo "planeamento") pertence a UMA conta e só essa conta o recebe — nem o administrador.
+   O dono fica fixo: atribui-se uma vez (registo no site, Acessos ou a conta que já o tinha assinalado) e não muda pela API. */
+const donos = () => lerJSON(FICH_DONOS, {});
+let cachePessoais = { g: -1, s: null };
+function pessoais() {
+  if (cachePessoais.s && cachePessoais.g === geracao) return cachePessoais.s;
+  const s = new Set(Object.keys(donos()));
+  try { (JSON.parse(partilhaGuardada('spap:grupo') || '[]') || []).forEach(x => { if (x && x.modelo === 'planeamento') s.add(x.key); }); } catch (e) { }
+  contas().forEach(c => (c.proprios || []).forEach(p => { if (p && p.modelo === 'planeamento') s.add(p.key); }));
+  cachePessoais = { g: geracao, s }; return s;
+}
+const ePessoal = sis => !!sis && pessoais().has(sis);
+const dono = (c, sis) => !!c && donos()[sis] === c.id;
+// acesso a um sistema de um membro de partilha: plano pessoal só pelo dono; outro sistema pelas regras normais
+const temSistema = (c, sis) => ePessoal(sis) ? dono(c, sis) : (c.admin || (c.sistemas || []).includes('*') || (c.sistemas || []).includes(sis));
+function atribuirDonos() { // contas que já tinham o plano assinalado explicitamente (sem contar o "*" do administrador)
+  const d = donos(), l = contas(); let mudou = false;
+  for (const sis of pessoais()) { if (d[sis]) continue; const q = l.filter(c => (c.sistemas || []).includes(sis)); if (q.length === 1) { d[sis] = q[0].id; mudou = true; } }
+  if (mudou) { gravarJSON(FICH_DONOS, d); }
+}
+const ve0 = (c, k) => !!c && (c.admin || (c.sistemas || []).includes('*') || (k === 'spap:grupo' && !cliente(c)) || (c.sistemas || []).includes(sistemaDaChave(k)) || (sistemaDaChave(k) === 'partilha' && membroDaPartilha(c, partilhaGuardada(k))));
 // numa partilha nova, quem a cria tem de ser membro; numa existente, tem de já ser membro (não se entra numa partilha alheia)
-const grava = (c, k, novo) => !!c && (c.admin || (c.sistemas || []).includes('*') || (k !== 'spap:grupo' && (c.sistemas || []).includes(sistemaDaChave(k))) || (k === 'spap:grupo' && (c.sistemas || []).includes('bxb'))
+const grava0 = (c, k, novo) => !!c && (c.admin || (c.sistemas || []).includes('*') || (k !== 'spap:grupo' && (c.sistemas || []).includes(sistemaDaChave(k))) || (k === 'spap:grupo' && (c.sistemas || []).includes('bxb'))
   || (sistemaDaChave(k) === 'partilha' && (() => { const g = partilhaGuardada(k); return g != null ? membroDaPartilha(c, g) : membroDaPartilha(c, novo); })()));
+// planos pessoais e partilhas entre eles: só o dono / os membros, sem exceção para administradores
+const ve = (c, k) => { const s = sistemaDaChave(k); if (!c) return false; if (s === 'partilha') return membroDaPartilha(c, partilhaGuardada(k)); if (ePessoal(s)) return dono(c, s); return ve0(c, k); };
+const grava = (c, k, novo) => { const s = sistemaDaChave(k); if (!c) return false;
+  if (s === 'partilha') { const g = partilhaGuardada(k); return g != null ? membroDaPartilha(c, g) : membroDaPartilha(c, novo); }
+  if (ePessoal(s)) return dono(c, s);
+  // (um plano com dono continua pessoal mesmo que alguém mude o modelo no registo do grupo: os donos contam sempre como pessoais)
+  return grava0(c, k, novo); };
 
 /* ---------------- Servidor ---------------- */
 function abrirBrowser(url) {
@@ -153,6 +183,7 @@ async function api(req, res, caminho) {
     const nova = { id: 'c' + crypto.randomBytes(6).toString('hex'), nome, email, utilizador: email, hash: hashPalavra(b.palavra), admin: false, tipo, sistemas: [sub.key], proprios: [sub], criadaEm: new Date().toISOString() };
     const l = contas(); if (l.some(x => x.email === email || x.utilizador === email)) return json(409, { erro: 'Já existe uma conta com esse email' });
     l.push(nova); gravarContas(l);
+    if (tipo === 'particular') { const d = donos(); d[sub.key] = nova.id; gravarJSON(FICH_DONOS, d); }
     registos.set(ip, r0 && agora - r0.desde < 3600000 ? { n: r0.n + 1, desde: r0.desde } : { n: 1, desde: agora });
     abrirSessao(res, nova); return json(200, { sessao: publica(nova), destino: '/SISTEMAS/subsidiaria/index.html?s=' + encodeURIComponent(sub.key) });
   }
@@ -195,6 +226,7 @@ async function api(req, res, caminho) {
     if (!confere(b.palavra, c.hash)) return json(401, { erro: 'Palavra-passe do servidor incorreta' });
     if (!/^\d{4,8}$/.test(String(b.pin || ''))) return json(400, { erro: 'O PIN temporário deve ter 4 a 8 dígitos' });
     const k = 'spap:' + String(b.sistema || ''), atual = lerJSON(ficheiroChave(k), null);
+    if (ePessoal(String(b.sistema || '')) && !dono(c, String(b.sistema || ''))) return json(403, { erro: 'Plano pessoal de outra pessoa: só o dono lhe pode aceder' });
     if (!atual) return json(404, { erro: 'Sistema não encontrado no servidor' });
     let d; try { d = JSON.parse(atual.valor); } catch (e) { return json(400, { erro: 'Dados do sistema ilegíveis' }); }
     const u = (d.users || []).find(x => x.id === b.userId); if (!u) return json(404, { erro: 'Utilizador não encontrado nesse sistema' });
@@ -216,6 +248,7 @@ async function api(req, res, caminho) {
   if (caminho === '/api/contas') {
     if (!c.admin) return json(403, { erro: 'Só administradores' });
     if (req.method === 'GET') return json(200, contas().map(publica));
+    if (req.method === 'PUT') return json(405, { erro: 'Método não permitido' });
     if (req.method === 'POST') {
       const b = await lerCorpo(req), l = contas(), u = String(b.utilizador || '').trim().toLowerCase(), em = String(b.email || '').trim().toLowerCase();
       if (!b.nome || !u) return json(400, { erro: 'Indique o nome e o utilizador' });
@@ -227,10 +260,18 @@ async function api(req, res, caminho) {
       Object.assign(x, { nome: String(b.nome).trim(), utilizador: u, email: em, admin: !!b.admin, sistemas: Array.isArray(b.sistemas) ? b.sistemas.map(String) : [] });
       // os sistemas próprios de um cliente continuam acessíveis a ele
       (x.proprios || []).forEach(p => { if (!x.sistemas.includes(p.key)) x.sistemas.push(p.key); });
+      // planos pessoais: um plano sem dono passa a ser desta conta; um plano com outro dono não se pode dar a ninguém
+      const d = donos(); let mudouD = false;
+      for (const sis of x.sistemas.slice()) if (ePessoal(sis)) { if (!d[sis]) { d[sis] = x.id; mudouD = true; } else if (d[sis] !== x.id) return json(403, { erro: 'Esse plano pessoal já pertence a outra conta' }); }
       if (b.palavra) { if (String(b.palavra).length < 8) return json(400, { erro: 'A palavra-passe tem de ter pelo menos 8 caracteres' }); x.hash = hashPalavra(b.palavra); }
       if (!l.some(y => y.admin)) return json(400, { erro: 'Tem de existir pelo menos um administrador' });
-      gravarContas(l); return json(200, publica(x));
+      gravarContas(l); if (mudouD) { gravarJSON(FICH_DONOS, d); } return json(200, publica(x));
     }
+  }
+  if (caminho === '/api/donos' && req.method === 'GET') { // só quem é dono de cada plano pessoal (nome da conta), nunca os dados
+    if (!c.admin) return json(403, { erro: 'Só administradores' });
+    const d = donos(), l = contas(), out = {}; for (const sis of pessoais()) { const x = d[sis] ? l.find(y => y.id === d[sis]) : null; const pr = x && (x.proprios || []).find(p => p.key === sis); out[sis] = d[sis] ? { id: d[sis], nome: x ? x.nome : '(conta removida)', plano: pr ? pr.nome : '' } : null; }
+    return json(200, out);
   }
   if (caminho.startsWith('/api/contas/') && req.method === 'DELETE') {
     if (!c.admin) return json(403, { erro: 'Só administradores' });
@@ -316,6 +357,7 @@ servidor.on('error', erro => {
   });
 });
 
+try { atribuirDonos(); } catch (e) { console.error('donos:', e.message); }
 servidor.listen(PORT, HOST, () => {
   console.log('');
   console.log('  Grupo BXB - servidor local a correr');

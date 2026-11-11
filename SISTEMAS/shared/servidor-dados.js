@@ -33,7 +33,8 @@ if (!sessao) {
   return;
 }
 const todos = s => s.admin || (s.sistemas || []).includes('*');
-const podeVer = key => todos(sessao) || (sessao.sistemas || []).includes(key);
+// planos pessoais de outras pessoas nunca aparecem, nem ao administrador (RGPD)
+const podeVer = key => !(sessao.privados || []).includes(key) && (todos(sessao) || (sessao.sistemas || []).includes(key));
 const sistemaDaChave = k => { const m = /^spap:([^:]+)/.exec(k); return m ? m[1] : null; };
 // partilhas entre planos pessoais: o servidor confirma que esta conta é membro
 const podeGravar = k => todos(sessao) || sistemaDaChave(k) === 'partilha' || (k === 'spap:grupo' ? (sessao.sistemas || []).includes('bxb') : (sessao.sistemas || []).includes(sistemaDaChave(k)));
