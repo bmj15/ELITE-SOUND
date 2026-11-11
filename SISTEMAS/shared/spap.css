@@ -498,3 +498,4 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .ml-dir b{font-size:15.5px;font-weight:700;font-variant-numeric:tabular-nums}
   .ml-row.atraso .ml-dir small{color:var(--bad);font-weight:600}
 }
+@media (max-width:640px){.m-colapso.aberto .tbl tfoot.m-sem-total{display:none}}

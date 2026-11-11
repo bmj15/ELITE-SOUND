@@ -1805,25 +1805,38 @@ function valoresPartilhada(L, id) {
       el.querySelectorAll('[data-ym]').forEach(i => { if (i.value.trim() !== '' && isFinite(+i.value)) vals[i.dataset.ym] = r2(+i.value); });
       setTimeout(async () => { if (await proporAlteracao(L, e, { valores: vals })) app.refresh(); }, 0); } }] });
 }
-function cartaoPartilhas(L, ex) {
-  const eu = L.eu, R = CC().registo(L.casa), nm = id => ex.nomeM(id).split(' ')[0], ed = podeEditar();
-  const ds = CC().todasDespesas(L.casa).filter(e => e.ativo !== false && +((e.partes || {})[eu]) > 0 && e.periodicidade !== 'pontual' && (!e.fim || e.fim >= ymHoje()))
-    .sort((a, b) => String(a.nome).localeCompare(String(b.nome)));
+/* Acerto do mês: de onde vem o acerto (a lista das partilhadas está em Despesas fixas; aqui vê-se quem pagou o quê,
+   a sua parte e quanto cada despesa soma ou tira ao seu saldo nesse mês) */
+function cartaoAcerto(L, ex, ym) {
+  const eu = L.eu, R = CC().registo(L.casa), nm = id => ex.nomeM(id).split(' ')[0], ed = podeEditar(), hoje = today().slice(0, 7);
   const pend = (R.convites || []).filter(c => c.estado === 'pendente');
-  const parte = e => r2(CC().valorMes(e, ymHoje()).valor * +e.partes[eu]), vig = ds.filter(e => !e.inicio || e.inicio <= ymHoje());
-  const prox = vig.filter(e => e.periodicidade !== 'compras').map(e => ({ e, d: proxima(e, e.periodicidade) })).sort((a, b) => a.d < b.d ? -1 : 1).slice(0, 4), porResp = pend.filter(c => paraMim(c)).length;
-  return `<div class="card flush m-colapso" data-m="partilhadas"><div class="card-h"><h3>Despesas partilhadas</h3><span class="sub">${ed ? 'clique numa linha para alterar' : ''}</span><span class="m-resumo"></span></div>
-    ${capaMovel({ nums: [['Despesas', ds.length], ['A minha parte / mês', eur(vig.reduce((t, e) => t + parte(e), 0))]], alerta: porResp ? `${porResp === 1 ? '1 pedido' : porResp + ' pedidos'} à espera da sua resposta` : '',
-      titulo: 'Próximos pagamentos', itens: prox.map(x => [esc(x.e.nome), `${date(x.d)} · paga ${x.e.pagaPor === eu ? 'eu' : esc(nm(x.e.pagaPor))}`, eur(parte(x.e))]), ver: 'Ver todas as partilhadas' })}
-    ${pend.length ? `<div style="padding:0 16px 8px">${pend.map(c => `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${c.deSistema === sub.key && ehAlt(c) ? `Alteração proposta a <b>${esc(c.nome)}</b>: ${descMudancas(L.casa, c)}` : c.deSistema === sub.key ? `Pedido enviado a <b>${esc(semPessoal(c.paraNome))}</b>: ${ehObj(c) ? 'objetivo ' : ''}${esc(nomeConv(c))} · ${eur(valorConv(c))}` : resumoConvite(L.casa, c)}</span>
-      <span>${c.deSistema === sub.key ? `<span class="badge info">aguarda resposta</span> ${ed ? `<button class="btn sm ghost" data-cc="${c.id}">Cancelar</button>` : ''}` : paraMim(c) && ed ? `<button class="btn sm primary" data-rc="${c.id}">${icon('key')} Responder</button>` : ''}</span></div>`).join('')}</div>` : ''}
-    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th>Periodicidade</th><th class="r">Valor do mês</th><th>Quem paga</th><th class="r">A minha parte</th><th>Período</th><th></th></tr></thead><tbody>
-    ${ds.map(e => { const vm = CC().valorMes(e, ymHoje()), daqui = (R.despesas || []).some(x => x.id === e.id);
-      return `<tr class="${ed && daqui ? 'click' : ''}" ${daqui ? `data-ep="${e.id}"` : ''}><td><b>${esc(e.nome)}</b><div class="faint" style="font-size:12px">${esc(e.categoria || '')}${e.variavel ? ' · variável' : ''}${e.alteradoPor ? ` · alterada por ${esc(e.alteradoPor.split(' ')[0])}` : ''}${altPendente(L.casa, e.id) ? ' <span class="badge warn">alteração por aprovar</span>' : ''}</div></td>
-        <td>${esc(nomePer(e.periodicidade))}</td><td class="r num">${eur(vm.valor)}${vm.real === false ? '<div class="faint" style="font-size:11px">média</div>' : ''}</td><td>${e.pagaPor === eu ? 'eu' : esc(nm(e.pagaPor))}</td>
-        <td class="r num">${eur(vm.valor * e.partes[eu])} <span class="faint" style="font-size:11px">${pct(e.partes[eu])}</span></td>
-        <td style="font-size:12px">${e.inicio ? 'desde ' + fmtMes(e.inicio) : ''} ${e.fim ? 'até ' + fmtMes(e.fim) : ''}</td>
-        <td class="r">${ed && daqui && e.variavel ? `<button class="btn sm ghost" data-vp="${e.id}">Valores reais</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Sem despesas partilhadas em vigor.</td></tr>'}</tbody></table></div></div>`;
+  const ds = CC().todasDespesas(L.casa).filter(e => e.ativo !== false && CC().ativaNoMes(e, ym)).map(e => {
+    const q = +((e.partes || {})[eu]) || 0, compras = e.periodicidade === 'compras', vm = CC().valorMes(e, ym);
+    const v = compras ? CC().totalCompras(e, ym) : vm.valor, minha = r2(v * q);
+    const paguei = compras ? r2(CC().comprasMes(e, ym).filter(c => c.membro === eu).reduce((t, c) => t + (+c.valor || 0), 0)) : e.pagaPor === eu ? v : 0;
+    return { e, v, q, minha, paguei, saldo: r2(paguei - minha), compras, media: !compras && vm.real === false };
+  }).filter(x => x.q > 0 || x.paguei > 0).sort((a, b) => Math.abs(b.saldo) - Math.abs(a.saldo) || String(a.e.nome).localeCompare(String(b.e.nome)));
+  const tot = k => r2(ds.reduce((t, x) => t + x[k], 0)), saldo = tot('saldo');
+  const exM = ym > hoje ? CC().extrato(L.casa, ym) : ex, trf = ((exM || ex).linhas || []).filter(l => l.tipo === 'acerto' && l.mes === ym && (l.de === eu || l.para === eu));
+  const quem = x => x.compras ? (x.paguei ? 'compras: eu ' + eur(x.paguei) : 'compras de outros') : x.e.pagaPor === eu ? 'pago eu' : 'paga ' + esc(nm(x.e.pagaPor));
+  const sinal = n => Math.abs(n) < 0.005 ? eur(0) : (n > 0 ? '+' : '−') + eur(Math.abs(n));
+  const linhaTrf = l => l.de === eu ? [`Pagar a ${esc(nm(l.para))}`, eur(l.valor), 'neg'] : [`Receber de ${esc(nm(l.de))}`, eur(l.valor), 'pos'];
+  const estim = ds.filter(x => x.media).map(x => x.e.nome);
+  return `${pend.length ? `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Pedidos de partilha</h3></div>${pend.map(c => `<div class="row between" style="padding:8px 0;border-bottom:1px solid var(--line);gap:10px"><span>${c.deSistema === sub.key && ehAlt(c) ? `Alteração proposta a <b>${esc(c.nome)}</b>: ${descMudancas(L.casa, c)}` : c.deSistema === sub.key ? `Pedido enviado a <b>${esc(semPessoal(c.paraNome))}</b>: ${ehObj(c) ? 'objetivo ' : ''}${esc(nomeConv(c))} · ${eur(valorConv(c))}` : resumoConvite(L.casa, c)}</span>
+      <span style="flex:none">${c.deSistema === sub.key ? `<span class="badge info">aguarda resposta</span> ${ed ? `<button class="btn sm ghost" data-cc="${c.id}">Cancelar</button>` : ''}` : paraMim(c) && ed ? `<button class="btn sm primary" data-rc="${c.id}">${icon('key')} Responder</button>` : ''}</span></div>`).join('')}</div>` : ''}
+    <div class="grid g3" style="margin-bottom:16px">
+      ${kpi('Acerto · ' + fmtMes(ym), trf.length ? trf.map(l => linhaTrf(l)[1]).join(' + ') : eur(0), trf.length ? trf.map(l => linhaTrf(l)[0]).join(' · ') + (trf.some(l => l.emCurso) ? ' · em curso' : '') : 'contas certas neste mês', trf.length ? linhaTrf(trf[0])[2] : '', true)}
+      ${kpi('Paguei', eur(tot('paguei')), 'contas em meu nome e compras')}
+      ${kpi('A minha parte', eur(tot('minha')), `${ds.filter(x => x.q > 0).length} despesas partilhadas`)}</div>
+    ${estim.length ? `<div class="alert info" style="margin-bottom:16px">${icon('info')}<div>Valor estimado (média) em ${esc(estim.join(', '))}. Registe o valor real para o acerto ficar certo.</div></div>` : ''}
+    <div class="card flush m-colapso" data-m="acerto"><div class="card-h"><h3>De onde vem o acerto</h3>${resumoMovel(`<b>${sinal(saldo)}</b>`)}</div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th class="r">Valor do mês</th><th class="r">A minha parte</th><th class="r">Paguei</th><th class="r">No meu saldo</th><th></th></tr></thead><tbody>
+    ${ds.map(x => { const daqui = (R.despesas || []).some(y => y.id === x.e.id);
+      return `<tr class="${ed && daqui ? 'click' : ''}" ${daqui ? `data-ep="${x.e.id}"` : ''}><td><b>${esc(x.e.nome)}</b><div class="faint" style="font-size:12px">${quem(x)}${altPendente(L.casa, x.e.id) ? ' <span class="badge warn">alteração por aprovar</span>' : ''}</div></td>
+        <td class="r num m-meta m-rot">${eur(x.v)}${x.media ? ' <span class="badge warn">média</span>' : ''}</td><td class="r num m-meta m-rot">${eur(x.minha)} <span class="faint" style="font-size:11px">${pct(x.q)}</span></td><td class="r num m-oculto">${eur(x.paguei)}</td>
+        <td class="r num m-valor" style="color:var(${x.saldo > 0.004 ? '--ok' : x.saldo < -0.004 ? '--bad' : '--muted'})"><b>${sinal(x.saldo)}</b></td>
+        <td class="r">${ed && daqui && x.e.variavel ? `<button class="btn sm ghost" data-vp="${x.e.id}">Valor real</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="6" class="empty">Sem despesas partilhadas neste mês.</td></tr>'}</tbody>
+    ${ds.length ? `<tfoot class="m-sem-total"><tr><td>TOTAL</td><td class="r num">${eur(tot('v'))}</td><td class="r num">${eur(tot('minha'))}</td><td class="r num">${eur(tot('paguei'))}</td><td class="r num"><b>${sinal(saldo)}</b></td><td></td></tr></tfoot>` : ''}</table></div></div>`;
 }
 function ligarPartilhas(v, L) {
   const nps = v.querySelector('#nps'); if (nps) nps.onclick = () => partilharDespesa();
@@ -1855,13 +1868,13 @@ function casaPessoal(v) {
     ['Nova dívida', null, 'nd', null, 'credit', 'Ex.: a parte de uma compra feita por um de vocês']];
   // separadores: só os que têm conteúdo
   const mesesC = Array.from({ length: 6 }, (_, i) => SPAP.addMonths(today().slice(0, 7) + '-01', i - 4).slice(0, 7));
-  const SEPS = [['desp', 'users', 'Despesas partilhadas'], ...(CP && CP.linhas.length ? [['contas', 'credit', 'Contas que paga']] : []), ...(COMP.length ? [['compras', 'pie', 'Compras partilhadas']] : []), ['ext', 'file', 'Extrato']];
+  const SEPS = [['desp', 'check', 'Acerto do mês'], ...(CP && CP.linhas.length ? [['contas', 'credit', 'Contas que paga']] : []), ...(COMP.length ? [['compras', 'pie', 'Compras partilhadas']] : []), ['ext', 'file', 'Extrato']];
   if (tab('pf-casa', '') && !SEPS.some(x => x[0] === tab('pf-casa', ''))) setTab('pf-casa', '');
   const T = menuQuadrados('pf-casa', 'Partilhas', SEPS);
   const fitaMes = fita('cmes', mesesC, ymC, { rot: rotMes(ymC), rotSel: fmtMes, nome: fmtMes, atual: today().slice(0, 7), sm: true });
-  v.innerHTML = `${ed ? escondidos(['pg', 'rc', 'lq', 'nd']) : ''}${T.t ? T.html + barraFita(T.t === 'contas' || T.t === 'compras' ? fitaMes : '', ed ? botaoMais(OPS) : '') : ''}
+  v.innerHTML = `${ed ? escondidos(['pg', 'rc', 'lq', 'nd']) : ''}${T.t ? T.html + barraFita(T.t === 'desp' || T.t === 'contas' || T.t === 'compras' ? fitaMes : '', ed ? botaoMais(OPS) : '') : ''}
     ${porConfirmar.length ? `<div class="alert warn" style="margin-bottom:16px">${icon('inbox')}<div>${porConfirmar.length === 1 ? 'Há 1 pagamento' : `Há ${porConfirmar.length} pagamentos`} registados a aguardar a sua confirmação. <a href="#/aprovacoes">Abrir a Caixa de entrada</a></div></div>` : ''}
-    ${T.t ? '' : (n => n ? `<div class="alert info" style="margin-bottom:16px">${icon('inbox')}<div>${n === 1 ? 'Há 1 pedido de partilha' : `Há ${n} pedidos de partilha`} à espera da sua resposta. <a href="javascript:void 0" data-tab="pf-casa=desp">Abrir Despesas partilhadas</a></div></div>` : '')((CC().registo(L.casa).convites || []).filter(c => c.estado === 'pendente' && paraMim(c)).length)}
+    ${T.t ? '' : (n => n ? `<div class="alert info" style="margin-bottom:16px">${icon('inbox')}<div>${n === 1 ? 'Há 1 pedido de partilha' : `Há ${n} pedidos de partilha`} à espera da sua resposta. <a href="javascript:void 0" data-tab="pf-casa=desp">Abrir Acerto do mês</a></div></div>` : '')((CC().registo(L.casa).convites || []).filter(c => c.estado === 'pendente' && paraMim(c)).length)}
     ${T.t ? '' : `<div class="grid g4" style="margin-bottom:16px">
       ${outros.map((o, oi) => { const add = ed && oi === 0 ? 'casa' : ''; const r = aReceber.find(x => x.de === o.id), pg = aPagar.find(x => x.para === o.id);
         // pagou a mais (ex.: acerto adiantado): não é dívida, é crédito dele que desconta no próximo acerto que ele me envia
@@ -1871,7 +1884,7 @@ function casaPessoal(v) {
       ${kpi('A minha parte / mês', eur(minhaParte), `${minhas.length} ${minhas.length === 1 ? 'despesa partilhada' : 'despesas partilhadas'}`, '', !outros.length, !outros.length && ed ? 'casa' : '')}
       ${kpi('Pagamentos por confirmar', String(meus.filter(l => l.tipo === 'pagamento' && l.estado === 'registado').length), 'registados e à espera de quem recebe')}
       ${kpi('Acerto deste mês', (() => { const t = meus.find(l => l.tipo === 'acerto' && l.mes === today().slice(0, 7)); return t ? eur(t.valor) : eur(0); })(), (() => { const t = meus.find(l => l.tipo === 'acerto' && l.mes === today().slice(0, 7)); return t ? (t.de === eu ? `a pagar a ${esc(nm(t.para))}` : `a receber de ${esc(nm(t.de))}`) : 'sem acerto'; })())}</div>${T.html}`}
-    ${T.t === 'desp' ? cartaoPartilhas(L, ex) : ''}
+    ${T.t === 'desp' ? cartaoAcerto(L, ex, ymC) : ''}
     ${T.t === 'contas' && CP && CP.linhas.length ? (() => {
       const res = CP.outros.map(o => { const a = CP.acerto[o.id];
         return `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>Acerto de ${esc(nm(o.id))} · ${fmtMes(ymC)}: <b class="num">${eur(a.deve)}</b></span><span>${a.deve <= 0.004 ? '<span class="badge plain">sem acerto a receber</span>' : a.liquidado ? `<span class="badge ok">pago${a.recebido < a.deve - 0.004 ? ' (com crédito anterior)' : ''}</span>` : `${a.recebido ? `<span class="badge ok">${eur(a.recebido)} confirmado</span> ` : ''}${a.porConfirmar ? `<span class="badge info">${eur(a.porConfirmar)} enviado · por confirmar</span> ` : ''}<span class="badge warn">falta receber ${eur(a.pendente)}</span>`}</span></div>`; }).join('');
@@ -1899,7 +1912,7 @@ function casaPessoal(v) {
     ${meus.slice().reverse().map(l => { const sentido = l.de === eu ? `eu → ${esc(nm(l.para))}` : `${esc(nm(l.de))} → eu`;
       if (l.tipo === 'pagamento') return `<tr><td>${date(l.data)}</td><td>${esc(l.descricao || 'Pagamento')}<div class="faint" style="font-size:12px">${sentido}${l.registo ? ' · registado por ' + esc(l.registo.nome.split(' ')[0]) : ''}${l.confirmacao && (!l.registo || l.confirmacao.nome !== l.registo.nome) ? ' · confirmado por ' + esc(l.confirmacao.nome.split(' ')[0]) : ''}</div></td><td><span class="badge plain">pagamento</span></td><td></td><td class="r num">${eur(l.valor)}</td><td>${estadoPag(l)}</td>
         <td class="r">${l.estado === 'registado' && l.para === eu ? `<button class="btn sm primary" data-cf="${l.id}">${icon('key')} Confirmar</button>` : ''}</td></tr>`;
-      return `<tr><td>${date(l.data)}</td><td>${esc(l.tipo === 'acerto' ? 'Acerto das despesas comuns · ' + fmtMes(l.mes) : l.descricao)}<div class="faint" style="font-size:12px">${sentido}</div>${l.estimado && l.estimado.length ? `<div style="font-size:11px"><span class="badge warn" data-tip="${esc('Ainda sem valor real de: ' + l.estimado.join(', ') + '. Usa-se a média; quando o valor real for registado (Despesas partilhadas › Valores reais), o acerto é corrigido.')}">estimado</span></div>` : ''}</td><td><span class="badge plain">${l.tipo === 'acerto' ? 'acerto mensal' : 'dívida'}</span>${l.emCurso ? ' <span class="badge info" data-tip="Inclui compras partilhadas: o valor muda à medida que se registam compras neste mês.">em curso</span>' : ''}</td><td class="r num">${eur(l.valor)}</td><td></td><td></td><td></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Sem movimentos.</td></tr>'}</tbody></table></div></div>`}`;
+      return `<tr><td>${date(l.data)}</td><td>${esc(l.tipo === 'acerto' ? 'Acerto das despesas comuns · ' + fmtMes(l.mes) : l.descricao)}<div class="faint" style="font-size:12px">${sentido}</div>${l.estimado && l.estimado.length ? `<div style="font-size:11px"><span class="badge warn" data-tip="${esc('Ainda sem valor real de: ' + l.estimado.join(', ') + '. Usa-se a média; quando o valor real for registado (Partilhas › Acerto do mês › Valor real), o acerto é corrigido.')}">estimado</span></div>` : ''}</td><td><span class="badge plain">${l.tipo === 'acerto' ? 'acerto mensal' : 'dívida'}</span>${l.emCurso ? ' <span class="badge info" data-tip="Inclui compras partilhadas: o valor muda à medida que se registam compras neste mês.">em curso</span>' : ''}</td><td class="r num">${eur(l.valor)}</td><td></td><td></td><td></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Sem movimentos.</td></tr>'}</tbody></table></div></div>`}`;
   bindTabs(v); ligarPartilhas(v, L); ligarMais(v, OPS, '[data-add="casa"],[data-mais]', 'Partilhas');
   v.querySelectorAll('[data-cf]').forEach(b => b.onclick = async () => { if (await confirmarPagamento(b.dataset.cf)) app.refresh(); });
   ligarFita(v, 'cmes', x => { setTab('pf-casa-mes', x); app.refresh(); });
