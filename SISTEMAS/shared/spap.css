@@ -397,3 +397,11 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .pp-trio>div>b{grid-column:2;grid-row:1;text-align:right;font-variant-numeric:tabular-nums}
   .pp-trio>div>div:last-child{grid-column:1/-1;font-size:11.5px!important}
 }
+/* Poupanças: divisão do valor do mês em quatro números com rótulo */
+.kpi .foot:has(.pp-div){display:block;-webkit-line-clamp:unset;overflow:visible}
+.pp-div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px;max-width:640px}
+.pp-div>div{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--text) 6%,transparent)}
+.pp-div span{font-size:11.5px;color:var(--muted)}
+.pp-div b{font-size:14.5px;color:var(--text);font-variant-numeric:tabular-nums}
+.pp-div b.pos{color:var(--ok)}.pp-div b.neg{color:var(--bad)}
+@media (max-width:640px){.pp-div{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}

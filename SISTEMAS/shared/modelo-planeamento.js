@@ -2107,7 +2107,7 @@ function poupancas(v) {
   const ajustar = q => ed ? `<button class="btn sm" data-aj="${q}" title="Alterar" aria-label="Alterar" style="${MAIS_CSS};margin-left:auto">${icon('edit')}</button>` : '';
   // um só quadro no topo; o fundo, a poupança e as dívidas têm cada um o seu cartão em baixo
   v.innerHTML = `<div>
-      ${kpi(`${icon('target')} Poupa este mês`, eur(mes), `<b class="${taxaCls}">${pct(taxa)}</b> do rendimento (recomendado ≥ ${pct(BENCH.poupMin)}) · poupança ${eur(p0.poup)} · fundo ${eur(p0.fundoMes)} · extra ${eur(extra)}`, '', true)}</div>
+      ${kpi(`${icon('target')} Poupa este mês`, eur(mes), `<div class="pp-div"><div><span>Poupança</span><b>${eur(p0.poup)}</b></div><div><span>Fundo</span><b>${eur(p0.fundoMes)}</b></div><div><span>Extra</span><b>${eur(extra)}</b></div><div><span>Do rendimento</span><b class="${taxaCls}">${pct(taxa)}</b></div></div>`, '', true)}</div>
     <div class="grid g3" style="margin-top:16px;align-items:stretch">
       <div class="card"><div class="card-h"><h3>${icon('shield')} Fundo de emergência</h3>${ajustar('fundo')}</div>
         ${alvo ? `<div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(saldoF)}</span><span class="muted">de ${eur(alvo)}</span></div>
