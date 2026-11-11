@@ -9,8 +9,9 @@
 //   · cada acesso fica no registo (quem, quando, o quê — nunca o conteúdo).
 // Em http://localhost:8080 só aceita ligações deste computador (127.0.0.1); para a internet use um túnel HTTPS (ex.: Cloudflare).
 // Rede de casa (opcional): com um certificado em DADOS-SERVIDOR\tls (cert.pem e key.pem) abre também https://<IP>:8443.
-// Consola de gestão: http://127.0.0.1:8099, só neste computador (nunca na rede nem nos túneis). Abre-se pelo BXB Gestor
-// (lê a chave em DADOS-SERVIDOR\gestao.chave) ou com uma conta de administrador.
+// Consola de gestão antiga: http://127.0.0.1:8099, só neste computador (nunca na rede nem nos túneis). Vai ser retirada:
+// o back-office (BXB Gestor .exe e painel de gestão) passa a ter servidor e base de dados próprios (pasta backoffice/, do Codex).
+// API de consulta para o back-office: http://127.0.0.1:8097, só leitura (contrato em CONTRATO-CONSULTA.md).
 'use strict';
 const http = require('http');
 const https = require('https');
@@ -42,7 +43,7 @@ const PORT_GESTAO = +process.env.PORT_GESTAO || 8099;
 const FICH_SEGREDO = path.join(DADOS, 'segredo.chave'); // cifra as definições secretas (ex.: palavra-passe do email)
 const FICH_GESTAO = path.join(DADOS, 'gestao.chave');   // o BXB Gestor usa-a para abrir a consola
 const ARRANQUE = Date.now();
-const portas = { site: 0, rede: 0, gestao: 0 };
+const portas = { site: 0, rede: 0, gestao: 0, consulta: 0 };
 
 // últimas linhas escritas na consola (a consola de gestão mostra-as em Registos > Servidor)
 const CONSOLA = [];
@@ -57,7 +58,7 @@ const TIPOS = {
   '.ico': 'image/x-icon', '.webp': 'image/webp', '.pdf': 'application/pdf', '.woff': 'font/woff', '.woff2': 'font/woff2',
 };
 // pastas que nunca são servidas no site (a consola de gestão só existe na porta deste computador)
-const PRIVADO = /(^|[\\/])(\.git|\.claude|node_modules|backend|DADOS-SERVIDOR|gestor|gestao)([\\/]|$)/i;
+const PRIVADO = /(^|[\\/])(\.git|\.claude|node_modules|backend|backoffice|DADOS-SERVIDOR|DADOS-BACKOFFICE|gestor|gestao)([\\/]|$)/i;
 
 /* ================= Base de dados =================
    contas    — quem entra (email + palavra-passe)
@@ -951,12 +952,76 @@ function abrirGestao() {
   servidorGestao.on('error', e => console.error(`  [gestao] Nao foi possivel abrir a porta ${PORT_GESTAO}: ${e.message}`));
   servidorGestao.listen(PORT_GESTAO, '127.0.0.1', () => { portas.gestao = PORT_GESTAO; console.log(`  Consola de gestao: http://127.0.0.1:${PORT_GESTAO}/ (so neste computador)`); console.log(''); });
 }
+/* ================= API de consulta para o back-office (http://127.0.0.1:8097, só neste computador) =================
+   O back-office (BXB Gestor .exe e painel de gestão, com servidor e base de dados próprios, na pasta backoffice/) só CONSULTA
+   o sistema do cliente por aqui. Tudo é GET e nada altera dados. A única exceção é POST /v1/desligar: o Gestor desliga o
+   processo do site com ordem (não mexe em dados).
+   Entra-se com a chave em DADOS-SERVIDOR\consulta.chave (cabeçalho Authorization: Bearer <chave>), só pedidos de servidor
+   para servidor (um browser é recusado). Nunca devolve palavras-passe, sessões, segredos nem os dados financeiros dos clientes.
+   Contrato com o back-office: CONTRATO-CONSULTA.md na raiz do repositório (mudar aqui = atualizar o contrato). */
+const PORT_CONSULTA = +process.env.PORT_CONSULTA || 8097;
+const FICH_CONSULTA = path.join(DADOS, 'consulta.chave');
+const CONTRATO_CONSULTA = 1;
+let CHAVE_CONSULTA = null;
+function chaveConsulta() {
+  if (CHAVE_CONSULTA) return CHAVE_CONSULTA;
+  try { const t = fs.readFileSync(FICH_CONSULTA, 'utf8').trim(); if (/^[a-f0-9]{64}$/.test(t)) return (CHAVE_CONSULTA = t); } catch (e) { }
+  CHAVE_CONSULTA = crypto.randomBytes(32).toString('hex'); fs.writeFileSync(FICH_CONSULTA, CHAVE_CONSULTA, { mode: 0o600 }); return CHAVE_CONSULTA;
+}
+const limiteDe = (v, def, max) => Math.min(max, Math.max(1, Math.floor(+v) || def));
+function atenderConsulta(req, res) {
+  const json = (codigo, obj) => { res.writeHead(codigo, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }); res.end(JSON.stringify(obj)); };
+  if (!/^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i.test(String(req.headers.host || ''))) return json(403, { erro: 'Recusado' });
+  if (req.headers.origin) return json(403, { erro: 'Só pedidos do servidor do back-office' });
+  let u; try { u = new URL(req.url, 'http://x'); } catch (e) { return json(400, { erro: 'Pedido inválido' }); }
+  const caminho = u.pathname.replace(/\/+$/, '') || '/', qs = Object.fromEntries(u.searchParams);
+  if (caminho === '/v1/saude' && req.method === 'GET')
+    return json(200, { ok: true, servidor: ASSINATURA, contrato: CONTRATO_CONSULTA, pid: process.pid, arranque: ARRANQUE, versao: VERSAO, portas, enderecos: enderecos() });
+  const auth = /^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization || '');
+  if (!auth || !igual(auth[1], chaveConsulta())) return json(401, { erro: 'Chave de consulta em falta ou errada' });
+  if (caminho === '/v1/desligar') {
+    if (req.method !== 'POST') return json(405, { erro: 'Use POST' });
+    json(200, { ok: true }); setTimeout(() => desligar('BXB Gestor'), 150); return;
+  }
+  if (req.method !== 'GET') return json(405, { erro: 'A API de consulta só aceita GET' });
+
+  if (caminho === '/v1/painel') return json(200, painel());
+  if (caminho === '/v1/contas') return json(200, { contas: contasLista() });
+  let m = /^\/v1\/contas\/([A-Za-z0-9_-]{1,80})$/.exec(caminho);
+  if (m) {
+    const x = conta(m[1]); if (!x) return json(404, { erro: 'Conta não encontrada' });
+    return json(200, { conta: contasLista().find(r => r.id === x.id), perfil: perfilDe(x),
+      sessoes: q('SELECT criada, visto, ip, agente, expira FROM sessoes WHERE conta = ? AND expira > ? ORDER BY visto DESC').all(x.id, Date.now()),
+      registo: registoLista({ conta: x.id, limite: limiteDe(qs.limite, 40, 500) }) });
+  }
+  if (caminho === '/v1/areas') return json(200, { areas: q(`SELECT a.id, a.tipo, a.nome, a.criada_em,
+      (SELECT COUNT(*) FROM membros m WHERE m.area = a.id) AS membros,
+      (SELECT m.conta FROM membros m WHERE m.area = a.id AND m.papel = 'dono' LIMIT 1) AS dono
+    FROM areas a ORDER BY a.criada_em DESC`).all() });
+  if (caminho === '/v1/registo') return json(200, { registo: registoLista({ acao: qs.acao, conta: qs.conta, texto: qs.texto, leituras: qs.leituras === '1', antes: qs.antes, limite: qs.limite }) });
+  if (caminho === '/v1/emails') return json(200, { emails: q('SELECT id, em, para, modelo, assunto, estado, erro FROM emails ORDER BY id DESC LIMIT ?').all(limiteDe(qs.limite, 150, 1000)) });
+  if (caminho === '/v1/email') { const sm = cfg('smtp', SMTP_PADRAO);
+    return json(200, { smtp: smtpPublico(sm), pronto: smtpPronto(sm), registo: cfg('registo', REGISTO_PADRAO), verificacaoAtiva: verificarRegisto(), modelos: Object.keys(MODELOS).map(modelo) }); }
+  if (caminho === '/v1/definicoes') return json(200, { geral: geral(), versao: VERSAO, versaoDisco: versaoCodigo(), portas });
+  if (caminho === '/v1/consola') return json(200, { linhas: qs.desde ? CONSOLA.filter(l => l.em > String(qs.desde)) : CONSOLA });
+  if (caminho === '/v1/rede') return json(200, { linhas: cauda(path.join(DADOS, 'rede.log'), limiteDe(qs.linhas, 300, 1000)) });
+  return json(404, { erro: 'Não encontrado' });
+}
+const servidorConsulta = http.createServer((req, res) => {
+  try { atenderConsulta(req, res); } catch (e) { try { res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ erro: e.message })); } catch (x) { } }
+});
+function abrirConsulta() {
+  chaveConsulta();
+  servidorConsulta.on('error', e => console.error(`  [consulta] Nao foi possivel abrir a porta ${PORT_CONSULTA}: ${e.message}`));
+  servidorConsulta.listen(PORT_CONSULTA, '127.0.0.1', () => { portas.consulta = PORT_CONSULTA; });
+}
+
 // desligar com ordem: fecha as portas, a base de dados e sai (pedido pelo Gestor, Ctrl+C ou pelo sistema)
 let aDesligar = false;
 function desligar(motivo) {
   if (aDesligar) return; aDesligar = true; console.log(`  O servidor vai desligar (${motivo}).`);
   registar(null, 'SERVIDOR_DESLIGADO', motivo, 'local');
-  [servidor, servidorGestao, servidorRede].forEach(x => { try { x && x.close(); } catch (e) { } });
+  [servidor, servidorGestao, servidorConsulta, servidorRede].forEach(x => { try { x && x.close(); } catch (e) { } });
   setTimeout(() => { try { bd.close(); } catch (e) { } process.exit(0); }, 400);
 }
 process.on('SIGINT', () => desligar('Ctrl+C'));
@@ -971,6 +1036,7 @@ function arrancar() { servidor.listen(PORT, HOST, () => {
   console.log('');
   abrirRede();
   abrirGestao();
+  abrirConsulta();
   limparSessoes(); setInterval(limparSessoes, 3600000).unref();
   registar(null, 'SERVIDOR_LIGADO', (VERSAO || '') + ' porta ' + PORT, 'local');
   if (!process.env.BXB_GESTOR) console.log('  Nao feche esta janela enquanto usa o sistema.');
