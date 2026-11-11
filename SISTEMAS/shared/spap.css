@@ -550,8 +550,8 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .tb.on{color:var(--text)}
   .tb:active{transform:scale(.94)}
   .tb-n{position:absolute;top:0;left:calc(50% + 5px);min-width:17px;height:17px;padding:0 5px;border-radius:9px;display:grid;place-items:center;font:700 10.5px/1 var(--font);font-style:normal;color:#fff;background:var(--bad);box-shadow:0 0 0 2px var(--bg)}
-  .tb-fab{flex:none;width:56px;height:56px;margin:-14px 6px 0;border:0;border-radius:19px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 14px 28px -12px var(--accent);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s}
-  .tb-fab svg{width:26px;height:26px;stroke-width:2.4}
+  .tb-fab{flex:none;width:54px;height:48px;margin:0 6px;border:0;border-radius:16px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 14px 28px -12px var(--accent);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s}
+  .tb-fab svg{width:24px;height:24px;stroke-width:2.4}
   .tb-fab:active{transform:scale(.93)}
   /* cartões redondos; o quadro principal com o gradiente da marca */
   .card{border-radius:20px}
