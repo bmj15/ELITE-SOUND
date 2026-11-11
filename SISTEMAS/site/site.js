@@ -160,6 +160,10 @@ var avF = document.getElementById('avisoF'); if (avF) avF.onclick = function () 
   var rodape = document.querySelector('footer'); if (!rodape) return;
   var ver = function () { b.classList.toggle('on', rodape.getBoundingClientRect().top < innerHeight - 40 && scrollY > 200); };
   addEventListener('scroll', ver, { passive: true }); addEventListener('resize', ver); ver();
+  // barra do navegador por cima do fundo da página (tablets e telemóveis): o botão sobe o mesmo tanto
+  var vv = window.visualViewport;
+  if (vv) { var barra = function () { var t = vv.scale > 1.01 ? 0 : Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)); b.style.setProperty('--barra-nav', Math.min(t, 140) + 'px'); };
+    vv.addEventListener('resize', barra); vv.addEventListener('scroll', barra); barra(); }
 })();
 // rodapé no telemóvel: cada grupo de ligações abre e fecha
 document.querySelectorAll('footer .g h4').forEach(function (h) { h.setAttribute('role', 'button'); h.tabIndex = 0; h.setAttribute('aria-expanded', 'false');
