@@ -2,12 +2,20 @@
 <html lang="pt">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07090d">
+<link rel="manifest" href="/SISTEMAS/manifest.json">
+<link rel="icon" type="image/png" href="/SISTEMAS/icones/favicon-32.png">
+<link rel="apple-touch-icon" href="/SISTEMAS/icones/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="BXB">
 <title>Subsidiária · Gestão</title>
 <script src="../shared/servidor-dados.js?v=7"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../shared/spap.css?v=45">
+<link rel="stylesheet" href="../shared/spap.css?v=46">
 <style>
   .eq{display:flex;gap:3px;align-items:flex-end;height:18px}
   .eq i{width:3px;background:currentColor;border-radius:2px;animation:eq 1s ease-in-out infinite}
@@ -20,11 +28,11 @@
 <div id="app"></div>
 <script src="../shared/vendor/qrcode.min.js"></script>
 <script src="../shared/vendor/jsQR.min.js"></script>
-<script src="../shared/spap.js?v=45"></script>
+<script src="../shared/spap.js?v=46"></script>
 <script src="../shared/grupo.js?v=7"></script>
 <script src="../shared/modelos.js?v=4"></script>
 <script src="../shared/conta-casa.js?v=9"></script>
-<script src="../shared/modelo-planeamento.js?v=151"></script>
+<script src="../shared/modelo-planeamento.js?v=152"></script>
 <script src="../shared/leitor-recibos.js?v=3"></script>
 <script src="../shared/leitor-extratos.js?v=3"></script>
 <script>
@@ -52,7 +60,7 @@
   const app = SPAP.createApp({
     key: sub.key, nome: sub.nome, sigla: sub.sigla, tagline: m.tagline, logo: m.logo, heroTitle: m.heroTitle, heroText: m.heroText,
     home: m.home, grupoModulos: sub.nome, alcadaPadrao: m.alcadaPadrao, migrarV3: m.migrarV3, seed: m.seed, modules: m.modules,
-    previsao: m.previsao, navVisivel: m.navVisivel, pagamentoDireto: m.pagamentoDireto, perfil: m.perfil, grupoSpap: m.grupoSpap, analiseTexto: m.analiseTexto, analiseOrigem: m.analiseOrigem, movimentoValido: m.movimentoValido, provaExtra: m.provaExtra, analise: m.analise, caixa: m.caixa,
+    previsao: m.previsao, navVisivel: m.navVisivel, pagamentoDireto: m.pagamentoDireto, perfil: m.perfil, tabsMovel: m.tabsMovel, logoMovel: m.logoMovel, acoesMovel: m.acoesMovel, grupoSpap: m.grupoSpap, analiseTexto: m.analiseTexto, analiseOrigem: m.analiseOrigem, movimentoValido: m.movimentoValido, provaExtra: m.provaExtra, analise: m.analise, caixa: m.caixa,
     contaPropria: c => c.categoria === 'TESOURARIA',
     outroSistema: sub.independente ? null : { href: '../bxb-investimentos/index.html', label: 'Ir para a holding BXB' },
     // ligação à holding: o que a BXB transfere para a conta desta subsidiária, e o que esta envia para a holding

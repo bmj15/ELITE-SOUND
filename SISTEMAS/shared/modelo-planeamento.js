@@ -592,6 +592,8 @@ const ATALHOS = {
 let atalhoPend = null;
 const correrAtalho = v => { const id = atalhoPend; atalhoPend = null; const b = id && v.querySelector('#' + id); if (b) setTimeout(() => b.click(), 0); };
 const usarAtalho = k => escolherAcao(ATALHOS[k] || []);
+// atalho que abre uma página e carrega num botão (escondido) dela
+const irAtalho = (rota, alvo) => () => { atalhoPend = alvo; app.go(rota); };
 // [+] de uma página: as opções que apontam para um botão (escondido) da própria página carregam nele
 const ligarMais = (v, ops, sel = '[data-mais]', titulo) => v.querySelectorAll(sel).forEach(b => b.onclick = () => escolherAcao(ops.map(o => typeof o[2] === 'string'
   ? [o[0], null, () => { const x = v.querySelector('#' + o[2]); if (x) x.click(); }, null, o[4], o[5]] : o), titulo));
@@ -2614,6 +2616,7 @@ function objetivos(v) {
   v.querySelectorAll('[data-cc]').forEach(b => b.onclick = async () => { if (L && await cancelarConvite(L.casa, b.dataset.cc)) app.refresh(); });
   const no = v.querySelector('#no'); if (no) no.onclick = () => ed1();
   ligarMais(v, [['Novo objetivo', null, 'no', null, 'edit', 'Poupar para um objetivo seu'], ['Objetivo partilhado', null, 'nj', null, 'users', 'Poupar em conjunto com outra pessoa'], ['Amortizar dívida', null, 'na', null, 'credit', 'Objetivo para amortizar um crédito']], '[data-add="obj"]', 'Objetivos');
+  correrAtalho(v);
   const na = v.querySelector('#na'); if (na) na.onclick = () => { const d = AL.slice().sort((a, b) => (+b.d.taxa || 0) - (+a.d.taxa || 0))[0];
     ed1(null, { categoria: 'dividas', prioridade: 3, divida: d ? d.d.id : '', nome: d ? 'Amortizar ' + d.d.nome : 'Amortizar dívida', alvo: d ? r2(Math.min(+d.d.capital || 0, 500)) : 0, data: SPAP.addMonths(hoje, 3) }); };
   v.querySelectorAll('[data-am]').forEach(b => b.onclick = () => { const o = m.objetivos.find(x => x.id === b.dataset.am), d = o && dividaDe(o); if (!d) return;
@@ -2667,6 +2670,18 @@ return {
   pagamentoDireto: true,
   // perfil do titular (botão no rodapé do menu): dados pessoais usados nos cálculos
   perfil: () => perfilPessoal(),
+  // telemóvel: separadores da barra inferior e ações do botão +
+  // no telemóvel o avatar já mostra as iniciais: o quadrado da esquerda leva a marca
+  logoMovel: '<span style="font-size:12px">BXB</span>',
+  tabsMovel: [['visao', 'Painel'], ['dividas', 'Dívidas'], ['objetivos', 'Objetivos']],
+  acoesMovel: () => podeEditar() ? [
+    { label: 'Despesa fixa', sub: 'Renda, luz, internet, ginásio…', icon: 'list', run: irAtalho('despesas', 'nd') },
+    pessoasGrupo().length ? { label: 'Despesa partilhada', sub: 'Dividir com outra pessoa do grupo', icon: 'users', run: () => partilharDespesa() } : null,
+    { label: 'Nova dívida', sub: 'Crédito, empréstimo ou cartão', icon: 'credit', run: irAtalho('dividas', 'nv') },
+    { label: 'Ler extrato do cartão', sub: 'PDF do extrato do cartão de crédito', icon: 'upload', run: () => escolherExtratos() },
+    { label: 'Ler recibo de vencimento', sub: 'PDF ou fotografia do recibo', icon: 'file', run: () => escolherRecibos() },
+    { label: 'Novo objetivo', sub: 'Poupar para uma compra ou meta', icon: 'target', run: irAtalho('objetivos', 'no') },
+  ] : [],
   grupoSpap: 'Contas e documentos',
   // pagamentos sem circuito de aprovação: as páginas de autorizações saem do menu (Pedidos fica acessível por link para o histórico)
   navVisivel: id => ['pedidos', 'alteracoes', 'verificar', 'auditoria', 'utilizadores', 'definicoes', 'fechos'].includes(id) ? 'menu' : !['intercompany', 'delegacoes', 'spap', 'recorrentes', 'orcamentos'].includes(id) && (!['indicadores', 'financeiro', 'investimentos', 'relatorios'].includes(id) || temCatB()),

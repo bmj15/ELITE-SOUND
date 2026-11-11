@@ -524,3 +524,88 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
 .acord.aberto>.acord-h>.sub{margin-left:8px}
 @media (max-width:640px){.acord>.acord-h>.sub{display:none}}
 .grid:has(>.acord){align-items:start}
+
+/* =========================================================
+   Telemóvel como app: barra inferior com botão +, cabeçalho compacto, folhas que sobem e teclado numérico
+   (a mesma identidade do telemóvel da página inicial: escuro, gradiente da marca, cantos redondos)
+   ========================================================= */
+.tabbar,.top-logo,.top-av{display:none}
+@media (max-width:860px){
+  :root:not([data-theme="light"]) body{background:radial-gradient(130% 520px at 0% 0%,color-mix(in srgb,var(--accent) 17%,transparent),transparent 70%) no-repeat,var(--bg)}
+  .menu-btn{display:none}
+  .shell.tem-fab #b-new{display:none}
+  .top{gap:12px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;background:color-mix(in srgb,var(--bg) 78%,transparent);border-bottom-color:transparent}
+  .top-logo{display:grid;flex:none;width:38px;height:38px;border-radius:12px;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--accent-ink);font-weight:800;font-size:13px;box-shadow:0 8px 20px -8px var(--accent)}
+  .top-logo svg{width:20px;height:20px}
+  .top-t{min-width:0}
+  .top .crumb{display:block;font-size:12px;line-height:1.2}
+  .top h1{font-size:17px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .top-av{display:grid;flex:none;width:38px;height:38px;padding:0;border-radius:50%;place-items:center;font-size:12.5px;font-weight:700;background:var(--panel3);border:1px solid var(--line2);color:var(--text);cursor:pointer}
+  #view{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
+  /* barra inferior */
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;justify-content:space-around;align-items:flex-start;padding:8px 8px calc(8px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);border-top:1px solid var(--line)}
+  .tb{position:relative;flex:1;max-width:88px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px 0 2px;border:0;background:none;color:var(--faint);font-size:11px;font-weight:600;text-decoration:none;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .2s}
+  .tb svg{width:24px;height:24px}
+  .tb span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tb.on{color:var(--text)}
+  .tb:active{transform:scale(.94)}
+  .tb-n{position:absolute;top:0;left:calc(50% + 5px);min-width:17px;height:17px;padding:0 5px;border-radius:9px;display:grid;place-items:center;font:700 10.5px/1 var(--font);font-style:normal;color:#fff;background:var(--bad);box-shadow:0 0 0 2px var(--bg)}
+  .tb-fab{flex:none;width:56px;height:56px;margin:-14px 6px 0;border:0;border-radius:19px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 14px 28px -12px var(--accent);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s}
+  .tb-fab svg{width:26px;height:26px;stroke-width:2.4}
+  .tb-fab:active{transform:scale(.93)}
+  /* cartões redondos; o quadro principal com o gradiente da marca */
+  .card{border-radius:20px}
+  :root:not([data-theme="light"]) .kpi.hero{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 70%,transparent),color-mix(in srgb,var(--accent2) 30%,transparent)),var(--panel);border-color:color-mix(in srgb,var(--accent) 45%,transparent);border-radius:24px;box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 20px 44px -26px var(--accent)}
+  :root:not([data-theme="light"]) .kpi.hero .lbl{color:color-mix(in srgb,#fff 82%,var(--accent))}
+  /* avisos no topo, como na app */
+  .toasts{left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));bottom:auto;align-items:center}
+  .toast{min-width:0;max-width:100%;border-radius:16px;font-size:14px;animation:toast-desce .35s cubic-bezier(.16,.84,.3,1)}
+  @keyframes toast-desce{from{opacity:0;transform:translateY(-14px)}}
+}
+/* janelas: no telemóvel sobem de baixo, como uma folha */
+@media (max-width:640px){
+  .overlay{place-items:end stretch;padding:max(24px,env(safe-area-inset-top)) 0 0}
+  .modal,.modal.wide{width:100%;max-height:calc(100dvh - 24px);border-radius:26px 26px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom);animation:folha-sobe .38s cubic-bezier(.16,.84,.3,1)}
+  .modal::before{content:"";display:block;width:40px;height:5px;margin:10px auto 0;border-radius:5px;background:var(--line2)}
+  .modal-h{padding:12px 20px 0}
+  .modal-h h2{font-size:18px}
+  .modal-b{padding:16px 20px}
+  .modal-f{padding:0 20px 20px}
+  .modal-f .btn{flex:1 1 auto;justify-content:center;min-height:48px;border-radius:14px;font-size:15px}
+  .inp{min-height:46px;font-size:16px;border-radius:12px}
+  textarea.inp{min-height:90px}
+  @keyframes folha-sobe{from{transform:translateY(100%)}}
+}
+/* folha de ações do botão + */
+.acoes-m{display:grid;gap:8px}
+.acao-m{display:flex;align-items:center;gap:14px;width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--panel2);color:var(--text);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:border-color .15s,background .15s}
+.acao-m:hover{border-color:var(--accent)}
+.acao-m:active{background:var(--panel3)}
+.acao-m i{flex:none;width:42px;height:42px;border-radius:14px;display:grid;place-items:center;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.acao-m i svg{width:20px;height:20px}
+.acao-m span{flex:1;min-width:0}
+.acao-m b{display:block;font-size:15px;font-weight:650}
+.acao-m small{display:block;margin-top:2px;font-size:12.5px;color:var(--muted)}
+.acao-m em{font-style:normal;font-size:22px;line-height:1;color:var(--faint)}
+.modal:has(.acoes-m) .modal-f{display:none}
+/* teclado numérico */
+.tq-raiz{position:fixed;inset:0;z-index:300;pointer-events:none}
+.tq-raiz.on{pointer-events:auto}
+.tq-veu{position:absolute;inset:0;background:rgba(3,5,10,.5);opacity:0;transition:opacity .25s}
+.tq-raiz.on .tq-veu{opacity:1}
+.tq{position:absolute;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;padding:10px 18px calc(18px + env(safe-area-inset-bottom));border-radius:28px 28px 0 0;background:var(--panel);border:1px solid var(--line2);border-bottom:0;box-shadow:0 -24px 60px -24px rgba(0,0,0,.7);transform:translateY(103%);transition:transform .4s cubic-bezier(.16,.84,.3,1)}
+.tq-raiz.on .tq{transform:none}
+.tq-pega{display:block;width:40px;height:5px;margin:0 auto 10px;border-radius:5px;background:var(--line2)}
+.tq-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:28px}
+.tq-rot{min-width:0;font-size:14px;font-weight:600;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tq-limpar{flex:none;border:0;background:none;padding:4px 0;color:var(--accent);font-weight:600;font-size:14px;cursor:pointer}
+.tq-valor{display:flex;align-items:baseline;justify-content:center;gap:6px;margin:4px 0 14px;font-size:42px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
+.tq-valor small{font-size:24px;font-weight:700;color:var(--muted);letter-spacing:0}
+.tq-valor .vz{color:var(--faint)}
+.tq-teclas{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tq-teclas button{height:56px;border:0;border-radius:16px;display:grid;place-items:center;font-size:24px;font-weight:600;background:color-mix(in srgb,var(--text) 6%,transparent);color:var(--text);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .12s,transform .12s}
+.tq-teclas button.prima{background:color-mix(in srgb,var(--text) 15%,transparent);transform:scale(.95)}
+.tq-teclas button:disabled{visibility:hidden}
+.tq-ok{width:100%;height:56px;margin-top:12px;border:0;border-radius:16px;font-size:16px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 12px 26px -12px var(--accent);cursor:pointer}
+body.tq-aberto{overflow:hidden}
+@media print{.tabbar,.tq-raiz{display:none!important}}

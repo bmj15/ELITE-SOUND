@@ -120,6 +120,7 @@ const ICONS = {
   sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
   moon: 'M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z',
   menu: 'M3 6h18M3 12h18M3 18h18',
+  grid: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
   user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   arrow: 'M5 12h14M13 5l7 7-7 7',
   alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
@@ -137,6 +138,7 @@ const ICONS = {
   qr: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM20 14h1v1M14 20h1v1M17 17h4v4h-4z',
   key: 'M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
 };
+SPAP.toque = () => matchMedia('(max-width:860px) and (pointer:coarse)').matches;
 const icon = SPAP.icon = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${ICONS[n] || ICONS.file}"/></svg>`;
 
 /* ---------------- UI: toasts, modais, gráficos ---------------- */
@@ -164,12 +166,92 @@ ui.modal = ({ title, sub = '', body = '', actions = [], wide = false, locked = f
     foot.appendChild(b);
   });
   document.body.appendChild(ov);
-  const f = ov.querySelector('input:not([type=hidden]):not([readonly]),select,textarea'); if (f) setTimeout(() => f.focus(), 30);
+  const f = ov.querySelector('input:not([type=hidden]):not([readonly]),select,textarea'); if (f && !SPAP.toque()) setTimeout(() => f.focus(), 30);
   const form = ov.querySelector('form');
   if (form) form.addEventListener('submit', e => { e.preventDefault(); const p = foot.querySelector('.primary,.ok'); if (p) p.click(); });
   if (onOpen) onOpen(ov, close);
   return { el: ov, close };
 };
+/* ---------- Telemóvel: teclado numérico próprio (como na app) ----------
+   Nos campos numéricos (type=number) de um ecrã tátil estreito, o teclado do sistema não abre: aparece uma folha
+   com teclas grandes, o valor em destaque e "Confirmar". O valor entra no campo enquanto se escreve (evento input)
+   e no fim dispara change; tocar fora repõe o valor anterior. */
+(function tecladoMovel() {
+  const ativo = () => SPAP.toque();
+  const eNum = t => t && t.tagName === 'INPUT' && t.type === 'number' && !t.disabled && (!t.readOnly || t.dataset.tqRo) && !t.closest('[data-teclado-nativo]');
+  let el = null, s = '', orig = '', casas = 2, neg = false, pre = '', suf = '', raiz = null;
+  const $ = q => raiz.querySelector(q);
+  const grupos = x => x.replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
+  function mostrar() {
+    const [i, d] = s.split(','), sinal = i.startsWith('-') ? '−' : '', ii = i.replace('-', '');
+    const txt = s === '' ? '<span class="vz">0</span>' : sinal + esc(grupos(ii || '0')) + (d != null ? ',' + esc(d) : '');
+    $('.tq-valor').innerHTML = (pre ? `<small>${esc(pre)}</small>` : '') + txt + (suf ? `<small>${esc(suf)}</small>` : '');
+  }
+  const numero = () => { const v = s.replace(',', '.').replace(/\.$/, ''); return v === '-' ? '' : v; };
+  function escrever() { if (!el) return; el.value = numero(); el.dispatchEvent(new Event('input', { bubbles: true })); mostrar(); }
+  function tecla(k) {
+    if (!el) return;
+    if (k === '<') s = s.slice(0, -1);
+    else if (k === ',') { if (!casas || s.includes(',')) return; s = (s === '' || s === '-' ? s + '0' : s) + ','; }
+    else if (k === '±') s = s.startsWith('-') ? s.slice(1) : '-' + s;
+    else if (/^\d$/.test(k)) {
+      const [i, d] = s.split(',');
+      if (d != null ? d.length >= casas : i.replace('-', '').length >= 12) return;
+      s = (s === '0' ? '' : s === '-0' ? '-' : s) + k;
+    } else return;
+    escrever();
+  }
+  function montar() {
+    if (raiz) return;
+    raiz = document.createElement('div'); raiz.className = 'tq-raiz';
+    raiz.innerHTML = `<div class="tq-veu"></div><div class="tq" role="dialog" aria-modal="true" aria-label="Teclado numérico"><span class="tq-pega"></span>
+      <div class="tq-cab"><span class="tq-rot"></span><button type="button" class="tq-limpar">Limpar</button></div>
+      <div class="tq-valor" aria-live="polite"></div>
+      <div class="tq-teclas">${['1', '2', '3', '4', '5', '6', '7', '8', '9', 'x', '0', '<'].map(k => `<button type="button" data-k="${k}"${k === '<' ? ' aria-label="Apagar"' : ''}>${k === '<' ? '⌫' : k}</button>`).join('')}</div>
+      <button type="button" class="tq-ok">Confirmar</button></div>`;
+    document.body.appendChild(raiz);
+    // pointerdown + preventDefault: o campo não perde nem ganha foco e a tecla responde logo ao toque
+    raiz.querySelectorAll('[data-k]').forEach(b => b.addEventListener('pointerdown', ev => { ev.preventDefault(); b.classList.add('prima'); setTimeout(() => b.classList.remove('prima'), 140); tecla(b.dataset.k); }));
+    $('.tq-limpar').onclick = () => { s = ''; escrever(); };
+    $('.tq-ok').onclick = () => fechar(true);
+    $('.tq-veu').onclick = () => fechar(false);
+  }
+  function abrir(t) {
+    montar(); el = t; orig = t.value;
+    const st = t.getAttribute('step');
+    casas = st === 'any' ? 2 : st && st.includes('.') ? st.split('.')[1].length : 0;
+    neg = t.min !== '' && +t.min < 0;
+    s = orig === '' || isNaN(+orig) ? '' : String(+orig).replace('.', ',');
+    const fld = t.closest('.fld'), lb = fld && fld.querySelector('label');
+    let rot = (lb ? lb.textContent : '') || t.getAttribute('aria-label') || t.title || t.placeholder || 'Valor';
+    pre = /R\$/.test(rot) ? 'R$' : ''; suf = /€/.test(rot) ? '€' : /%/.test(rot) ? '%' : '';
+    rot = rot.replace(/\((€|R\$|%)\)/g, '').replace(/\s+/g, ' ').trim();
+    $('.tq-rot').textContent = rot;
+    const x = raiz.querySelector('.tq-teclas button:nth-child(10)'); x.dataset.k = casas ? ',' : neg ? '±' : 'x'; x.textContent = casas ? ',' : neg ? '±' : ''; x.disabled = !(casas || neg);
+    mostrar(); raiz.classList.add('on'); document.body.classList.add('tq-aberto');
+    t.blur();
+  }
+  function fechar(ok) {
+    if (!el) return; const t = el; el = null;
+    if (!ok) { t.value = orig; t.dispatchEvent(new Event('input', { bubbles: true })); }
+    t.dispatchEvent(new Event('change', { bubbles: true }));
+    t.readOnly = false; delete t.dataset.tqRo;
+    raiz.classList.remove('on'); document.body.classList.remove('tq-aberto');
+  }
+  // antes do foco: sem teclado do sistema (inputmode none + só de leitura enquanto a folha está aberta)
+  document.addEventListener('pointerdown', ev => { if (!ativo() || el) return; const t = ev.target; if (!eNum(t)) return;
+    t.setAttribute('inputmode', 'none'); t.readOnly = true; t.dataset.tqRo = '1'; }, true);
+  document.addEventListener('focusin', ev => { if (!ativo() || el) return; const t = ev.target; if (!eNum(t)) return;
+    if (!t.dataset.tqRo) { t.setAttribute('inputmode', 'none'); t.readOnly = true; t.dataset.tqRo = '1'; } abrir(t); });
+  document.addEventListener('click', ev => { if (!ativo() || el) return; const t = ev.target; if (eNum(t) && t.dataset.tqRo) abrir(t); }, true);
+  // teclado físico com a folha aberta
+  document.addEventListener('keydown', ev => { if (!el) return; const k = ev.key;
+    if (/^\d$/.test(k)) tecla(k); else if (k === ',' || k === '.') tecla(','); else if (k === '-') tecla('±'); else if (k === 'Backspace') tecla('<');
+    else if (k === 'Enter') fechar(true); else if (k === 'Escape') fechar(false); else return;
+    ev.preventDefault(); ev.stopImmediatePropagation(); }, true);
+  // se o campo desaparecer (a página redesenhou-se), a folha fecha
+  addEventListener('hashchange', () => { if (el) fechar(false); });
+})();
 ui.confirm = (title, text, { okLabel = 'Confirmar', danger = false } = {}) => new Promise(res => {
   ui.modal({ title, body: `<p class="muted" style="margin:0">${text}</p>`, actions: [
     { label: 'Cancelar', kind: 'ghost', onClick: () => res(false) },
@@ -918,6 +1000,29 @@ SPAP.createApp = function (cfg) {
     return groups.map(g => `<div class="nav-group"><div class="nav-label">${g.label}</div><nav class="nav">${g.items.map(item).join('')}</nav></div>`).join('');
   }
 
+
+  /* ---------- Telemóvel: barra inferior, botão + e ações rápidas ---------- */
+  // separadores: cfg.tabsMovel ([id] ou [id, rótulo]); por omissão a página inicial, a Caixa de entrada e os Pedidos
+  function tabsMovel(n) {
+    const lista = [...cfg.modules.filter(m => !m.hidden && (!m.perm || can(m.perm))), ...navCore.filter(x => navVisivel(x.id) && (!x.perm || can(x.perm)))];
+    const curto = x => x.id === cfg.home ? 'Início' : x.label.split(' ')[0], out = [];
+    (cfg.tabsMovel || [cfg.home, 'aprovacoes', 'pedidos']).map(t => Array.isArray(t) ? t : [t]).forEach(([id, rot]) => {
+      const x = lista.find(y => y.id === id); if (x && !out.some(o => o.id === id)) out.push({ id, icon: x.icon, label: rot || curto(x) }); });
+    lista.forEach(x => { if (out.length < n && !out.some(o => o.id === x.id)) out.push({ id: x.id, icon: x.icon, label: curto(x) }); });
+    const nIn = app.caixaEntrada().length + app.caixaModulos().length;
+    return out.slice(0, n).map(t => Object.assign(t, { n: t.id === 'aprovacoes' ? nIn : 0 }));
+  }
+  // ações do botão +: cfg.acoesMovel(app) → [{ label, sub, icon, run }]; por omissão "Novo pedido"
+  function acoesMovel() {
+    try { if (cfg.acoesMovel) return (cfg.acoesMovel(app) || []).filter(Boolean); } catch (e) { console.error(e); }
+    return can('criar') && !cfg.pagamentoDireto ? [{ label: 'Novo pedido', sub: 'Pedido de pagamento para aprovação', icon: 'plus', run: () => app.novoPedido() }] : [];
+  }
+  function abrirAcoesMovel(acoes) {
+    if (acoes.length === 1) return acoes[0].run();
+    ui.modal({ title: 'Adicionar', body: `<div class="acoes-m">${acoes.map((a, i) => `<button type="button" class="acao-m" data-am="${i}"><i>${icon(a.icon || 'plus')}</i><span><b>${esc(a.label)}</b>${a.sub ? `<small>${esc(a.sub)}</small>` : ''}</span><em>›</em></button>`).join('')}</div>`,
+      onOpen: (el, fechar) => el.querySelectorAll('[data-am]').forEach(b => b.onclick = () => { fechar(); acoes[+b.dataset.am].run(); }) });
+  }
+
   function render() {
     if (!app.user) return renderLogin();
     const { r, params } = parseHash();
@@ -926,7 +1031,10 @@ SPAP.createApp = function (cfg) {
     if ((rt.perm && !can(rt.perm)) || (coreRoutes[r] && !navVisivel(r, true))) { location.hash = '#/' + cfg.home; return; }
     const theme = document.documentElement.getAttribute('data-theme');
     let semMenu = false; try { semMenu = localStorage.getItem('ui-sem-menu') === '1'; } catch (e) { }
-    root.innerHTML = `<div class="shell${semMenu ? ' sem-menu' : ''}">
+    const acoesM = acoesMovel(), tabsM = tabsMovel(acoesM.length ? 3 : 4), curM = rt.id || r, naTab = tabsM.some(t => t.id === curM);
+    const tbM = t => `<a href="#/${t.id}" class="tb${t.id === curM ? ' on' : ''}">${icon(t.icon)}<span>${esc(t.label)}</span>${t.n ? `<i class="tb-n">${t.n}</i>` : ''}</a>`;
+    const tabbar = `<nav class="tabbar" aria-label="Navegação principal">${acoesM.length ? tabsM.slice(0, 2).map(tbM).join('') + `<button type="button" class="tb-fab" id="b-fab" aria-label="Adicionar" title="Adicionar">${icon('plus')}</button>` + tabsM.slice(2).map(tbM).join('') : tabsM.map(tbM).join('')}<button type="button" class="tb${naTab ? '' : ' on'}" id="b-mais">${icon('grid')}<span>Mais</span></button></nav>`;
+    root.innerHTML = `<div class="shell${semMenu ? ' sem-menu' : ''}${acoesM.length ? ' tem-fab' : ''}">
       <aside class="side" id="side"><button class="btn ghost icon side-x" id="b-side-x" title="Fechar o menu" aria-label="Fechar o menu">${icon('x')}</button>${brandHtml()}${navHtml(rt.id || r)}
         <div class="side-foot">
           <div class="user-chip"><span class="avatar">${initials(app.user.nome)}</span><div class="who"><b>${esc(app.user.nome)}</b><span>${ROLES[app.user.role].label}</span></div></div>
@@ -942,10 +1050,12 @@ SPAP.createApp = function (cfg) {
         </div></aside><div class="side-veu" id="side-veu"></div>
       <main><header class="top">
         <button class="btn ghost icon menu-btn" id="b-menu" title="Mostrar ou esconder o menu" aria-label="Mostrar ou esconder o menu">${icon('menu')}</button>
-        <div><div class="crumb">${esc(cfg.nome)}</div><h1 id="ttl">${esc(rt.title || rt.label)}</h1></div>
+        <div class="top-logo" aria-hidden="true">${cfg.logoMovel || cfg.logo || esc(cfg.sigla)}</div>
+        <div class="top-t"><div class="crumb">${esc(cfg.nome)}</div><h1 id="ttl">${esc(rt.title || rt.label)}</h1></div>
         <div class="spacer"></div>
         ${can('criar') && !cfg.pagamentoDireto ? `<button class="btn primary" id="b-new">${icon('plus')}<span>Novo pedido</span></button>` : ''}
-      </header><section id="view"></section></main></div>`;
+        <button type="button" class="top-av" id="b-av" title="${cfg.perfil ? 'O meu perfil' : 'Menu'}" aria-label="${cfg.perfil ? 'O meu perfil' : 'Menu'}">${initials(app.user.nome)}</button>
+      </header><section id="view"></section></main>${tabbar}</div>`;
     const $ = s => root.querySelector(s);
     $('#b-theme').onclick = toggleTheme;
     $('#b-pin').onclick = () => app.user.pinHash ? changePin(false) : definirPinAssinatura();
@@ -963,6 +1073,9 @@ SPAP.createApp = function (cfg) {
     };
     $('#side-veu').onclick = () => menuMovel(false);
     $('#b-side-x').onclick = () => menuMovel(false);
+    $('#b-mais').onclick = () => menuMovel(true);
+    if ($('#b-fab')) $('#b-fab').onclick = () => abrirAcoesMovel(acoesM);
+    $('#b-av').onclick = () => cfg.perfil ? cfg.perfil(app) : menuMovel(true);
     // no telemóvel, escolher uma página fecha o menu (também quando é a página em que já está)
     root.querySelectorAll('#side .nav a').forEach(a => a.addEventListener('click', () => menuMovel(false)));
     if ($('#b-new')) $('#b-new').onclick = () => app.novoPedido();
