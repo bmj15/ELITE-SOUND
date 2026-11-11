@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="/SISTEMAS/site/pais.js?v=2"></script>
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=14">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=15">
 </head>
 <body data-pagina="simuladores">
 <main>
@@ -70,14 +70,56 @@
   </section>
 </main>
 <script src="/SISTEMAS/site/artigos.js?v=7"></script>
-<script src="/SISTEMAS/site/site.js?v=6"></script>
+<script src="/SISTEMAS/site/site.js?v=7"></script>
 <script>
 (function () {
   'use strict';
-  var eur = function (v) { return (Math.round(v * 100) / 100).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'; };
-  var eur0 = function (v) { return Math.round(v).toLocaleString('pt-PT') + ' €'; };
+  var BR = window.BXB_PAIS === 'br', LOC = BR ? 'pt-BR' : 'pt-PT', DIN = window.BXB_DIN;
+  var eur = function (v) { v = Math.round(v * 100) / 100; return DIN ? DIN(v) : v.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'; };
+  var eur0 = function (v) { return DIN ? DIN(Math.round(v), 0) : Math.round(v).toLocaleString('pt-PT') + ' €'; };
+  // ---------- Brasil: termos, valores de exemplo em reais, juros ao mês e impostos sobre o preço ----------
+  if (BR) (function () {
+    var q = function (s) { return document.querySelector(s); };
+    var h = function (s, t) { var e = q(s); if (e) e.innerHTML = t; };
+    var cp = function (id, nome, rot, val) { var i = q('#' + id + ' [name="' + nome + '"]'); if (!i) return; i.closest('.cp').querySelector('label').textContent = rot; if (val != null) { i.value = val; i.defaultValue = val; } };
+    var saida = function (id, k, t) { var e = q('#' + id + ' [data-o="' + k + '"]'); if (e && e.previousElementSibling) e.previousElementSibling.textContent = t; };
+    var nota = function (id, t) { var e = q('#' + id + ' .sai > .nt:not([data-o])'); if (e) e.textContent = t; };
+    var bt = function (id, href, t) { var e = q('#' + id + ' .sai .btn'); if (e) { e.setAttribute('href', href); e.textContent = t; } };
+    h('.cab p', 'Faça as contas antes de decidir. Sem cadastro e sem salvar valores.');
+    var N = { emergencia: 'Reserva de emergência', divida: 'Prazo de uma dívida', objetivo: 'Objetivo de economia', pmr: 'Prazo médio de recebimento', margem: 'Preço e margem' };
+    [].forEach.call(document.querySelectorAll('#simNav a'), function (a) { a.textContent = N[a.getAttribute('href').slice(1)]; });
+    // reserva de emergência
+    h('#emergencia h2', 'Reserva de emergência'); h('#emergencia .ent p', 'Quanto você deve ter guardado para imprevistos e em quanto tempo chega lá.');
+    cp('emergencia', 'desp', 'Despesas essenciais por mês (R$)', 4000); cp('emergencia', 'tem', 'Já tem (R$)', 3000); cp('emergencia', 'mes', 'Consegue guardar por mês (R$)', 800);
+    cp('emergencia', 'meses', 'Sua situação');
+    q('#emergencia [name="meses"]').innerHTML = '<option value="3">Renda estável, duas rendas em casa (3 meses)</option><option value="6" selected>Renda estável, uma só renda (6 meses)</option><option value="12">Autônomo, MEI ou renda variável (12 meses)</option>';
+    h('#emergencia .sai small', 'Reserva recomendada'); saida('emergencia', 'tempo', 'Tempo até chegar lá');
+    bt('emergencia', '/artigos/reserva-de-emergencia', 'Ler o guia');
+    // dívida
+    h('#divida .ent p', 'Quando fica quitada, quanto paga de juros e o efeito de pagar um valor extra por mês.');
+    cp('divida', 'saldo', 'Valor da dívida (R$)', 10000); cp('divida', 'tan', 'Juros ao mês (%)', 3); cp('divida', 'prest', 'Parcela mensal (R$)', 500); cp('divida', 'extra', 'Valor extra por mês (R$)', 200);
+    h('#divida .sai small', 'Fica quitada em'); saida('divida', 'ref', 'Com o valor extra'); saida('divida', 'poup', 'Economia em juros com o valor extra');
+    bt('divida', '/artigos/varias-dividas-por-onde-comecar', 'Tem várias dívidas? Ler o guia');
+    // objetivo
+    h('#objetivo h2', 'Objetivo de economia'); h('#objetivo .ent p', 'Quanto guardar por mês para chegar ao valor na data que você escolher.');
+    cp('objetivo', 'valor', 'Valor do objetivo (R$)', 20000); cp('objetivo', 'tem', 'Já tem (R$)', 2000); cp('objetivo', 'tx', 'Rendimento anual (%)', 10);
+    h('#objetivo .sai small', 'Guardar por mês'); saida('objetivo', 'total', 'Total que vai guardar');
+    nota('objetivo', 'Rendimento antes do Imposto de Renda, com capitalização mensal.');
+    // prazo médio de recebimento
+    h('#pmr h2', 'Prazo médio de recebimento'); h('#pmr .ent p', 'Quantos dias, em média, os clientes levam para pagar.');
+    cp('pmr', 'cli', 'Contas a receber de clientes (R$)', 120000); cp('pmr', 'vendas', 'Faturamento bruto do último ano (R$)', 900000); cp('pmr', 'acord', 'Prazo de pagamento combinado (dias)');
+    h('#pmr .sai small', 'Prazo médio de recebimento'); saida('pmr', 'dif', 'Em relação ao prazo combinado');
+    nota('pmr', 'PMR = contas a receber ÷ faturamento bruto × 365.'); bt('pmr', '/artigos/fluxo-de-caixa-13-semanas', 'Previsão de fluxo de caixa');
+    // preço e margem: no Brasil os impostos sobre a venda estão dentro do preço
+    h('#margem .ent p', 'O preço de venda para a margem que você quer.');
+    cp('margem', 'custo', 'Custo unitário (R$)', 40); cp('margem', 'm', 'Margem desejada (%)');
+    q('#margem [name="iva"]').closest('.cp').innerHTML = '<label>Impostos sobre a venda (% do preço)</label><input name="iva" type="number" min="0" max="60" step="0.5" value="6" inputmode="decimal">';
+    h('#margem .sai small', 'Preço de venda antes dos impostos'); saida('margem', 'pciva', 'Preço com impostos');
+    nota('margem', 'Margem = lucro ÷ preço. Markup = lucro ÷ custo. A alíquota depende do regime da empresa (Simples Nacional, Lucro Presumido ou Real): confirme com seu contador.');
+    h('.aviso-sim', 'Simulações indicativas, com fins informativos. Não constituem proposta nem aconselhamento financeiro ou tributário.');
+  })();
   var meses = function (n) { n = Math.ceil(n); if (n <= 0) return 'já está'; var a = Math.floor(n / 12), m = n % 12; return (a ? a + (a > 1 ? ' anos' : ' ano') : '') + (a && m ? ' e ' : '') + (m ? m + (m > 1 ? ' meses' : ' mês') : ''); };
-  var dataAte = function (n) { var d = new Date(); d.setMonth(d.getMonth() + Math.ceil(n)); return d.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' }); };
+  var dataAte = function (n) { var d = new Date(); d.setMonth(d.getMonth() + Math.ceil(n)); return d.toLocaleDateString(window.BXB_PAIS === 'br' ? 'pt-BR' : 'pt-PT', { month: 'long', year: 'numeric' }); };
   var num = function (f, k) { var v = parseFloat(String(f[k].value).replace(',', '.')); return isFinite(v) && v > 0 ? v : 0; };
   var out = function (c, k, v) { c.querySelector('[data-o="' + k + '"]').textContent = v; };
   // número de meses para pagar S com prestação P à taxa mensal r (Infinity se a prestação não paga os juros)
@@ -86,14 +128,15 @@
   var juros = function (S, r, P) { var j = 0, n = 0; while (S > 0.005 && n < 1200) { var i = S * r; j += i; S = S + i - P; n++; } return j; };
   var C = {
     emergencia: function (f, c) { var alvo = num(f, 'desp') * +f.meses.value, falta = Math.max(0, alvo - num(f, 'tem')), m = num(f, 'mes');
-      out(c, 'alvo', eur0(alvo)); out(c, 'falta', eur0(falta)); out(c, 'tempo', falta === 0 ? 'Objetivo atingido' : m ? meses(falta / m) : 'indique quanto junta');
-      out(c, 'nt', falta && m ? 'Ao ritmo atual, completa o fundo em ' + dataAte(falta / m) + '.' : 'Guarde-o numa conta à ordem separada ou num depósito com mobilização imediata.'); },
-    divida: function (f, c) { var S = num(f, 'saldo'), r = num(f, 'tan') / 100 / 12, P = num(f, 'prest'), X = num(f, 'extra');
+      out(c, 'alvo', eur0(alvo)); out(c, 'falta', eur0(falta)); out(c, 'tempo', falta === 0 ? 'Objetivo atingido' : m ? meses(falta / m) : (BR ? 'informe quanto guarda' : 'indique quanto junta'));
+      out(c, 'nt', BR ? (falta && m ? 'No ritmo atual, você completa a reserva em ' + dataAte(falta / m) + '.' : 'Guarde-a no Tesouro Selic, num CDB com liquidez diária ou numa conta remunerada separada.')
+        : (falta && m ? 'Ao ritmo atual, completa o fundo em ' + dataAte(falta / m) + '.' : 'Guarde-o numa conta à ordem separada ou num depósito com mobilização imediata.')); },
+    divida: function (f, c) { var S = num(f, 'saldo'), r = num(f, 'tan') / 100 / (BR ? 1 : 12), P = num(f, 'prest'), X = num(f, 'extra');
       var n = nPag(S, r, P), n2 = nPag(S, r, P + X);
-      if (!isFinite(n)) { out(c, 'prazo', 'Nunca'); out(c, 'juros', '—'); out(c, 'ref', isFinite(n2) ? meses(n2) : '—'); out(c, 'poup', '—'); out(c, 'nt', 'A prestação não chega para pagar os juros do mês (' + eur(S * r) + '). A dívida não diminui.'); return; }
+      if (!isFinite(n)) { out(c, 'prazo', 'Nunca'); out(c, 'juros', '—'); out(c, 'ref', isFinite(n2) ? meses(n2) : '—'); out(c, 'poup', '—'); out(c, 'nt', (BR ? 'A parcela não cobre os juros do mês (' : 'A prestação não chega para pagar os juros do mês (') + eur(S * r) + '). A dívida não diminui.'); return; }
       var j = juros(S, r, P), j2 = juros(S, r, P + X);
       out(c, 'prazo', meses(n)); out(c, 'juros', eur(j)); out(c, 'ref', X ? meses(n2) + ' (' + meses(n - n2) + ' mais cedo)' : '—'); out(c, 'poup', X ? eur(j - j2) : '—');
-      out(c, 'nt', 'Sem reforço, fica paga em ' + dataAte(n) + '.'); },
+      out(c, 'nt', (BR ? 'Sem valor extra, fica quitada em ' : 'Sem reforço, fica paga em ') + dataAte(n) + '.'); },
     objetivo: function (f, c) { var V = num(f, 'valor'), n = Math.max(1, Math.round(num(f, 'n'))), J = num(f, 'tem'), i = num(f, 'tx') / 100 / 12;
       var fv = J * Math.pow(1 + i, n), falta = V - fv, m = falta <= 0 ? 0 : i ? falta * i / (Math.pow(1 + i, n) - 1) : falta / n;
       out(c, 'mes', eur(m)); out(c, 'total', eur(m * n)); out(c, 'rend', eur(Math.max(0, V - J - m * n) + (falta <= 0 ? fv - V : 0))); },
@@ -101,7 +144,7 @@
       if (!v) { out(c, 'dias', '—'); return; } var d = cl / v * 365;
       out(c, 'dias', Math.round(d) + ' dias'); out(c, 'dif', d > a ? '+' + Math.round(d - a) + ' dias' : 'dentro do prazo'); out(c, 'dia', eur0(v / 365)); },
     margem: function (f, c) { var k = num(f, 'custo'), m = Math.min(99, num(f, 'm')) / 100, p = k / (1 - m);
-      out(c, 'preco', eur(p)); out(c, 'pciva', eur(p * (1 + +f.iva.value / 100))); out(c, 'lucro', eur(p - k)); out(c, 'mk', k ? (Math.round((p - k) / k * 1000) / 10).toLocaleString('pt-PT') + '%' : '—'); }
+      out(c, 'preco', eur(p)); var t = Math.min(95, Math.max(0, +f.iva.value || 0)) / 100; out(c, 'pciva', eur(BR ? p / (1 - t) : p * (1 + t))); out(c, 'lucro', eur(p - k)); out(c, 'mk', k ? (Math.round((p - k) / k * 1000) / 10).toLocaleString(LOC) + '%' : '—'); }
   };
   Object.keys(C).forEach(function (id) { var c = document.getElementById(id), f = c.querySelector('form'), go = function () { C[id](f, c); };
     f.addEventListener('input', go); f.addEventListener('submit', function (e) { e.preventDefault(); }); go(); });

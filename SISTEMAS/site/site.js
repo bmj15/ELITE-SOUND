@@ -15,19 +15,25 @@ ss('bxb:seg', seg); document.body.classList.toggle('emp', seg === 'empresa');
 var casa = seg === 'empresa' ? '/empresas' : '/';
 
 // submenus: só o que abre uma ferramenta ou um guia (nada de links que apenas fazem scroll na página inicial)
+// fer: simuladores · grupos: guias por tema · dest: artigo em destaque (com fotografia)
+var A_ = '/artigos/';
 var SUB = {
   particular: {
     fer: [['/simuladores#emergencia', 'i-escudo', T('Fundo de emergência', 'Reserva de emergência'), T('Quanto ter de parte', 'Quanto ter guardado')],
       ['/simuladores#divida', 'i-cartao', 'Prazo de uma dívida', T('Quando fica paga e quanto custa', 'Quando fica quitada e quanto custa')],
       ['/simuladores#objetivo', 'i-alvo', T('Objetivo de poupança', 'Objetivo de economia'), T('Quanto poupar por mês', 'Quanto guardar por mês')]],
-    guias: T([['/artigos/por-qual-divida-comecar', 'Por qual dívida começar'], ['/artigos/tan-taeg-mtic', 'TAN, TAEG e MTIC'], ['/artigos/deducoes-irs-e-fatura', 'Deduções no IRS']],
-      [['/artigos/varias-dividas-por-onde-comecar', 'Por qual dívida começar'], ['/artigos/juros-e-cet', 'Juros e CET'], ['/artigos/imposto-de-renda-deducoes', 'Deduções no Imposto de Renda']])
+    grupos: [['Dívidas e crédito', T([['por-qual-divida-comecar', 'Por qual dívida começar'], ['tan-taeg-mtic', 'TAN, TAEG e MTIC'], ['cartao-de-credito-pagamento-minimo', 'Cartão: o custo do mínimo']],
+        [['varias-dividas-por-onde-comecar', 'Por qual dívida começar'], ['juros-e-cet', 'Juros e CET'], ['rotativo-do-cartao', 'O custo do rotativo']])],
+      ['Impostos', T([['deducoes-irs-e-fatura', 'Deduções no IRS'], ['recibos-verdes-sem-surpresas', 'Recibos verdes']], [['imposto-de-renda-deducoes', 'Deduções no Imposto de Renda'], ['mei-ou-autonomo', 'MEI ou autônomo']])],
+      ['Casa e família', T([['despesas-partilhadas-a-dois', 'Despesas a dois'], ['proteger-a-sua-conta', 'Proteger as suas contas']], [['despesas-compartilhadas-a-dois', 'Despesas a dois'], ['proteger-suas-contas', 'Proteger suas contas']])]],
+    dest: T('fundo-de-emergencia', 'reserva-de-emergencia')
   },
   empresa: {
     fer: [['/simuladores#pmr', 'i-carteira', T('Prazo médio de recebimentos', 'Prazo médio de recebimento'), T('Quanta tesouraria fica presa', 'Quanto caixa fica preso')],
       ['/simuladores#margem', 'i-carrinho', 'Preço e margem', T('O preço para a margem que pretende', 'O preço para a margem que você quer')]],
-    guias: T([['/artigos/dupla-aprovacao-pagamentos', 'Dupla aprovação de pagamentos'], ['/artigos/tesouraria-pme-13-semanas', 'Tesouraria a 13 semanas']],
-      [['/artigos/dupla-aprovacao-pix-e-boleto', 'Dupla aprovação: Pix e boleto'], ['/artigos/fluxo-de-caixa-13-semanas', 'Fluxo de caixa em 13 semanas']])
+    grupos: [['Pagamentos', T([['dupla-aprovacao-pagamentos', 'Dupla aprovação de pagamentos'], ['proteger-a-sua-conta', 'Burlas e fraudes online']], [['dupla-aprovacao-pix-e-boleto', 'Dupla aprovação: Pix e boleto'], ['proteger-suas-contas', 'Golpes online']])],
+      [T('Tesouraria', 'Fluxo de caixa'), T([['tesouraria-pme-13-semanas', 'Previsão a 13 semanas']], [['fluxo-de-caixa-13-semanas', 'Previsão de 13 semanas']])]],
+    dest: T('tesouraria-pme-13-semanas', 'fluxo-de-caixa-13-semanas')
   }
 };
 var artigosDe = function (cats) { var A = window.ARTIGOS || []; return A.filter(function (a) { return cats.indexOf(a.cat) >= 0; }).sort(function (a, b) { return b.data.localeCompare(a.data); }).slice(0, 3); };
@@ -51,15 +57,18 @@ var dropEnt = '<div class="drop-ent" id="dropEnt"><h6>Entrar na sua área</h6>' 
   '<div class="rod-d">Ainda não é cliente? <a href="' + abrir + '">Abrir conta</a></div></div>';
 var acoes = '<div class="acoes" id="acoes"><button class="btn btn-o" type="button" id="bEnt">' + ic('i-cad', 16) + 'Entrar' + chev + '</button><a class="btn btn-p" href="' + abrir + '" data-abr>Abrir conta</a>' + dropEnt + '</div>';
 var subM = ['particular', 'empresa'].map(function (k) {
-  var L = SUB[k];
-  return '<div class="sub-m" data-sm="' + k + '"><div class="wrap"><div class="sub-f"><h6>Simuladores</h6><div class="sub-t">' +
-    L.fer.map(function (x) { return '<a class="sub-a" href="' + x[0] + '"><i>' + ic(x[1], 18) + '</i><span><b>' + x[2] + '</b><small>' + x[3] + '</small></span></a>'; }).join('') + '</div></div>' +
-    '<div class="sub-l"><h6>Guias</h6>' + L.guias.map(function (x) { return '<a href="' + x[0] + '">' + x[1] + '</a>'; }).join('') +
-    '<a class="ver" href="/artigos' + (k === 'empresa' ? '?c=empresas' : '') + '">Todos os artigos ›</a></div></div></div>';
+  var L = SUB[k], d = (window.ARTIGOS || []).filter(function (x) { return x.id === L.dest; })[0];
+  return '<div class="sub-m" data-sm="' + k + '"><div class="wrap">' +
+    '<div class="sub-f"><h6>Simuladores</h6><div class="sub-t">' + L.fer.map(function (x) { return '<a class="sub-a" href="' + x[0] + '"><i>' + ic(x[1], 18) + '</i><span><b>' + x[2] + '</b><small>' + x[3] + '</small></span></a>'; }).join('') +
+    '</div><a class="ver" href="/simuladores">Todos os simuladores ›</a></div>' +
+    '<div class="sub-l"><h6>Guias</h6><div class="sub-gr">' + L.grupos.map(function (g) { return '<div><b>' + g[0] + '</b>' + g[1].map(function (x) { return '<a href="' + A_ + x[0] + '">' + x[1] + '</a>'; }).join('') + '</div>'; }).join('') +
+    '</div><a class="ver" href="/artigos' + (k === 'empresa' ? '?c=empresas' : '') + '">Todos os artigos ›</a></div>' +
+    (d ? '<a class="sub-d" href="' + A_ + d.id + '">' + (window.capaArtigo ? capaArtigo(d, '280px') : '') + '<span class="tg">Em destaque · ' + d.min + ' min</span><b>' + esc(d.titulo) + '</b></a>' : '') +
+    '</div></div>';
 }).join('');
 var menuM = '<div class="menu-m" id="menuM"><div class="sg">' + lsg('/', 'Particulares', seg === 'particular') + lsg('/empresas', 'Empresas', seg === 'empresa') + '</div>' +
   '<details open><summary>Simuladores</summary>' + SUB[seg].fer.map(function (x) { return '<a href="' + x[0] + '">' + x[2] + '</a>'; }).join('') + '</details>' +
-  '<details><summary>Guias</summary>' + SUB[seg].guias.map(function (x) { return '<a href="' + x[0] + '">' + x[1] + '</a>'; }).join('') + '</details>' +
+  '<details><summary>Guias</summary>' + SUB[seg].grupos.map(function (g) { return g[1].map(function (x) { return '<a href="' + A_ + x[0] + '">' + x[1] + '</a>'; }).join(''); }).join('') + '</details>' +
   '<a class="lk" href="/artigos">Artigos</a><a class="lk" href="/simuladores">Simuladores</a><a class="lk" href="/ajuda">Ajuda</a>' +
   '<div class="bts" id="btsM"><a class="btn btn-s" href="' + ENT + '?tipo=' + seg + '" data-ent>Entrar</a><a class="btn btn-p" href="' + abrir + '" data-abr>Abrir conta</a></div></div>';
 var avisoFechado = false; try { avisoFechado = localStorage.getItem('bxb:aviso') === 'simuladores-1'; } catch (e) { }
