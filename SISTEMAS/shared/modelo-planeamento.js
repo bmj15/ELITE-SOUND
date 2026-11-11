@@ -629,10 +629,10 @@ function visao(v) {
         return `<a href="#/despesas">${txt}</a>${c && !c.semDados ? `<br>+ ${eur(c.valor)} parte nas partilhadas (${c.n} ${c.n === 1 ? 'despesa' : 'despesas'})` : ''}${I.refC > 0.004 ? `<br>− ${eur(I.refC)} de alimentação paga pelo subsídio de refeição` : ''}`; })(), '', false, podeEditar() ? 'desp' : '', [kn('pf_prest', 'Prestações / mês'), eur(I.prest), `<a href="#/dividas">${divAtivas().length} dívidas · ${eur(I.divida)}</a>`])}
     </div>
     <div class="grid g2" style="margin-top:16px">
-      <div class="card"><div class="card-h"><h3>${kn('pf_saude', 'Saúde financeira')}</h3><span class="badge plain" style="background:${cor};color:#fff;font-size:14px">${I.nota} · ${I.score}/100</span></div>
+      <div class="card" data-info=""><div class="card-h"><h3>${kn('pf_saude', 'Saúde financeira')}</h3><span class="badge plain" style="background:${cor};color:#fff;font-size:14px">${I.nota} · ${I.score}/100</span></div>
         <div class="stack" style="gap:12px">${I.comp.map(c => `<div><div class="row between" style="font-size:13px;margin-bottom:5px"><span>${kn(c.k, c.n)}</span><b class="num">${c.p}/${c.max}</b></div>
           <div class="progress ${c.p / c.max < 0.4 ? 'bad' : c.p / c.max < 0.75 ? 'warn' : ''}"><i style="width:${Math.round(100 * c.p / c.max)}%"></i></div><div class="faint" style="font-size:12px;margin-top:3px">${esc(c.t)}</div></div>`).join('')}</div></div>
-      <div class="card"><div class="card-h"><h3>Diversificação das despesas</h3><span class="sub">${nomeYm(ym)} · <a href="#/despesas">ver despesas</a></span></div>
+      <div class="card" data-info="${divTot ? esc(eur(divTot)) : ''}"><div class="card-h"><h3>Diversificação das despesas</h3><span class="sub">${nomeYm(ym)} · <a href="#/despesas">ver despesas</a></span></div>
         ${divItens.length ? `<div id="chdiv"></div><div class="faint" style="font-size:12px;margin-top:8px">${divItens.slice(0, 3).map(x => `${esc(x.label)} ${pct(x.value / divTot)}`).join(' · ')}</div>` : '<div class="empty">Sem despesas nem prestações neste mês. Registe-as em <a href="#/despesas">Despesas fixas</a>.</div>'}</div>
     </div>`;
   ligarFita(v, 'pfm', x => { setTab('pf-painel-mes', x); app.refresh(); });
@@ -970,7 +970,6 @@ function rendIRS(v, T) {
   v.querySelectorAll('[data-perfil]').forEach(a => a.onclick = e => { e.preventDefault(); perfilPessoal(); });
   const eded = v.querySelector('#eded'); if (eded) eded.onclick = () => editarDeducoes(ano);
   bindTabs(v); ligarFita(v, 'pfi', y => { setTab('pf-anoirs', y); app.refresh(); });
-  ligarAcord(v);
 }
 // menu de quadrados de uma página: clicar num abre essa área sozinha, com um botão Voltar para o menu
 // (Rendimentos, Simulador, Partilhas): q = [[chave, ícone, rótulo]]
@@ -1005,7 +1004,7 @@ function rendimentos(v) {
       <div class="grid g2">${kpi(`${icon('wallet')} Líquido recebido ${ano}`, eur(sum(rs, 'liquido')), `${rs.length} ${rs.length === 1 ? 'recibo' : 'recibos'}`, '', true, '',
           [kn('pf_liqrec', 'Líquido recorrente'), eur(salarioBase()), +m.plano.salarioBase ? 'do novo emprego' : est.n ? esc(est.metodo) : 'sem recibos'])}
         ${kpi('Bruto ' + ano, eur(sum(rs, 'bruto')), `SS ${eur(sum(rs, 'ss'))}`, '', false, '', ['IRS retido', eur(sum(rs, 'irs')), ''])}</div>
-      <div class="card" style="margin-top:16px"><div class="card-h"><h3>${kn('pf_proj', 'Rendimento líquido')} ${ano}</h3><span class="sub">real ${eur(PR.ytd)} · projetado ${eur(PR.total)} · <a href="#/rendimentos" data-aba="pf-rend=">ver projeção</a></span></div><div id="chr"></div></div>
+      <div class="card" data-info="${esc(eur(PR.total))}" style="margin-top:16px"><div class="card-h"><h3>${kn('pf_proj', 'Rendimento líquido')} ${ano}</h3><span class="sub">real ${eur(PR.ytd)} · projetado ${eur(PR.total)} · <a href="#/rendimentos" data-aba="pf-rend=">ver projeção</a></span></div><div id="chr"></div></div>
       <div class="card flush m-colapso" data-m="recibos" style="margin-top:16px"><div class="card-h"><h3>Recibos ${ano}</h3><span class="sub">clique numa linha para editar</span><span class="m-resumo"></span></div>${(() => {
         const porReg = contabAuto() || !app.can('criar') ? 0 : rs.filter(r => !estadoPed(chaveRec(r))).length, ult = rs.slice().sort((a, b) => b.mes - a.mes).slice(0, 4);
         return capaMovel({ nums: [['Recibos', rs.length], ['Líquido', eur(sum(rs, 'liquido'))]], alerta: porReg ? `${porReg === 1 ? '1 entrada' : porReg + ' entradas'} por registar na tesouraria` : '',
@@ -1035,7 +1034,7 @@ function rendimentos(v) {
   } else {
     const P = projecao(ano), refOn = false, G = regraAumento(), BB = brutoBase();
     const proximos = [anoAtual, ...futuros].map(y => ({ y, p: projecao(y), S: salarioAno(y) }));
-    const smnCard = `<div class="card flush m-colapso" data-m="proj-anos" style="margin-top:16px"><div class="card-h"><h3>Próximos anos</h3><span class="sub">vencimento base ${eur(BB.valor)} (${esc(BB.origem)}) · ${esc(G.texto)}</span>${resumoMovel(`${proximos.length} anos`)}</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ano</th><th class="r">Salário mínimo</th><th class="r">Vencimento usado</th><th></th><th class="r">Líquido/mês (sem subsídios)</th><th class="r">Projeção anual líquida</th></tr></thead><tbody>
+    const smnCard = `<div class="card flush" data-info="${proximos.length} anos" data-info-pad="0" style="margin-top:16px"><div class="card-h"><h3>Próximos anos</h3><span class="sub">vencimento base ${eur(BB.valor)} (${esc(BB.origem)}) · ${esc(G.texto)}</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ano</th><th class="r">Salário mínimo</th><th class="r">Vencimento usado</th><th></th><th class="r">Líquido/mês (sem subsídios)</th><th class="r">Projeção anual líquida</th></tr></thead><tbody>
       ${proximos.map(({ y, p, S }) => `<tr class="click" data-ano="${y}"${y === ano ? ' style="background:rgba(127,127,127,.10)"' : ''}><td><b>${y}</b></td><td class="r num">${eur(S.smn)}</td><td class="r num">${eur(y === anoAtual ? S.bruto : S.usado)}</td><td>${y === anoAtual ? '<span class="badge ok">recibos</span>' : S.minimo ? '<span class="badge warn">salário mínimo</span>' : '<span class="badge info">valor efetivo</span>'}</td><td class="r num">${eur(p.media)}</td><td class="r num"><b>${eur(p.total - (refOn ? 0 : p.refeicaoTotal))}</b></td></tr>`).join('')}</tbody></table></div></div>`;
     v.innerHTML = `${T.html}${barraFita(anoSel, '')}
       ${P.futuro ? `<div class="alert info" style="margin-bottom:16px">${icon('chart')}<div>Projeção de ${ano}: ${P.salario.minimo ? `o salário mínimo previsto (<b>${eur(P.salario.smn)}</b>) é superior ao seu vencimento atualizado (${eur(P.salario.efetivo)}), por isso usa-se o mínimo` : `vencimento previsto <b>${eur(P.salario.efetivo)}</b>`} · ${G.pt ? 'regras do sistema para Portugal' : 'trabalho fora de Portugal'}: ${esc(G.texto)}. <b>${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)}</b> sobre o líquido atual sem refeição.</div></div>` : ''}
@@ -1043,8 +1042,8 @@ function rendimentos(v) {
           P.futuro ? ['Vencimento base previsto', eur(P.salario.usado), `${P.salario.minimo ? 'salário mínimo' : 'o seu salário'} · ${P.salario.fator >= 1 ? '+' : ''}${pct(P.salario.fator - 1)} face a hoje`] : ['Recebido até agora', eur(P.ytd), `${P.n} meses com recibo`])}
         ${kpi('Média mensal (sem subsídios)', eur(P.media), `inclui ${eur(P.mediaRefAll)} de refeição`, '', false, '',
           [P.futuro ? 'Subsídios previstos' : 'Subsídios por receber', eur(P.subF + P.subN), `${P.temF ? 'férias recebido' : 'férias ' + eur(P.subF)} · ${P.temN ? 'Natal recebido' : 'Natal ' + eur(P.subN)}`])}</div>
-      <div class="card" style="margin-top:16px"><div class="card-h"><h3>Mês a mês</h3><span class="sub">meses sem recibo usam a média; subsídios estimados em junho e novembro</span></div><div id="ch"></div></div>
-      <div class="card flush m-colapso" data-m="proj-meses" style="margin-top:16px"><div class="card-h"><h3>Detalhe por mês</h3>${resumoMovel(`12 meses · <b>${eur(P.total)}</b>`)}</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Mês</th><th class="r">Real</th><th class="r">Projetado</th><th class="r">dos quais refeição</th><th>Notas</th></tr></thead><tbody>
+      <div class="card" data-info="${esc(eur(P.total))}" style="margin-top:16px"><div class="card-h"><h3>Mês a mês</h3><span class="sub">meses sem recibo usam a média; subsídios estimados em junho e novembro</span></div><div id="ch"></div></div>
+      <div class="card flush" data-info="12 meses" data-info-pad="0" style="margin-top:16px"><div class="card-h"><h3>Detalhe por mês</h3></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Mês</th><th class="r">Real</th><th class="r">Projetado</th><th class="r">dos quais refeição</th><th>Notas</th></tr></thead><tbody>
       ${P.linhas.map(l => `<tr><td><b>${MESES[l.m - 1]}</b></td><td class="r num">${l.real == null ? '<span class="faint">—</span>' : eur(l.real)}</td><td class="r num">${eur(l.proj)}</td><td class="r num">${eur(l.refeicao)}</td><td>${l.real == null ? '<span class="badge">estimado</span> ' : '<span class="badge ok">recibo</span> '}${l.sub ? '<span class="badge info">subsídio</span>' : ''}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td>TOTAL</td><td class="r num">${eur(P.ytd)}</td><td class="r num">${eur(P.total)}</td><td class="r num">${eur(P.refeicaoTotal)}</td><td></td></tr></tfoot></table></div></div>${smnCard}`;
     v.querySelectorAll('[data-ano]').forEach(tr => tr.onclick = () => { setTab('pf-ano', tr.dataset.ano); app.refresh(); });
@@ -1059,15 +1058,6 @@ function rendimentos(v) {
 /* cartões informativos fechados (computador e telemóvel): o cabeçalho mostra o título e o valor resumo; tocar abre o
    cartão e fecha os outros da página. Começam fechados ao carregar a página. */
 const acord = (k, titulo, resumo, corpo, extra = '') => `<div class="card flush acord${(window.__acord || {})[k] ? ' aberto' : ''}" data-acord="${k}"><div class="card-h acord-h" role="button" tabindex="0"><h3>${titulo}</h3><span class="acord-r">${resumo}</span>${extra}<i class="acord-s">›</i></div><div class="acord-b">${corpo}</div></div>`;
-function ligarAcord(v) {
-  const mem = window.__acord || (window.__acord = {});
-  v.querySelectorAll('.acord>.acord-h').forEach(h => { const go = ev => { if (ev.target.closest('button,a,input,select')) return;
-      const c = h.parentElement, abrir = !c.classList.contains('aberto');
-      v.querySelectorAll('.acord.aberto').forEach(x => { x.classList.remove('aberto'); mem[x.dataset.acord] = false; });
-      if (abrir) { c.classList.add('aberto'); mem[c.dataset.acord] = true; } };
-    h.onclick = go; h.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(ev); } }; });
-}
-if (!window.__acordOn) { window.__acordOn = 1; addEventListener('hashchange', () => { window.__acord = {}; }); }
 /* telemóvel: lista simples para as folhas "ver todos" (avatar, nome, detalhe, valor e estado). Tocar numa linha abre as
    opções dessa linha (que usam os mesmos botões da tabela, escondida na folha) ou faz logo a única que houver. */
 const mlIni = t => esc(String(t || '?').trim().charAt(0).toUpperCase());
@@ -1141,7 +1131,7 @@ function despesas(v) {
         <td class="m-meta">${esc((PERIODOS.find(p => p[0] === e.periodicidade) || [0, e.periodicidade])[1])}</td><td class="r num m-valor">${eur(e.valor)}</td><td class="r num m-meta m-rot${Math.abs(mensalDesp(e) - (+e.valor || 0)) < 0.005 ? ' m-oculto' : ''}">${eur(mensalDesp(e))}</td><td class="m-meta m-rot">${date(d)}</td>
         <td style="white-space:nowrap">${emAtraso(e).map(dv => `<div style="margin-bottom:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:inherit"><span class="badge bad">vencida ${date(dv)}</span>${app.can('criar') ? ` <button class="btn sm primary" data-p="${e.id}" data-pd="${dv}">Pagar ${eur(e.valor)}</button>` : ''}</div>`).join('')}${e.ativo === false ? '<span class="faint">inativa</span>' : part ? '<a class="faint" href="#/casa">paga-se nas Partilhas</a>' : !vigente(e) ? `<span class="faint">${e.fim && e.fim < ymHoje() ? 'terminou' : 'ainda não começou'}</span>` : ps || (emAtraso(e).length ? '' : app.can('criar') ? `<button class="btn sm" data-p="${e.id}">Pagar ${eur(e.valor)}</button>` : '—')}
           ${ed && e.ativo !== false && (!cv || ['recusado', 'cancelado'].includes(cv.estado)) && (!e.fim || e.fim >= ymHoje()) ? ` <button class="btn sm ghost" data-ps="${e.id}" title="Partilhar com outra pessoa">${icon('users')} Partilhar</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="6" class="empty">Sem despesas fixas.</td></tr>'}</tbody></table></div></div>
-      <div class="card"><div class="card-h"><h3>Por categoria</h3><span class="sub">equivalente mensal</span></div><div id="dn"></div></div></div>`;
+      <div class="card" data-info=""><div class="card-h"><h3>Por categoria</h3><span class="sub">equivalente mensal</span></div><div id="dn"></div></div></div>`;
   if (porCat.length) chart.donut(v.querySelector('#dn'), { items: porCat, center: eur(tot), sub: 'por mês' }); else v.querySelector('#dn').innerHTML = '<div class="empty">Sem despesas este mês.</div>';
   const ed1 = e => { const novo = !e, x = e || { categoria: 'Outros', periodicidade: 'mensal', mes: +today().slice(5, 7), dia: 1, contaOrigem: CAIXA, ativo: true, valor: 0 };
     editar({ titulo: 'Despesa fixa', cols: COLS_DESP(), x, novo, validar: f => !f.nome ? 'Indique a designação' : !(f.valor > 0) ? 'Indique o valor' : null,
@@ -1879,7 +1869,7 @@ function cartaoAcerto(L, ex, ym) {
       ${kpi('Acerto · ' + fmtMes(ym), trf.length ? trf.map(l => linhaTrf(l)[1]).join(' + ') : eur(0), trf.length ? trf.map(l => linhaTrf(l)[0]).join(' · ') + (trf.some(l => l.emCurso) ? ' · em curso' : '') : 'contas certas neste mês', trf.length ? linhaTrf(trf[0])[2] : '', true)}
       ${kpi('A minha parte', eur(tot('minha')), `${ds.filter(x => x.q > 0).length} despesas partilhadas`, '', false, '', ['Paguei', eur(tot('paguei')), 'contas em meu nome e compras'])}</div>
     ${estim.length ? `<div class="alert info" style="margin-bottom:16px">${icon('info')}<div>Valor estimado (média) em ${esc(estim.join(', '))}. Registe o valor real para o acerto ficar certo.</div></div>` : ''}
-    <div class="card flush m-colapso" data-m="acerto"><div class="card-h"><h3>De onde vem o acerto</h3>${resumoMovel(`<b>${sinal(saldo)}</b>`)}</div>
+    <div class="card flush" data-info="${esc(sinal(saldo))}" data-info-pad="0"><div class="card-h"><h3>De onde vem o acerto</h3></div>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th class="r">Valor do mês</th><th class="r">A minha parte</th><th class="r">Paguei</th><th class="r">No meu saldo</th><th></th></tr></thead><tbody>
     ${ds.map(x => { const daqui = (R.despesas || []).some(y => y.id === x.e.id);
       return `<tr class="${ed && daqui ? 'click' : ''}" ${daqui ? `data-ep="${x.e.id}"` : ''}><td><b>${esc(x.e.nome)}</b><div class="faint" style="font-size:12px">${quem(x)}${altPendente(L.casa, x.e.id) ? ' <span class="badge warn">alteração por aprovar</span>' : ''}</div></td>
@@ -2248,8 +2238,8 @@ function simulador(v) {
     v.innerHTML = `${T.html}<div class="alert info" style="margin-bottom:16px">${icon('target')}<div>Todos os meses: paga as prestações, separa a poupança, o que vai para os <a href="#/objetivos">objetivos</a> e o ${kn('pf_emerg', 'fundo de emergência')}, e usa o resto (${eur(Math.max(0, I.exc))}${+m.plano.extraFixo ? ` + ${eur(m.plano.extraFixo)} fixos` : ''}) para amortizar a dívida escolhida pela estratégia. Ajuste em <a href="#/poupancas">Poupanças</a>.</div></div>
       <div class="grid g4">${ks.map(k => { const r = R[k]; return `<div class="card kpi ${k === melhor ? 'hero' : ''}"><div class="lbl">${k === 'baseline' ? 'Só prestações' : kn('pf_' + k, nomeEstr(k))}${k === melhor ? ' · <b>melhor</b>' : ''}</div>
         <div class="val" style="font-size:20px">${r.livre ? fmtMes(r.livre) : 'além do horizonte'}</div><div class="foot">${r.livre ? r.meses.length + ' meses · ' : ''}juros ${eur(r.juros)}${k !== 'baseline' ? `<br>poupa <b class="pos">${eur(r.poupado)}</b> em juros · comissões ${eur(r.comissoes)}` : ''}</div></div>`; }).join('')}</div>
-      <div class="card" style="margin-top:16px"><div class="card-h"><h3>Dívida total ao longo do tempo</h3></div><div id="ch"></div></div>
-      <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Quando fica liquidada cada dívida</h3></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Dívida</th><th class="r">Capital</th><th class="r">Taxa</th>${ks.map(k => `<th>${esc(nomeEstr(k))}</th>`).join('')}</tr></thead><tbody>
+      <div class="card" data-info="" style="margin-top:16px"><div class="card-h"><h3>Dívida total ao longo do tempo</h3></div><div id="ch"></div></div>
+      <div class="card flush" data-info="" data-info-pad="0" style="margin-top:16px"><div class="card-h"><h3>Quando fica liquidada cada dívida</h3></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Dívida</th><th class="r">Capital</th><th class="r">Taxa</th>${ks.map(k => `<th>${esc(nomeEstr(k))}</th>`).join('')}</tr></thead><tbody>
       ${ds.map(d => `<tr><td><b>${esc(d.nome)}</b></td><td class="r num">${eur(d.capital)}</td><td class="r num">${pct(d.taxa)}</td>${ks.map(k => `<td>${R[k].fim[d.id] ? fmtMes(R[k].fim[d.id]) : '<span class="faint">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
     chart.linha(v.querySelector('#ch'), { labels: lab, series: ks.map((k, i) => ({ name: nomeEstr(k), dash: k === 'baseline', values: idx.map(j => R[k].meses[j] ? R[k].meses[j].divida : 0) })) });
   } else {
@@ -2589,7 +2579,7 @@ function objetivos(v) {
     ${recebidos.map(({ casa, c }) => `<div class="alert info" style="margin-top:16px">${icon('inbox')}<div style="flex:1">${resumoConvite(casa, c)}</div>${ed ? `<button class="btn sm primary" data-rj="${c.id}" data-casa="${casa}">${icon('key')} Responder</button>` : ''}</div>`).join('')}
     ${pend.filter(c => c.deSistema === sub.key).map(c => `<div class="alert" style="margin-top:16px">${icon('users')}<div style="flex:1">Pedido enviado a <b>${esc(semPessoal(c.paraNome))}</b>: ${esc(c.objetivo.nome)} · ${eur(c.objetivo.alvo)} · aguarda resposta</div>${ed ? `<button class="btn sm ghost" data-cc="${c.id}">Cancelar</button>` : ''}</div>`).join('')}
     <div class="grid g2" style="margin-top:16px">${lista.map(cartao).join('') || `<div class="empty" style="grid-column:1/-1">Ainda não tem objetivos. Crie um no <b>+</b> (ex.: portátil novo, 900 €, até junho). ${dica(EXPLICA)}</div>`}</div>
-    <div class="card flush m-colapso" data-m="obj-plano" style="margin-top:16px"><div class="card-h"><h3>${icon('calendar')} Plano de poupança mês a mês ${dica('Quanto pôr de lado em cada mês para cada objetivo, usando a sobra desse mês (rendimento − despesas fixas − prestações). Os objetivos são juntados pela ordem da fila, com a sobra dos meses mais cedo possíveis até ao mês em que são pagos. Nos meses que fecham negativos, usa-se a reserva guardada antes. Livre: o que fica acumulado sem destino.')}</h3>${resumoMovel(`${mesesPlano} meses`)}</div>
+    <div class="card flush" data-info="12 meses" data-info-pad="0" style="margin-top:16px"><div class="card-h"><h3>${icon('calendar')} Plano de poupança mês a mês ${dica('Quanto pôr de lado em cada mês para cada objetivo, usando a sobra desse mês (rendimento − despesas fixas − prestações). Os objetivos são juntados pela ordem da fila, com a sobra dos meses mais cedo possíveis até ao mês em que são pagos. Nos meses que fecham negativos, usa-se a reserva guardada antes. Livre: o que fica acumulado sem destino.')}</h3>${resumoMovel(`${mesesPlano} meses`)}</div>
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Mês</th><th class="r">Sobra</th><th>Pôr de lado</th><th>Pagar</th><th class="r">Livre</th></tr></thead><tbody>${PLANO}</tbody></table></div></div>`;
   const ed1 = (o0, pre) => { const novo = !o0, x = o0 || Object.assign({ alvo: 0, poupado: 0, prioridade: 3, categoria: 'outro', data: SPAP.addMonths(hoje, 12) }, pre || {});
     if (!novo && !x.categoria) x.categoria = catDe(x);

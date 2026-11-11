@@ -944,7 +944,23 @@ SPAP.createApp = function (cfg) {
       if (h) { const vb = document.createElement('button'); vb.type = 'button'; vb.className = 'btn sm m-voltar'; vb.textContent = '‹ Voltar'; vb.onclick = ev => { ev.stopPropagation(); fechar(true); }; h.prepend(vb); }
       if (mem[k] && movel()) abrir(false);
       c.addEventListener('click', ev => { if (!movel() || c.classList.contains('aberto') || ev.target.closest('button,a,input,select')) return; abrir(true); }); });
-    let rq = 0; new MutationObserver(() => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; rotular(); colapsos(); }); }).observe(view, { childList: true, subtree: true });
+    // cartões informativos (.card[data-info]): ficam fechados, com o título e o valor resumo (data-info) no cabeçalho;
+    // tocar abre o cartão e fecha os outros da página. Começam fechados ao carregar a página e ao mudar de página.
+    const infos = () => view.querySelectorAll('.card[data-info]:not(.acord)').forEach(c => { const h = c.querySelector(':scope>.card-h'); if (!h) return;
+      const k = c.dataset.infoK || (h.querySelector('h3') || h).textContent.trim();
+      c.classList.add('acord', 'flush'); c.dataset.acord = k; h.classList.add('acord-h'); h.setAttribute('role', 'button'); h.tabIndex = 0;
+      const r = document.createElement('span'); r.className = 'acord-r'; r.innerHTML = c.dataset.info; h.appendChild(r);
+      const s = document.createElement('i'); s.className = 'acord-s'; s.textContent = '›'; h.appendChild(s);
+      const b = document.createElement('div'); b.className = 'acord-b' + (c.dataset.infoPad === '0' ? '' : ' acord-pad'); while (h.nextSibling) b.appendChild(h.nextSibling); c.appendChild(b);
+      if ((window.__acord || {})[k]) c.classList.add('aberto'); });
+    let rq = 0; new MutationObserver(() => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; infos(); rotular(); colapsos(); }); }).observe(view, { childList: true, subtree: true });
+    if (!window.__acordOn) { window.__acordOn = 1;
+      addEventListener('hashchange', () => { window.__acord = {}; });
+      const alternar = h => { const c = h.parentElement, mem = window.__acord || (window.__acord = {}), abrir = !c.classList.contains('aberto'), raiz = c.closest('#view') || document;
+        raiz.querySelectorAll('.acord.aberto').forEach(x => { x.classList.remove('aberto'); mem[x.dataset.acord] = false; });
+        if (abrir) { c.classList.add('aberto'); mem[c.dataset.acord] = true; } };
+      document.addEventListener('click', ev => { const h = ev.target.closest('.acord>.acord-h'); if (!h || ev.target.closest('button,a,input,select,label,[data-tip]:not(h3)')) return; alternar(h); });
+      document.addEventListener('keydown', ev => { if (ev.key !== 'Enter' && ev.key !== ' ') return; const h = ev.target.closest && ev.target.closest('.acord>.acord-h'); if (!h || ev.target !== h) return; ev.preventDefault(); alternar(h); }); }
     try { rt.render(view, app, params); }
     catch (err) { console.error(err); view.innerHTML = `<div class="alert bad">${icon('alert')}<div><b>Erro ao apresentar a página.</b><br>${esc(err.message)}</div></div>`; }
     window.scrollTo(0, 0);
@@ -1077,11 +1093,11 @@ SPAP.createApp = function (cfg) {
         ${kpiD(`${icon('clock')} A aguardar aprovação`, String(pend.length), eur(pend.reduce((s, p) => s + p.valor, 0)), ['Aprovados por executar', String(by('APROVADO').length), `${eur(by('APROVADO').reduce((s, p) => s + p.valor, 0))} cativos`])}
       </div>
       <div class="grid g3" style="margin-top:16px">
-        <div class="card span2"><div class="card-h"><h3>Fluxo de pedidos · últimos 6 meses</h3><span class="sub">por data prevista</span></div><div id="ch1"></div></div>
-        <div class="card"><div class="card-h"><h3>Por estado</h3></div><div id="ch2"></div></div>
+        <div class="card span2" data-info=""><div class="card-h"><h3>Fluxo de pedidos · últimos 6 meses</h3><span class="sub">por data prevista</span></div><div id="ch1"></div></div>
+        <div class="card" data-info=""><div class="card-h"><h3>Por estado</h3></div><div id="ch2"></div></div>
       </div>
       <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Requer a sua ação</h3><a class="btn sm" href="#/aprovacoes">Ver tudo</a></div><div id="tb"></div></div>
-      <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Atividade recente</h3><a class="btn sm" href="#/pedidos">Todos os pedidos</a></div><div id="tb2"></div></div>`;
+      <div class="card flush" data-info="" data-info-pad="0" style="margin-top:16px"><div class="card-h"><h3>Atividade recente</h3><a class="btn sm" href="#/pedidos">Todos os pedidos</a></div><div id="tb2"></div></div>`;
     const months = []; const d0 = new Date(); for (let i = 5; i >= 0; i--) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 15); months.push(d.toISOString().slice(0, 7)); }
     const sum = (m, f) => r2(ps.filter(p => ym(p.dataPrevista) === m && f(p)).reduce((s, p) => s + p.valor, 0));
     SPAP.chart.bars(v.querySelector('#ch1'), { labels: months.map(m => MES3[+m.slice(5) - 1]), series: [
@@ -1202,8 +1218,8 @@ SPAP.createApp = function (cfg) {
           ${p.dataExecucao ? `<div><span>Executado</span><b>${date(p.dataExecucao)} · ${esc(userName(p.executadoPor))}</b></div><div><span>Comprovativo</span><b>${esc(p.comprovativo || '—')}</b></div>` : ''}
           <div style="grid-column:1/-1"><span>Descrição / finalidade</span><b style="font-weight:500">${esc(p.descricao || '—')}</b></div></div>
           ${p.anexos && p.anexos.length ? `<div class="sep"></div><div class="chips">${p.anexos.map((a, i) => `<button class="btn sm" data-ax="${i}">${icon('file')} ${esc(a.nome)}</button>`).join('')}</div>` : ''}</div>
-        <div class="card"><div class="card-h"><h3>Assinaturas eletrónicas</h3><span id="sigbadge"></span></div>${app.cartaoAssinaturas(p)}</div>
-        <div class="card"><div class="card-h"><h3>Rasto de auditoria</h3><span class="sub">cadeia de hash SHA-256</span></div>
+        <div class="card" data-info=""><div class="card-h"><h3>Assinaturas eletrónicas</h3><span id="sigbadge"></span></div>${app.cartaoAssinaturas(p)}</div>
+        <div class="card" data-info=""><div class="card-h"><h3>Rasto de auditoria</h3><span class="sub">cadeia de hash SHA-256</span></div>
           ${trail.map(a => `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="row between"><b style="font-size:13px">${esc(a.acao.replace(/_/g, ' '))}</b><span class="faint" style="font-size:12px">${dt(a.ts)} · ${esc(a.user)}</span></div><div class="muted" style="font-size:12.5px">${esc(a.detalhe)}</div><div class="hash">${a.hash}</div></div>`).join('') || '<div class="muted">—</div>'}</div>
       </div>
       <div class="stack">
@@ -1443,7 +1459,7 @@ SPAP.createApp = function (cfg) {
         ${kpiD('Entradas', '+' + eur(ent), c.nif ? 'NIF ' + esc(c.nif) : '', ['Saídas', eur(sai), '', 'neg'], false, 'pos')}</div>
       ${app.cartaoLimites(c)}
       ${pend.length ? `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Pedidos em curso</h3></div>${app.tabelaPedidos(pend, { compact: true })}</div>` : ''}
-      <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Extrato de movimentos</h3><span class="sub">Saldo inicial ${eur(c.saldoInicial)}</span></div>
+      <div class="card flush" data-info="" data-info-pad="0" style="margin-top:16px"><div class="card-h"><h3>Extrato de movimentos</h3><span class="sub">Saldo inicial ${eur(c.saldoInicial)}</span></div>
       ${rows.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th class="r">Montante</th><th class="r">Saldo</th></tr></thead><tbody>
       ${rows.map(m => `<tr ${m.pedido ? `class="click" data-p="${m.pedido}"` : ''}><td>${date(m.data)}</td><td>${esc(m.descricao)}</td><td><span class="badge plain">${esc(m.tipo)}</span></td><td class="r num ${m.valor < 0 ? 'neg' : 'pos'}" style="font-weight:700">${m.valor > 0 ? '+' : ''}${eur(m.valor)}</td><td class="r num">${eur(m.saldo)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Sem movimentos.</div>'}</div>`;
     app.bindPedidos(v);
@@ -1671,7 +1687,7 @@ SPAP.createApp = function (cfg) {
         return `<div style="padding:14px 18px;border-top:1px solid var(--line)"><div class="row between"><div><b>${esc(def.titulo)}</b> · ${esc(a.descricao)}<div class="faint" style="font-size:12px">Proposta por ${esc(userName(a.criadoPor))} · ${dt(a.criadoEm)}</div></div>
           <div class="row">${ok ? `<button class="btn ok sm" data-ap="${a.id}">${icon('check')} Aprovar</button><button class="btn bad sm" data-rj="${a.id}">${icon('x')} Rejeitar</button>` : `<span class="faint" style="font-size:12px">${esc(why)}</span>`}
           ${a.criadoPor === app.user.id ? `<button class="btn ghost sm" data-cc="${a.id}">Cancelar</button>` : ''}</div></div>${diffHtml(a.detalhes || [])}</div>`; }).join('') : '<div class="empty">Sem alterações pendentes.</div>'}</div>
-      <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Histórico</h3></div>${hist.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Alteração</th><th>Proposta por</th><th>Decidida por</th><th>Assinaturas</th><th>Estado</th></tr></thead><tbody>
+      <div class="card flush" data-info="${hist.length}" data-info-pad="0" style="margin-top:16px"><div class="card-h"><h3>Histórico</h3></div>${hist.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Alteração</th><th>Proposta por</th><th>Decidida por</th><th>Assinaturas</th><th>Estado</th></tr></thead><tbody>
         ${hist.map(a => `<tr><td>${dt(a.aplicadaEm || a.decididaEm || a.criadoEm)}</td><td><b>${esc((TIPOS_ALT[a.tipo] || { titulo: a.tipo }).titulo)}</b><div class="faint" style="font-size:12px">${esc(a.descricao)}</div></td><td>${esc(userName(a.criadoPor))}</td>
           <td>${a.semDuplo ? '<span class="badge warn">Sem duplo controlo</span>' : esc(a.decisor ? userName(a.decisor) : '—')}</td><td class="num">${(a.assinaturas || []).length}</td><td>${estadoB(a.estado)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Sem histórico.</div>'}</div>`;
     const find = id => (db.alteracoes || []).find(a => a.id === id);
@@ -1770,7 +1786,7 @@ SPAP.createApp = function (cfg) {
         <p class="muted" style="margin-top:0">O fecho guarda uma fotografia assinada dos saldos e de todos os movimentos até à data. A partir daí, esse período fica bloqueado: qualquer alteração retroativa é recusada ou detetada.</p>
         ${can('executar') || can('admin') ? `<div class="row"><input class="inp inp-sm" type="date" id="dfe" value="${today()}" max="${today()}"><button class="btn primary" id="fe" ${pr.ok ? '' : 'disabled'}>${icon('lock')} Fechar dia</button></div>${pr.ok ? '' : '<div class="faint" style="font-size:12px;margin-top:6px">Corrija os erros da prova de saldos antes de fechar.</div>'}` : ''}
         <div id="fv" style="margin-top:12px"></div></div></div>
-      <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Fechos realizados</h3><button class="btn sm" id="ver">${icon('shield')} Verificar todos</button></div>
+      <div class="card flush" data-info="" data-info-pad="0" style="margin-top:16px"><div class="card-h"><h3>Fechos realizados</h3><button class="btn sm" id="ver">${icon('shield')} Verificar todos</button></div>
         ${(db.fechos || []).length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th class="r">Total de fundos</th><th class="r">Movimentos</th><th>Fechado por</th><th>Selo</th><th>Estado</th></tr></thead><tbody>
         ${(db.fechos || []).slice().reverse().map(f => `<tr><td><b>${date(f.data)}</b></td><td class="r num">${eur(f.total)}</td><td class="r num">${f.nMov}</td><td>${esc(userName(f.user))} · ${dt(f.ts)}</td><td class="hash">${f.hash.slice(0, 20)}…</td><td data-fv="${f.id}"><span class="badge plain">A verificar…</span></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Ainda não foi feito nenhum fecho.</div>'}</div>`;
     const verificar = async () => { const res = await app.verificarFechos();
@@ -2000,7 +2016,7 @@ SPAP.createApp = function (cfg) {
       <div class="grid g2">
         ${kpiD('Saldo atual', eur(proj[0] ? proj[0].inicial : 0), c ? esc(c.nome) : 'todas as contas', ['Saldo mais baixo', eur(menor ? menor.final : 0), `semana de ${menor ? date(menor.ini) : '—'}${min ? ' · mínimo ' + eur(min) : ''}`, menor && menor.final < min ? 'neg' : ''], true)}
         ${kpiD('Entradas previstas', '+' + eur(proj.reduce((a, w) => a + w.ent, 0)), '', ['Saídas previstas', eur(proj.reduce((a, w) => a + w.sai, 0)), '', 'neg'], false, 'pos')}</div>
-      <div class="card" style="margin-top:16px"><div class="card-h"><h3>Saldo projetado no fim de cada semana</h3></div><div id="ch"></div></div>
+      <div class="card" data-info="" style="margin-top:16px"><div class="card-h"><h3>Saldo projetado no fim de cada semana</h3></div><div id="ch"></div></div>
       <div class="card flush" style="margin-top:16px"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Semana</th><th class="r">Saldo inicial</th><th class="r">Entradas</th><th class="r">Saídas</th><th class="r">Saldo final</th><th>Movimentos previstos</th></tr></thead><tbody>
       ${proj.map(w => `<tr><td><b>${date(w.ini)}</b> <span class="faint">a ${date(w.fim)}</span></td><td class="r num">${eur(w.inicial)}</td><td class="r num pos">${w.ent ? '+' + eur(w.ent) : '–'}</td><td class="r num neg">${w.sai ? eur(w.sai) : '–'}</td>
         <td class="r num" style="font-weight:700">${w.final < min - 0.004 ? `<span class="neg">${eur(w.final)}</span>` : eur(w.final)}</td>
@@ -2098,7 +2114,7 @@ SPAP.createApp = function (cfg) {
       c.innerHTML = `${!ccs.length ? `<div class="alert info" style="margin-bottom:16px">${icon('target')}<div>Ainda não existem centros de custo. Crie-os no separador <a href="#/relatorios" data-aba="rel=cc">Centros de custo</a> e associe-os aos pedidos.</div></div>` : ''}
         <div class="grid g2" style="margin-bottom:16px">${kpiD(`Orçamento anual ${ano}`, eur(tot('orc')), '', ['Disponível', eur(tot('orc') - tot('exec') - tot('comp')), ''], true)}
           ${kpiD('Executado', eur(tot('exec')), tot('orc') ? pct(tot('exec') / tot('orc')) + ' do orçamento' : '', ['Comprometido', eur(tot('comp')), 'pedidos em curso'])}</div>
-        <div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Orçamento, executado e comprometido</h3></div><div id="ch"></div></div>
+        <div class="card" data-info="" style="margin-bottom:16px"><div class="card-h"><h3>Orçamento, executado e comprometido</h3></div><div id="ch"></div></div>
         <div class="card flush"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Centro de custo</th><th>Responsável</th><th class="r">Orçamento</th><th class="r">Executado</th><th class="r">Comprometido</th><th class="r">Disponível</th><th style="width:22%">Execução</th></tr></thead><tbody>
         ${linhas.map(l => { const f = l.orc ? (l.exec + l.comp) / l.orc : 0; return `<tr><td><b>${esc(l.nome)}</b>${l.ativo ? '' : ' <span class="badge">Inativo</span>'}</td><td>${esc(l.resp)}</td><td class="r num">${l.orc ? eur(l.orc) : '—'}</td><td class="r num">${eur(l.exec)}</td><td class="r num">${eur(l.comp)}</td>
           <td class="r num ${l.orc && l.orc - l.exec - l.comp < 0 ? 'neg' : ''}">${l.orc ? eur(l.orc - l.exec - l.comp) : '—'}</td><td>${l.orc ? `<div class="progress ${f > 1 ? 'bad' : f > .85 ? 'warn' : ''}"><i style="width:${Math.min(100, f * 100)}%"></i></div><span class="faint" style="font-size:11.5px">${pct(f)}</span>` : '<span class="faint">sem orçamento</span>'}</td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">Sem dados.</td></tr>'}</tbody>
@@ -2110,7 +2126,7 @@ SPAP.createApp = function (cfg) {
     if (tab === 'mes') {
       const mm = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
       const dados = linhas.map(l => ({ ...l, meses: mm.map(m => app.ccExecutado(l.id, ano, m)) }));
-      c.innerHTML = `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Execução mensal por centro de custo · ${ano}</h3></div><div id="ch"></div></div>
+      c.innerHTML = `<div class="card" data-info="" style="margin-bottom:16px"><div class="card-h"><h3>Execução mensal por centro de custo · ${ano}</h3></div><div id="ch"></div></div>
         <div class="card flush"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Centro de custo</th>${MES3.map(m => `<th class="r">${m}</th>`).join('')}<th class="r">Total</th></tr></thead><tbody>
         ${dados.map(l => `<tr><td><b>${esc(l.nome)}</b></td>${l.meses.map(x => `<td class="r num ${x ? '' : 'faint'}">${x ? eur(x) : '–'}</td>`).join('')}<td class="r num"><b>${eur(l.meses.reduce((a, b) => a + b, 0))}</b></td></tr>`).join('') || '<tr><td colspan="14" class="empty">Sem dados.</td></tr>'}</tbody></table></div></div>`;
       if (dados.length) SPAP.chart.bars(c.querySelector('#ch'), { labels: MES3, stacked: true, height: 220, series: dados.map(l => ({ name: l.nome, values: l.meses })) });
@@ -2119,7 +2135,7 @@ SPAP.createApp = function (cfg) {
     if (tab === 'cat') {
       const cats = db.categorias.filter(x => x !== ENTRADA).map(cat => { const ps = db.pedidos.filter(p => p.categoria === cat && ehSaida(p));
         return { cat, exec: r2(ps.filter(p => p.estado === 'EXECUTADO' && (p.dataExecucao || '').startsWith(ano)).reduce((s, p) => s + p.valor, 0)), comp: r2(ps.filter(p => ['PENDENTE', 'EM_APROVACAO', 'APROVADO'].includes(p.estado) && (p.dataPrevista || '').startsWith(ano)).reduce((s, p) => s + p.valor, 0)), orc: app.orcamento(cat) * 12 }; }).filter(x => x.exec || x.comp || x.orc);
-      c.innerHTML = `<div class="grid g3"><div class="card"><div class="card-h"><h3>Executado por categoria</h3></div><div id="dn"></div></div>
+      c.innerHTML = `<div class="grid g3"><div class="card" data-info=""><div class="card-h"><h3>Executado por categoria</h3></div><div id="dn"></div></div>
         <div class="card flush span2"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Categoria</th><th class="r">Orçamento anual*</th><th class="r">Executado</th><th class="r">Comprometido</th></tr></thead><tbody>
         ${cats.map(x => `<tr><td><b>${esc(x.cat)}</b></td><td class="r num">${x.orc ? eur(x.orc) : '—'}</td><td class="r num">${eur(x.exec)}</td><td class="r num">${eur(x.comp)}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">Sem dados.</td></tr>'}</tbody></table></div>
         <div class="faint" style="font-size:11.5px;padding:8px 14px">* orçamento mensal da categoria × 12</div></div></div>`;
@@ -2325,8 +2341,8 @@ SPAP.createApp = function (cfg) {
       ${sec('Retorno e eficiência', 'Returns & efficiency', kpiC('roe', fP(K.roe), 'capital próprio ' + eur(K.equity)) + kpiC('roa', fP(K.roa), 'ativo ' + eur(K.ativo)) + kpiC('roi', fP(K.roi), 'CAPEX acumulado ' + eur(K.capexAcum)) + kpiC('cashconv', fP(K.cashconv), 'OCF ÷ EBITDA'))}
       ${sec('Crescimento e operação', 'Growth & unit economics', kpiC('yoy', fP(K.yoy), `${+ano - 1}: ${eur(K.prevRev)}`) + kpiC('cagr', fP(K.cagr), K.cagrDesde && K.cagr != null ? 'desde ' + K.cagrDesde : '') + kpiC('runrate', eur(K.runrate), 'ritmo dos últimos 3 meses') + kpiC('ticket', fE(K.ticket), K.nV ? K.nV + ' vendas' : '') + kpiC('vcr', fP(K.vcr)) + kpiC('opex', eur(K.opex), 'custos fixos do período') + kpiC('mom', fP(K.mom), 'último mês vs anterior') + kpiC('da', eur(K.da), 'vida útil ' + finCfg().vidaUtil + ' anos'))}
       <div class="grid g2" style="margin-top:6px">
-        <div class="card"><div class="card-h"><h3>Receita, custos e ${kn('bep', 'break-even')}</h3><span class="sub">${ano}</span></div><div id="ch1"></div></div>
-        <div class="card"><div class="card-h"><h3>${kn('cash', 'Caixa')} e ${kn('ocf', 'fluxo operacional')}</h3><span class="sub">fim de cada mês</span></div><div id="ch2"></div></div></div>
+        <div class="card" data-info=""><div class="card-h"><h3>Receita, custos e ${kn('bep', 'break-even')}</h3><span class="sub">${ano}</span></div><div id="ch1"></div></div>
+        <div class="card" data-info=""><div class="card-h"><h3>${kn('cash', 'Caixa')} e ${kn('ocf', 'fluxo operacional')}</h3><span class="sub">fim de cada mês</span></div><div id="ch2"></div></div></div>
       <div class="card" style="margin-top:16px"><div class="card-h"><h3>Simulador de ${kn('bep', 'break-even')}</h3><span class="sub">altera os valores e vê o ponto de equilíbrio</span></div>
         <form class="form" id="sim" style="grid-template-columns:repeat(4,minmax(0,1fr))">
           <div class="fld"><label>Preço médio por unidade (€)</label><input class="inp num" type="number" step="0.01" name="p" value="${r2(K.units ? K.rev / K.units : 100)}"></div>
@@ -2463,7 +2479,7 @@ SPAP.createApp = function (cfg) {
         <div class="form"><div class="fld"><label>${kn('scen', 'Pessimista (%)')}</label><input class="inp num" type="number" step="1" name="cenP" value="${Math.round(p.cenP * 100)}"></div><div class="fld"><label>Otimista (%)</label><input class="inp num" type="number" step="1" name="cenO" value="${Math.round(p.cenO * 100)}"></div></div>
         <div class="fld"><label>Notas</label><textarea class="inp" name="descricao">${esc(p.descricao || '')}</textarea></div></form></div>
         <div class="span2 stack"><div class="grid g3" id="res"></div>
-          <div class="card"><div class="card-h"><h3>Fluxo acumulado</h3><span class="sub">simples e descontado</span></div><div id="ch"></div></div>
+          <div class="card" data-info=""><div class="card-h"><h3>Fluxo acumulado</h3><span class="sub">simples e descontado</span></div><div id="ch"></div></div>
           <div class="grid g2"><div class="card flush"><div class="card-h"><h3>${kn('scen', 'Cenários')}</h3></div><div id="cen"></div></div><div class="card flush"><div class="card-h"><h3>${kn('sens', 'Sensibilidade do NPV')}</h3><span class="sub">taxa × variação dos fluxos</span></div><div class="tbl-wrap" id="sens"></div></div></div>
           <div class="row" style="justify-content:flex-end">${!novo && can('admin') ? `<button class="btn bad" id="apagar">${icon('trash')} Eliminar</button>` : ''}${can('criar') ? `<button class="btn" id="pedido">${icon('shield')} Submeter pedido de investimento</button><button class="btn primary" id="guardar">Guardar projeto</button>` : ''}</div></div></div>`;
     const pf = v.querySelector('#pf');

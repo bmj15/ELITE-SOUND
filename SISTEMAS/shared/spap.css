@@ -514,7 +514,13 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
 .acord-x{flex:none}
 .acord-s{flex:none;font-style:normal;font-size:22px;line-height:1;color:var(--muted);transition:transform .2s}
 .acord.aberto .acord-s{transform:rotate(90deg)}
-.acord:not(.aberto)>.acord-b{display:none}
+.acord:not(.aberto)>.acord-b{height:0;overflow:hidden;visibility:hidden;padding:0!important}
 .acord:not(.aberto)>.acord-h{border-bottom:0!important;margin-bottom:0!important}
 .acord.aberto>.acord-h{border-bottom:1px solid var(--line)}
 @media (max-width:640px){.acord-r .faint{display:none}.acord>.acord-h h3{font-size:15px}}
+/* cartões informativos transformados (data-info): corpo com margem quando o cartão não era "flush" */
+.acord>.acord-b.acord-pad{padding:14px 18px 18px}
+.acord:not(.aberto)>.acord-h>.sub,.acord:not(.aberto)>.acord-h>.btn,.acord:not(.aberto)>.acord-h>a.btn{display:none}
+.acord.aberto>.acord-h>.sub{margin-left:8px}
+@media (max-width:640px){.acord>.acord-h>.sub{display:none}}
+.grid:has(>.acord){align-items:start}
