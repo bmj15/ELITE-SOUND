@@ -861,6 +861,9 @@ a:hover .capa.foto-a img{transform:scale(1.07)}
 
 /* ecrã tátil: sem efeito de aparecer (a passagem é o próprio deslize) e sem scroll livre nos segmentos */
 html.snap.tatil .seg-x{touch-action:pan-x;touch-action:pan-x pinch-zoom}
+/* nada passa dos lados da página (efeito de entrada a 102,5%, brilho do telemóvel…): se a página ficar mais larga do que o ecrã,
+   nem que seja por instantes, o Chrome da tablet afasta o zoom e fica uma faixa vazia à direita */
+#hp,body>footer{overflow-x:hidden;overflow-x:clip}
 /* efeitos reduzidos automaticamente quando o aparelho mostra lentidão: fx1 sem desfoque, fx0 sem efeitos */
 html.snap.fx1 .seg-x{transition:opacity .26s ease,transform .26s ease}
 html.snap.fx1 .seg-x.sai{filter:none}
