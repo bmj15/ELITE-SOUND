@@ -872,7 +872,7 @@ html.snap.fx0 .seg-x,html.snap.fx0 .seg-x .anim{transition:none;animation:none}
 html.snap.fx0 .seg-x:not(.vis) .anim{opacity:1}
 html.snap.fx0 .seg-x.sai{opacity:1;filter:none;transform:none}
 /* segmento com conteúdo a mais: menos margem em cima e em baixo (o JS reduz o resto) */
-html.snap .tela.ajusta{padding-top:20px;padding-bottom:20px}
+html.snap .tela.ajusta{padding-top:clamp(28px,5vh,48px);padding-bottom:clamp(28px,5vh,48px)}
 
 /* Entrar e abrir conta: faixa sob o cabeçalho, sem sair da página */
 .acesso[hidden]{display:none}
