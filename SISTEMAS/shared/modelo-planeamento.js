@@ -931,8 +931,15 @@ function rendIRS(v, T) {
     <div class="grid g2">${kpi(`${icon('wallet')} ${X.acerto >= 0 ? 'Reembolso estimado' : 'IRS a pagar (estimado)'}`, eur(Math.abs(X.acerto)), `retido ${eur(X.retido)}`, X.acerto >= 0 ? 'pos' : 'neg', true, '',
         ['IRS devido', eur(X.devido), X.minimo ? 'mínimo de existência' : `taxa efetiva ${pct(X.A.bruto + X.B.bruto > 0 ? X.devido / (X.A.bruto + X.B.bruto) : 0)}`])}
       ${kpi('Rendimento bruto', eur(X.A.bruto + X.B.bruto), `Cat. A ${eur(X.A.bruto)} · Cat. B ${eur(X.B.bruto)}`, '', false, '', ['IRS Jovem', X.pj ? pct(X.pj) : '—', X.pj ? `${X.idx}.º ano · isento ${eur(X.isA + X.isB)}` : 'não se aplica'])}</div>
-    <div class="grid g2" style="margin-top:16px;align-items:start">
-      <div class="card flush"><div class="card-h"><h3>Como se chega lá</h3><span class="sub">regras de ${X.r.ano}</span></div><div class="tbl-wrap"><table class="tbl"><tbody>
+`}
+    ${(() => { const dv = (despesasIRS().out[ano] || { v: {} }).v || {}, dd = Object.fromEntries(((X && X.det) || []).map(d => [d.k, d.d])), ks = Object.keys(NOMES_DED).filter(k => +dv[k] > 0);
+      const totEf = ks.reduce((t, k) => t + +dv[k], 0), totDed = X && !X.erro ? X.ded : null;
+      const corpo = ks.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th class="r">Valor no e-Fatura</th><th class="r">Dedução</th></tr></thead><tbody>${ks.map(k => `<tr><td>${esc(NOMES_DED[k])}</td><td class="r num">${eur(dv[k])}</td><td class="r num">${dd[k] != null ? eur(dd[k]) : '—'}</td></tr>`).join('')}
+          <tr><td><b>Total</b></td><td class="r num"><b>${eur(totEf)}</b></td><td class="r num"><b>${totDed != null ? eur(totDed) : '—'}</b></td></tr></tbody></table></div>`
+        : `<div class="empty">Sem despesas do e-Fatura indicadas para ${ano}.${ed ? ' Use o + para as indicar.' : ''}</div>`;
+      return `<div class="stack acord-pilha" style="margin-top:16px">${acord('irs-ded', `Deduções à coleta ${ano}`, ks.length ? `<span class="faint">e-Fatura ${eur(totEf)}</span> ${totDed != null ? eur(totDed) : '—'}` : '<span class="faint">sem despesas</span>', corpo,
+          ed ? `<span class="acord-x">${botaoMais([['Editar despesas do e-Fatura']]).replace('data-mais', 'id="eded"')}</span>` : '')}
+        ${X.erro ? '' : acord('irs-como', 'Como se chega lá', `<span class="faint">${X.acerto >= 0 ? 'reembolso' : 'a pagar'}</span> ${eur(Math.abs(X.acerto))}`, `<div class="tbl-wrap"><table class="tbl"><tbody>
         ${linha('Cat. A · trabalho dependente (bruto)', eur(X.A.bruto), `${X.A.real} recibos${X.A.proj ? ` + ${X.A.proj} meses projetados${X.A.fonte ? ' (base ' + X.A.fonte + ')' : ''}` : ''} · retido ${eur(X.A.irs)} · SS ${eur(X.A.ss)}`)}
         ${linha('Cat. B · recibos verdes (bruto)', eur(X.B.bruto), `${X.B.n} documentos · retido ${eur(X.B.irs)} · coeficiente ${pct(X.coefB)}`)}
         ${X.pj ? linha('− Isento por IRS Jovem', eur(X.isA + X.isB), `${pct(X.pj)} do bruto (${X.idx}.º ano, ${X.idade} anos)${isFinite(X.r.jovemLimite) ? `, máx. ${eur(X.r.jovemLimite)}` : ''} · Cat. B ${eur(X.isB)} · Cat. A ${eur(X.isA)}`) : ''}
@@ -947,18 +954,13 @@ function rendIRS(v, T) {
         ${X.benef ? linha('− Benefício municipal', eur(X.benef), `o município fica com ${pct(X.mun)} em vez de 5%`) : ''}
         ${X.minimo ? linha('Mínimo de existência', eur(0), `rendimento ${eur(X.preJovem)} ≤ ${eur(X.r.minimo)}: não paga IRS`) : ''}
         ${linha('IRS devido', eur(X.devido), '', true)}${linha('− Retenções na fonte', eur(X.retido))}
-        ${linha(X.acerto >= 0 ? 'Reembolso' : 'A pagar', eur(Math.abs(X.acerto)), '', true)}</tbody></table></div></div>
-      <div class="card"><div class="card-h"><h3>Escalões de ${X.r.ano}</h3><span class="sub">parcela a abater calculada</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Até</th><th class="r">Taxa</th><th class="r">Parcela</th></tr></thead><tbody>
-        ${X.r.esc.map((e, i) => `<tr style="${i === X.E.i ? 'background:var(--panel3)' : ''}"><td>${isFinite(e.ate) ? eur(e.ate) : 'acima'}</td><td class="r num">${pct(e.taxa)}</td><td class="r num">${eur(e.parcela)}</td></tr>`).join('')}</tbody></table></div></div></div>`}
-    <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Deduções à coleta ${ano}</h3><span class="sub">despesas do e-Fatura</span>${ed ? `<span style="margin-left:auto">${botaoMais([['Editar despesas do e-Fatura']]).replace('data-mais', 'id="eded"')}</span>` : ''}</div>
-      ${(() => { const dv = (despesasIRS().out[ano] || { v: {} }).v || {}, dd = Object.fromEntries(((X && X.det) || []).map(d => [d.k, d.d])), ks = Object.keys(NOMES_DED).filter(k => +dv[k] > 0);
-        return ks.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th class="r">Valor no e-Fatura</th><th class="r">Dedução</th></tr></thead><tbody>${ks.map(k => `<tr><td>${esc(NOMES_DED[k])}</td><td class="r num">${eur(dv[k])}</td><td class="r num">${dd[k] != null ? eur(dd[k]) : '—'}</td></tr>`).join('')}
-          <tr><td><b>Total</b></td><td class="r num"><b>${eur(ks.reduce((t, k) => t + +dv[k], 0))}</b></td><td class="r num"><b>${X && !X.erro ? eur(X.ded) : '—'}</b></td></tr></tbody></table></div>`
-          : `<div class="empty">Sem despesas do e-Fatura indicadas para ${ano}.${ed ? ' Use o + para as indicar.' : ''}</div>`; })()}</div>
+        ${linha(X.acerto >= 0 ? 'Reembolso' : 'A pagar', eur(Math.abs(X.acerto)), '', true)}</tbody></table></div>`)}
+        ${X.erro ? '' : acord('irs-esc', `Escalões de ${X.r.ano}`, `<span class="faint">${X.E.i + 1}.º escalão</span> ${pct(X.E.taxa)}`, `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Até</th><th class="r">Taxa</th><th class="r">Parcela</th></tr></thead><tbody>${X.r.esc.map((e, i) => `<tr style="${i === X.E.i ? 'background:var(--panel3)' : ''}"><td>${isFinite(e.ate) ? eur(e.ate) : 'acima'}</td><td class="r num">${pct(e.taxa)}</td><td class="r num">${eur(e.parcela)}</td></tr>`).join('')}</tbody></table></div>`)}</div>`; })()}
     ${!pl.irsNascimento || !+pl.irsInicioAtividade ? `<div class="alert info" style="margin-top:12px">${icon('info')}<div>A data de nascimento, o início de atividade e os outros dados usados no cálculo indicam-se no <a href="#" data-perfil>seu perfil</a>.</div></div>` : `<div class="faint" style="font-size:12px;margin-top:10px">Dados pessoais usados no cálculo: no <a href="#" data-perfil>seu perfil</a>.</div>`}`;
   v.querySelectorAll('[data-perfil]').forEach(a => a.onclick = e => { e.preventDefault(); perfilPessoal(); });
   const eded = v.querySelector('#eded'); if (eded) eded.onclick = () => editarDeducoes(ano);
   bindTabs(v); ligarFita(v, 'pfi', y => { setTab('pf-anoirs', y); app.refresh(); });
+  ligarAcord(v);
 }
 // menu de quadrados de uma página: clicar num abre essa área sozinha, com um botão Voltar para o menu
 // (Rendimentos, Simulador, Partilhas): q = [[chave, ícone, rótulo]]
@@ -1044,6 +1046,18 @@ function rendimentos(v) {
 
 /* ---------- Telemóvel: capa de um cartão fechado (.m-colapso) ----------
    números grandes, um aviso, uma lista curta e "Ver todas"; no computador não aparece */
+/* cartões informativos fechados (computador e telemóvel): o cabeçalho mostra o título e o valor resumo; tocar abre o
+   cartão e fecha os outros da página. Começam fechados ao carregar a página. */
+const acord = (k, titulo, resumo, corpo, extra = '') => `<div class="card flush acord${(window.__acord || {})[k] ? ' aberto' : ''}" data-acord="${k}"><div class="card-h acord-h" role="button" tabindex="0"><h3>${titulo}</h3><span class="acord-r">${resumo}</span>${extra}<i class="acord-s">›</i></div><div class="acord-b">${corpo}</div></div>`;
+function ligarAcord(v) {
+  const mem = window.__acord || (window.__acord = {});
+  v.querySelectorAll('.acord>.acord-h').forEach(h => { const go = ev => { if (ev.target.closest('button,a,input,select')) return;
+      const c = h.parentElement, abrir = !c.classList.contains('aberto');
+      v.querySelectorAll('.acord.aberto').forEach(x => { x.classList.remove('aberto'); mem[x.dataset.acord] = false; });
+      if (abrir) { c.classList.add('aberto'); mem[c.dataset.acord] = true; } };
+    h.onclick = go; h.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(ev); } }; });
+}
+if (!window.__acordOn) { window.__acordOn = 1; addEventListener('hashchange', () => { window.__acord = {}; }); }
 /* telemóvel: lista simples para as folhas "ver todos" (avatar, nome, detalhe, valor e estado). Tocar numa linha abre as
    opções dessa linha (que usam os mesmos botões da tabela, escondida na folha) ou faz logo a única que houver. */
 const mlIni = t => esc(String(t || '?').trim().charAt(0).toUpperCase());

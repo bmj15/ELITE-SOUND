@@ -505,3 +505,16 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .ml-row.ok .ml-dir small{color:var(--ok)}
   .ml-dir small .badge{font-size:11px;padding:1px 7px}
 }
+/* cartões informativos fechados (abre um, fecham-se os outros) */
+.acord-pilha{gap:12px}
+.acord>.acord-h{padding:14px 18px!important;cursor:pointer;display:flex;align-items:center;gap:12px;flex-wrap:nowrap;-webkit-tap-highlight-color:transparent}
+.acord>.acord-h h3{margin:0;min-width:0}
+.acord-r{margin-left:auto;font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.acord-r .faint{font-weight:500;font-size:13px;margin-right:6px}
+.acord-x{flex:none}
+.acord-s{flex:none;font-style:normal;font-size:22px;line-height:1;color:var(--muted);transition:transform .2s}
+.acord.aberto .acord-s{transform:rotate(90deg)}
+.acord:not(.aberto)>.acord-b{display:none}
+.acord:not(.aberto)>.acord-h{border-bottom:0!important;margin-bottom:0!important}
+.acord.aberto>.acord-h{border-bottom:1px solid var(--line)}
+@media (max-width:640px){.acord-r .faint{display:none}.acord>.acord-h h3{font-size:15px}}
