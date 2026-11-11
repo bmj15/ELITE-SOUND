@@ -925,13 +925,23 @@ SPAP.createApp = function (cfg) {
     // telemóvel: as tabelas passam a cartões; cada célula leva o nome da sua coluna (data-l)
     const rotular = () => view.querySelectorAll('table.tbl').forEach(t => { const ths = [...t.querySelectorAll('thead th')], hs = ths.map(th => { const c = th.cloneNode(true); c.querySelectorAll('.info-tip').forEach(x => x.remove()); return c.textContent.trim(); });
       t.querySelectorAll('tbody tr').forEach(tr => { if (tr.children.length !== hs.length) return; [...tr.children].forEach((td, i) => { if (hs[i] && !td.hasAttribute('data-l')) td.setAttribute('data-l', hs[i]); if (ths[i] && ths[i].classList.contains('m-oculto')) td.classList.add('m-oculto'); if (!td.textContent.trim() && !td.querySelector('button,input,select,a,svg')) td.classList.add('vazio'); }); }); });
-    // cartões fechados no telemóvel (.m-colapso): começam fechados ao carregar a página (F5); o estado só fica em memória; abrir/fechar no cabeçalho e "Mostrar mais"
+    // cartões fechados no telemóvel (.m-colapso): tocar abre a lista numa folha de ecrã inteiro que entra pela direita,
+    // com "‹ Voltar" (também fecha com o botão de recuar do telemóvel). Começam fechados ao carregar a página (F5);
+    // se a página se redesenhar com a folha aberta (ex.: depois de Pagar), a folha continua aberta.
+    const movel = () => matchMedia('(max-width:640px)').matches;
+    if (!window.__mFolhaOn) { window.__mFolhaOn = 1;
+      addEventListener('popstate', () => { const f = window.__mFolha; if (f) f(false); });
+      addEventListener('hashchange', () => { window.__mColapso = {}; window.__mFolha = null; document.body.classList.remove('folha-aberta'); }); }
     const colapsos = () => view.querySelectorAll('.card.m-colapso:not([data-mi])').forEach(c => { c.setAttribute('data-mi', '1');
       const mem = window.__mColapso || (window.__mColapso = {}), k = c.dataset.m || '', h = c.querySelector(':scope>.card-h');
-      c.classList.toggle('aberto', !!mem[k]); const pos = (on) => { c.classList.toggle('aberto', on); mem[k] = on; };
-      if (h) h.addEventListener('click', ev => { if (ev.target.closest('button,a,input,select')) return; pos(!c.classList.contains('aberto')); });
-      const cp = c.querySelector(':scope>.m-capa'); if (cp) cp.addEventListener('click', () => pos(true));
-      const n = c.querySelectorAll('tbody tr:not(.tbl-sec)').length; if (n > 5) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost sm m-mais'; b.textContent = `Mostrar mais (${n - 5})`; b.onclick = () => c.classList.add('tudo'); c.appendChild(b); } });
+      const fechar = (doHistorico) => { if (doHistorico && history.state && history.state.folha === k) { history.back(); return; }
+        if (window.__mFolha === fechar) window.__mFolha = null; mem[k] = false;
+        c.classList.add('a-sair'); setTimeout(() => { c.classList.remove('aberto', 'a-sair'); document.body.classList.remove('folha-aberta'); }, 200); };
+      const abrir = (anim) => { c.classList.add('aberto'); document.body.classList.add('folha-aberta'); mem[k] = true; window.__mFolha = fechar;
+        if (anim) { c.scrollTop = 0; c.classList.add('a-entrar'); setTimeout(() => c.classList.remove('a-entrar'), 300); try { history.pushState({ folha: k }, ''); } catch (e) { } } };
+      if (h) { const vb = document.createElement('button'); vb.type = 'button'; vb.className = 'btn sm m-voltar'; vb.textContent = '‹ Voltar'; vb.onclick = ev => { ev.stopPropagation(); fechar(true); }; h.prepend(vb); }
+      if (mem[k] && movel()) abrir(false);
+      c.addEventListener('click', ev => { if (!movel() || c.classList.contains('aberto') || ev.target.closest('button,a,input,select')) return; abrir(true); }); });
     let rq = 0; new MutationObserver(() => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; rotular(); colapsos(); }); }).observe(view, { childList: true, subtree: true });
     try { rt.render(view, app, params); }
     catch (err) { console.error(err); view.innerHTML = `<div class="alert bad">${icon('alert')}<div><b>Erro ao apresentar a página.</b><br>${esc(err.message)}</div></div>`; }

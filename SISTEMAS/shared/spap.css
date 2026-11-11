@@ -345,7 +345,7 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
 }
 /* cartões que no telemóvel começam fechados (class="card m-colapso" data-m="<id>"): o cabeçalho mostra o resumo
    (.m-resumo) e abre a lista; com mais de 5 linhas aparece "Mostrar mais" */
-.m-resumo,.m-mais,.m-capa{display:none}
+.m-resumo,.m-capa,.m-voltar{display:none}
 /* separador de secção dentro de uma tabela (ex.: Partilhadas / Próprias) */
 .tbl tr.tbl-sec td{background:none;padding:16px 14px 6px;font-size:13px;font-weight:650;color:var(--text);border-bottom:1px solid var(--line)}
 .tbl tr.tbl-sec td span{display:inline-block;min-width:20px;margin-left:6px;padding:1px 7px;border-radius:99px;background:var(--panel2);color:var(--muted);font-size:11.5px;font-weight:600;text-align:center}
@@ -355,7 +355,6 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .m-colapso .m-resumo{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-left:auto;text-align:right}
   .m-colapso .m-resumo b{color:var(--text);font-variant-numeric:tabular-nums}
   .m-colapso .m-resumo::after{content:'›';font-size:22px;line-height:1;transition:transform .15s}
-  .m-colapso.aberto .m-resumo::after{transform:rotate(90deg)}
   .m-colapso:not(.aberto)>:not(.card-h,.m-capa){display:none}
   .m-colapso.aberto>.m-capa{display:none}
   /* cartão fechado com capa: compacto, só com o conteúdo */
@@ -375,8 +374,20 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .m-capa-l>div:last-child{border-bottom:0}
   .m-capa-l small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
   .m-capa-l b{font-variant-numeric:tabular-nums}
-  .m-capa-ver{text-align:center;padding:9px;border-radius:12px;border:1px solid var(--line);font-weight:600;font-size:14.5px;color:var(--accent)}
-  .m-colapso.aberto:not(.tudo) tbody tr:nth-child(n+6 of :not(.tbl-sec)),.m-colapso.aberto:not(.tudo) tbody tr:nth-child(n+6 of :not(.tbl-sec))~tr{display:none}
+  .m-capa-ver{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:12px;border:1px solid var(--line);font-weight:600;font-size:14.5px;color:var(--text)}
+  .m-capa-ver i{font-style:normal;font-size:22px;line-height:1;color:var(--muted)}
+  /* folha de ecrã inteiro com a lista do cartão (entra pela direita; "‹ Voltar" no topo) */
+  .m-colapso.aberto{position:fixed;inset:0;z-index:70;margin:0!important;border:0;border-radius:0;overflow-y:auto;overscroll-behavior:contain;background:var(--bg);padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+  .m-colapso.aberto.a-entrar{animation:m-folha-entra .28s cubic-bezier(.2,.8,.2,1)}
+  .m-colapso.aberto.a-sair{animation:m-folha-sai .2s ease-in forwards}
+  @keyframes m-folha-entra{from{transform:translateX(100%)}to{transform:none}}
+  @keyframes m-folha-sai{to{transform:translateX(100%)}}
+  body.folha-aberta{overflow:hidden}
+  .m-colapso.aberto>.card-h{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:flex-start;gap:12px;flex-wrap:nowrap;margin:0 0 8px;padding:12px 14px!important;background:var(--panel);border-bottom:1px solid var(--line);cursor:default}
+  .m-colapso.aberto>.card-h h3{font-size:17px;margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .m-colapso.aberto .m-voltar{display:inline-flex;flex:none}
+  .m-colapso.aberto .m-resumo{display:none}
+  .m-colapso.aberto>.card-h>span[style*="margin-left:auto"]{margin-left:auto}
   /* cada linha é um cartão separado, com espaço entre eles */
   .tbl tbody{padding:4px 10px 10px}
   .tbl tbody tr{background:var(--panel2);border:1px solid var(--line);border-radius:12px;margin-top:8px;padding:12px 14px}
@@ -384,7 +395,6 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .tbl tbody tr.tbl-sec{background:none;border:0;border-radius:0;padding:0;margin:0}
   .tbl tr.tbl-sec td{text-align:left;padding:14px 4px 0;border:0}
   .tbl tbody tr:has(>td.empty:only-child){background:none;border:0}
-  .m-colapso.aberto:not(.tudo)>.m-mais{display:block;width:calc(100% - 28px);margin:4px 14px 14px}
 }
 @media (max-width:640px){
   /* quadros: com o destaque em cima e um n.º par de quadros, o último ocupa a linha toda (sem buraco) */
@@ -429,3 +439,9 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
 .mq-compacto{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))!important;gap:10px!important;margin-bottom:16px}
 .mq-compacto .pf-tile{min-height:60px!important;flex-direction:row!important;gap:10px!important;font-size:14.5px!important;padding:12px 14px!important}
 .mq-compacto .pf-tile svg{width:20px!important;height:20px!important}
+/* quadro com um segundo número do lado direito (ex.: Despesas fixas / mês · Por ano) */
+.kpi.tem-lado .kpi-lado{position:absolute;right:18px;bottom:16px;text-align:right;z-index:1}
+.kpi.tem-lado .kpi-lado .lbl{justify-content:flex-end}
+.kpi.tem-lado .kpi-lado .val{font-size:20px;margin-top:2px}
+.kpi.tem-lado>.foot{max-width:58%}
+@media (max-width:640px){.kpi.tem-lado .kpi-lado{right:14px;bottom:12px}.kpi.tem-lado .kpi-lado .val{font-size:17px}}
