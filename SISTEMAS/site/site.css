@@ -803,3 +803,29 @@ a:hover .capa.foto-a img{transform:scale(1.07)}
 /* bandeira do país mais pequena */
 .pais-b{width:28px;height:28px;box-shadow:0 6px 14px -8px rgba(0,0,0,.9)}
 .pais-b:hover{box-shadow:0 8px 18px -8px rgba(0,0,0,.95),0 0 0 3px rgba(255,255,255,.06)}
+
+/* ---------- telemóvel ---------- */
+/* cabeçalhos de secção com ligação ao lado ("Ver todos", "Ir para a Ajuda"): a ligação nunca parte em duas linhas e, no telemóvel, passa para baixo do título */
+.lk-s{white-space:nowrap}
+@media (max-width:620px){.cab-s{flex-direction:column;align-items:flex-start;gap:12px;margin-bottom:24px}}
+/* separadores dos simuladores: uma fila que desliza para o lado, em vez de um por linha */
+@media (max-width:620px){
+  .sim-nav{--g:clamp(16px,3.2vw,56px);flex-wrap:nowrap;overflow-x:auto;margin:0 calc(-1 * var(--g)) 22px;padding:0 var(--g) 2px;scrollbar-width:none;scroll-snap-type:x proximity;scroll-padding:0 var(--g)}
+  .sim-nav::-webkit-scrollbar{display:none}
+  .sim-nav a{flex:none;white-space:nowrap;scroll-snap-align:start}
+}
+/* o X do aviso no topo: área de toque maior */
+@media (max-width:620px){.aviso button{min-width:40px;min-height:40px;margin-right:-8px}}
+/* pesquisa: num ecrã tátil não há tecla Esc, o botão diz Fechar */
+@media (pointer:coarse){.pesq .fechar{font-size:0;padding:8px 12px}.pesq .fechar::after{content:"Fechar";font-size:13px}}
+/* simuladores da página inicial no telemóvel: lista compacta (círculo pequeno à esquerda, texto à direita) */
+@media (max-width:560px){
+  .sim4{grid-template-columns:1fr;row-gap:0}
+  .s4{display:grid;grid-template-columns:64px minmax(0,1fr);column-gap:16px;row-gap:3px;align-items:center;padding:16px 0;border-bottom:1px solid var(--line)}
+  .s4:last-child{border-bottom:0}
+  .s4 .rodela{grid-row:1/span 3;width:64px;height:64px;padding:2px}
+  .s4 .rodela svg{width:26px;height:26px}
+  .s4 h3{grid-column:2;margin:0;font-size:16.5px}
+  .s4 p{grid-column:2;font-size:14px}
+  .s4 .lk-s{grid-column:2;font-size:14px}
+}
