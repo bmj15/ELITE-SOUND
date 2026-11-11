@@ -1099,7 +1099,7 @@ const COLS_DIV = (x = {}) => [{ k: 'nome', label: 'Designação', ph: 'ex.: Cré
 function dividas(v) {
   const m = M(), ed = podeEditar(), ds = divAtivas(), kn = app.kn, tot = sum(ds, 'capital');
   const jurosMes = r2(ds.reduce((s, d) => s + d.capital * taxaMensal(d), 0)), tan = tot > 0 ? ds.reduce((s, d) => s + d.taxa * d.capital, 0) / tot : 0;
-  v.innerHTML = `<div class="row between" style="margin-bottom:16px"><span class="muted">Créditos, cartões e empréstimos. O capital em dívida atualiza-se aqui depois de cada prestação ou amortização, ou ao ler o extrato do cartão.</span>${ed ? escondidos(['nv']) : ''}</div>
+  v.innerHTML = `${ed ? escondidos(['nv']) : ''}
     <div class="grid g4">${kpi(`${icon('credit')} Capital em dívida`, eur(tot), `${ds.length} dívidas ativas`, '', true, ed ? 'div' : '')}${kpi(kn('pf_prest', 'Prestações / mês'), eur(prestacoesMensais()))}
       ${kpi('Juros deste mês', eur(jurosMes), 'sobre o capital atual')}${kpi(kn('pf_custo', 'Taxa média ponderada'), pct(tan))}</div>
     <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Dívidas</h3><span class="sub">clique numa linha para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Dívida</th><th class="r">Capital</th><th class="r">${kn('pf_tan', 'Taxa')}</th><th class="r">Prestação</th><th class="r">Juro / mês</th><th>Fim só com prestações</th><th>Prestação seguinte</th><th></th></tr></thead><tbody>

@@ -62,6 +62,37 @@ main{min-width:0;display:flex;flex-direction:column}
 .top .spacer{flex:1}
 .menu-btn{display:inline-flex}.side-veu{display:none}.side-x{display:none}
 @media (min-width:520px) and (max-width:860px){.side .nav{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}}
+/* telemóvel: versão simples — quadros em duas colunas, tabelas em cartões, sem texto secundário */
+@media (max-width:640px){
+  #view{padding:12px 12px 60px}
+  .top h1{font-size:17px}.top .crumb{display:none}
+  .card{padding:14px;border-radius:14px}
+  .card.flush .card-h{padding:14px 14px 0}
+  .card-h{margin-bottom:10px}.card-h .sub{display:none}
+  .g2:has(>.kpi),.g3:has(>.kpi),.g4:has(>.kpi){grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .g3:has(>.kpi)>.kpi.hero:first-child,.g4:has(>.kpi)>.kpi.hero:first-child,.g2:has(>.kpi)>.kpi.hero:first-child{grid-column:1/-1}
+  .kpi{padding:12px 14px}.kpi .lbl{font-size:11.5px;padding-right:0!important}.kpi:has(>[data-add]) .lbl{padding-right:30px!important}.kpi .lbl>svg{display:none}.kpi .lbl .info-tip,.card-h .info-tip{display:none}
+  .kpi [data-add]{width:26px!important;height:26px!important;top:8px!important;right:8px!important;font-size:15px!important}.kpi .val{font-size:19px;letter-spacing:-.4px;margin-top:4px}
+  .kpi.hero .val{font-size:26px}
+  .kpi .foot{font-size:11px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .alert{font-size:13px;padding:10px 12px}
+  #view>.row.between>span.muted:first-child,#view>p.muted:first-child{display:none}#view>.row.between:has(>span.muted:first-child){justify-content:flex-end}
+  /* tabelas: cada linha é um cartão; o nome em cima e os valores com o rótulo da coluna */
+  .tbl-wrap{overflow:visible}
+  table.tbl,.tbl tbody,.tbl tfoot{display:block;width:100%}
+  .tbl thead{display:none}
+  .tbl tbody tr{display:block;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .tbl tbody tr:last-child{border-bottom:0}
+  .tbl td{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:3px 0;border:0;text-align:right}
+  .tbl td::before{content:attr(data-l);color:var(--muted);font-size:12px;text-align:left;flex:none;max-width:48%;font-weight:400;flex:1}
+  .tbl td:not([data-l])::before{content:none}
+  .tbl td:first-child{display:block;text-align:left;font-size:14.5px;padding-bottom:6px}.tbl td:first-child::before{content:none}
+  .tbl td:empty,.tbl td.vazio{display:none}
+  .tbl td[colspan]{display:block;text-align:center}.tbl td[colspan]::before{content:none}
+  .tbl tfoot tr{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;padding:10px 14px;background:var(--panel2)}
+  .tbl tfoot td{display:block;padding:0;border:0;background:none}.tbl tfoot td::before{content:none}
+  .tbl tbody tr.click:hover{background:none}
+}
 .shell.sem-menu{grid-template-columns:minmax(0,1fr)}.shell.sem-menu>.side{display:none}
 #view{padding:24px 28px 60px;width:100%;min-width:0}
 
