@@ -928,7 +928,7 @@ SPAP.createApp = function (cfg) {
       c.classList.toggle('aberto', ab); const pos = (on) => { c.classList.toggle('aberto', on); try { sessionStorage.setItem(k, on ? '1' : '0'); } catch (e) { } if (!on) altura(); };
       if (h) h.addEventListener('click', ev => { if (ev.target.closest('button,a,input,select')) return; pos(!c.classList.contains('aberto')); });
       const cp = c.querySelector(':scope>.m-capa'); if (cp) cp.addEventListener('click', () => pos(true));
-      const n = c.querySelectorAll('tbody tr').length; if (n > 5) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost sm m-mais'; b.textContent = `Mostrar mais (${n - 5})`; b.onclick = () => c.classList.add('tudo'); c.appendChild(b); } });
+      const n = c.querySelectorAll('tbody tr:not(.tbl-sec)').length; if (n > 5) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost sm m-mais'; b.textContent = `Mostrar mais (${n - 5})`; b.onclick = () => c.classList.add('tudo'); c.appendChild(b); } });
     // o cartão fechado com capa estende-se até ao fundo do ecrã
     const altura = () => view.querySelectorAll('.card.m-colapso').forEach(c => { c.style.removeProperty('--m-alt'); if (c.classList.contains('aberto')) return; const ul = c.closest('#view').lastElementChild, sobra = ul ? Math.floor(innerHeight - (ul.getBoundingClientRect().bottom + scrollY) - 16) : 0; if (sobra > 0) c.style.setProperty('--m-alt', (c.offsetHeight + sobra) + 'px'); });
     let rq = 0; new MutationObserver(() => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; rotular(); colapsos(); altura(); clearTimeout(view.__alt); view.__alt = setTimeout(altura, 300); }); }).observe(view, { childList: true, subtree: true });
