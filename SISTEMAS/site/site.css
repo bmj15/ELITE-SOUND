@@ -851,7 +851,7 @@ a:hover .capa.foto-a img{transform:scale(1.07)}
   footer .g>div.ab ul{display:block}
 }
 
-@media(pointer:coarse){html.snap .seg-x:not(.vis) .anim{opacity:1}html.snap .seg-x.sai{opacity:1;filter:none;transform:none}}
+@media(pointer:coarse){html.snap .seg-x:not(.vis) .anim{opacity:1}html.snap .seg-x.sai{opacity:1;filter:none;transform:none}html.snap .seg-x{touch-action:pan-x;touch-action:pan-x pinch-zoom}}
 
 /* Entrar e abrir conta: faixa sob o cabeçalho, sem sair da página */
 .acesso[hidden]{display:none}

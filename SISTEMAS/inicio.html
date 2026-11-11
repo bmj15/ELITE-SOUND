@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="/SISTEMAS/site/pais.js?v=2"></script>
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=20">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=21">
 <script>if (/^\/empresas/.test((window.BXB_CAMINHO || location.pathname))) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
@@ -240,7 +240,8 @@
   var idx = 0, ocupado = false, esperar = false, ultW = 0, acum = 0, hdr = 0;
   function ativo() { return raiz.classList.contains('snap'); }
   function alvo(i) { var max = raiz.scrollHeight - innerHeight; if (!i) return 0; if (secs[i] === rod) return max;
-    return Math.min(max, Math.round(secs[i].getBoundingClientRect().top + scrollY - hdr)); }
+    var t = 0, e = secs[i]; while (e) { t += e.offsetTop; e = e.offsetParent; } // posição no documento: não muda com as animações de entrada
+    return Math.min(max, Math.round(t - hdr)); }
   function maisPerto() { var b = 0, d = 1e9; secs.forEach(function (s, i) { var x = Math.abs(alvo(i) - scrollY); if (x < d) { d = x; b = i; } }); return b; }
   function marcar(i) { idx = i;
     secs.forEach(function (s) { var r = s.getBoundingClientRect(); s.classList.toggle('vis', r.top < innerHeight - 40 && r.bottom > hdr + 40); }); }
@@ -301,21 +302,45 @@
     if (e.key === 'End') { e.preventDefault(); return irSeg(secs.length - 1); }
     if (m) { var z = livre(m * innerHeight * .4); if (z === true) return; e.preventDefault(); if (z !== 'fim') irSeg(idx + m); }
   });
+  // ---------- ecrã tátil (tablet deitada) ----------
+  // cada deslize do dedo avança um passo, sempre: o segmento seguinte, ou o resto do segmento quando é mais alto do que o ecrã.
+  // o CSS impede o scroll livre do navegador nos segmentos, para os dois nunca se misturarem.
   var toque = null;
+  function paragens() {
+    var util = innerHeight - hdr, max = raiz.scrollHeight - innerHeight, p = [];
+    var junta = function (y, k) { y = Math.max(0, Math.min(max, Math.round(y))); if (!p.length || y > p[p.length - 1].y + 40) p.push({ y: y, k: k }); };
+    secs.forEach(function (sec, i) {
+      if (sec === rod) return;
+      var ini = alvo(i), fim = ini + Math.max(0, sec.offsetHeight - util);
+      for (var y = ini; y < fim - 40; y += util) junta(y, i);
+      junta(fim, i);
+    });
+    if (rod) junta(max, secs.length - 1);
+    return p;
+  }
+  function passoToque(dir) {
+    var p = paragens(), j = -1, i;
+    if (dir > 0) { for (i = 0; i < p.length; i++) if (p[i].y > scrollY + 3) { j = i; break; } }
+    else { for (i = p.length - 1; i >= 0; i--) if (p[i].y < scrollY - 3) { j = i; break; } }
+    if (j < 0) return;
+    ocupado = true; idx = p[j].k;
+    scrollTo({ top: p[j].y, behavior: reduz ? 'auto' : 'smooth' });
+    setTimeout(function () { ocupado = false; marcar(p[j].k); }, reduz ? 60 : 650);
+  }
   addEventListener('touchstart', function (e) {
-    if (!ativo() || aberto() || e.touches.length !== 1 || e.target.closest('input,select,textarea,button,a,.sim-nav')) { toque = null; return; }
-    toque = { x: e.touches[0].clientX, y: e.touches[0].clientY, scroll: scrollY, idx: maisPerto(), feito: false };
+    if (!ativo() || aberto() || e.touches.length !== 1 || e.target.closest('input,select,textarea,.sim-nav,.pesq,.sub-m')) { toque = null; return; }
+    toque = { x: e.touches[0].clientX, y: e.touches[0].clientY, eixo: null, feito: false };
   }, { passive: true });
   addEventListener('touchmove', function (e) {
     if (!toque || e.touches.length !== 1) return;
     var dy = toque.y - e.touches[0].clientY, dx = toque.x - e.touches[0].clientX;
-    if (Math.abs(dy) < 12 || Math.abs(dx) > Math.abs(dy)) return;
-    var s = secs[toque.idx], r = s.getBoundingClientRect(), longo = r.height > innerHeight - hdr + 24;
-    // só um segmento mais alto do que o ecrã (ou a zona do rodapé) faz scroll normal até à borda; os outros trocam com o deslizar do dedo
-    if (longo && ((dy > 0 && r.bottom > innerHeight + 4) || (dy < 0 && r.top < hdr - 4))) return;
-    var z = livre(dy); if (z === true) return;
-    e.preventDefault();
-    if (z !== 'fim' && !toque.feito && Math.abs(dy) > 40) { toque.feito = true; irSeg(toque.idx + (dy > 0 ? 1 : -1)); }
+    if (!toque.eixo) {
+      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      toque.eixo = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (toque.eixo === 'x') { toque = null; return; } // carrossel e listas na horizontal
+    }
+    if (e.cancelable) e.preventDefault();
+    if (!toque.feito && !ocupado && Math.abs(dy) > 36) { toque.feito = true; passoToque(dy > 0 ? 1 : -1); }
   }, { passive: false });
   addEventListener('touchend', function () { toque = null; }, { passive: true });
   addEventListener('touchcancel', function () { toque = null; }, { passive: true });
