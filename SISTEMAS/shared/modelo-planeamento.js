@@ -2105,11 +2105,9 @@ function poupancas(v) {
   const regra = pl.poupancaTipo === 'fixed' ? eur(pl.poupancaFixa) + ' por mês' : pl.poupancaTipo && pl.poupancaTipo !== 'none' ? `${pct(+pl.poupancaPct || 0)} ${NOME_POUP[pl.poupancaTipo].replace('% ', '')}` : 'nenhuma';
   // cada cartão tem o seu botão de alterar (como o [+]); não há outro menu para o mesmo
   const ajustar = q => ed ? `<button class="btn sm" data-aj="${q}" title="Alterar" aria-label="Alterar" style="${MAIS_CSS};margin-left:auto">${icon('edit')}</button>` : '';
-  v.innerHTML = `<div class="grid g4">
-      ${kpi(`${icon('target')} Poupa este mês`, eur(mes), `poupança ${eur(p0.poup)} · fundo ${eur(p0.fundoMes)} · extra ${eur(extra)}`, '', true)}
-      ${kpi('Taxa de poupança', pct(taxa), `do rendimento · recomendado ≥ ${pct(BENCH.poupMin)}, bom ≥ ${pct(BENCH.poupBoa)}`, taxaCls)}
-      ${kpi('Fundo de emergência', eur(saldoF), alvo ? `${pct(fr)} de ${eur(alvo)} · ${String(r2(cobertos)).replace('.', ',')} meses cobertos` : +pl.emergMeses && !desp ? 'sem despesas fixas para calcular o alvo' : 'sem alvo definido', fr >= 1 ? 'pos' : '')}
-      ${kpi('Daqui a 12 meses', eur(em12.acc + em12.fundo), `poupança ${eur(em12.acc)} + fundo ${eur(em12.fundo)}`)}</div>
+  // um só quadro no topo; o fundo, a poupança e as dívidas têm cada um o seu cartão em baixo
+  v.innerHTML = `<div>
+      ${kpi(`${icon('target')} Poupa este mês`, eur(mes), `<b class="${taxaCls}">${pct(taxa)}</b> do rendimento (recomendado ≥ ${pct(BENCH.poupMin)}) · poupança ${eur(p0.poup)} · fundo ${eur(p0.fundoMes)} · extra ${eur(extra)}`, '', true)}</div>
     <div class="grid g2" style="margin-top:16px;align-items:stretch">
       <div class="card"><div class="card-h"><h3>${icon('shield')} Fundo de emergência</h3>${ajustar('fundo')}</div>
         ${alvo ? `<div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(saldoF)}</span><span class="muted">de ${eur(alvo)}</span></div>
