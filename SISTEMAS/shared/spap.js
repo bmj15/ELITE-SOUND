@@ -922,7 +922,12 @@ SPAP.createApp = function (cfg) {
     // telemóvel: as tabelas passam a cartões; cada célula leva o nome da sua coluna (data-l)
     const rotular = () => view.querySelectorAll('table.tbl').forEach(t => { const ths = [...t.querySelectorAll('thead th')], hs = ths.map(th => { const c = th.cloneNode(true); c.querySelectorAll('.info-tip').forEach(x => x.remove()); return c.textContent.trim(); });
       t.querySelectorAll('tbody tr').forEach(tr => { if (tr.children.length !== hs.length) return; [...tr.children].forEach((td, i) => { if (hs[i] && !td.hasAttribute('data-l')) td.setAttribute('data-l', hs[i]); if (ths[i] && ths[i].classList.contains('m-oculto')) td.classList.add('m-oculto'); if (!td.textContent.trim() && !td.querySelector('button,input,select,a,svg')) td.classList.add('vazio'); }); }); });
-    let rq = 0; new MutationObserver(() => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; rotular(); }); }).observe(view, { childList: true, subtree: true });
+    // cartões fechados no telemóvel (.m-colapso): abrir/fechar no cabeçalho (fica memorizado) e "Mostrar mais"
+    const colapsos = () => view.querySelectorAll('.card.m-colapso:not([data-mi])').forEach(c => { c.setAttribute('data-mi', '1');
+      const k = 'mc:' + (c.dataset.m || ''), h = c.querySelector(':scope>.card-h'); let ab = false; try { ab = sessionStorage.getItem(k) === '1'; } catch (e) { }
+      c.classList.toggle('aberto', ab); if (h) h.addEventListener('click', ev => { if (ev.target.closest('button,a,input,select')) return; const on = !c.classList.contains('aberto'); c.classList.toggle('aberto', on); try { sessionStorage.setItem(k, on ? '1' : '0'); } catch (e) { } });
+      const n = c.querySelectorAll('tbody tr').length; if (n > 5) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost sm m-mais'; b.textContent = `Mostrar mais (${n - 5})`; b.onclick = () => c.classList.add('tudo'); c.appendChild(b); } });
+    let rq = 0; new MutationObserver(() => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; rotular(); colapsos(); }); }).observe(view, { childList: true, subtree: true });
     try { rt.render(view, app, params); }
     catch (err) { console.error(err); view.innerHTML = `<div class="alert bad">${icon('alert')}<div><b>Erro ao apresentar a página.</b><br>${esc(err.message)}</div></div>`; }
     window.scrollTo(0, 0);

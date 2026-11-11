@@ -344,3 +344,16 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .tbl tfoot td{display:block;padding:0;border:0;background:none}.tbl tfoot td::before{content:none}
   .tbl tbody tr.click:hover{background:none}
 }
+/* cartões que no telemóvel começam fechados (class="card m-colapso" data-m="<id>"): o cabeçalho mostra o resumo
+   (.m-resumo) e abre a lista; com mais de 5 linhas aparece "Mostrar mais" */
+.m-resumo,.m-mais{display:none}
+@media (max-width:640px){
+  .m-colapso>.card-h{cursor:pointer;margin-bottom:0;padding-bottom:14px!important;user-select:none}
+  .m-colapso .m-resumo{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-left:auto;text-align:right}
+  .m-colapso .m-resumo b{color:var(--text);font-variant-numeric:tabular-nums}
+  .m-colapso .m-resumo::after{content:'›';font-size:22px;line-height:1;transition:transform .15s}
+  .m-colapso.aberto .m-resumo::after{transform:rotate(90deg)}
+  .m-colapso:not(.aberto)>:not(.card-h){display:none}
+  .m-colapso.aberto:not(.tudo) tbody tr:nth-child(n+6){display:none}
+  .m-colapso.aberto:not(.tudo)>.m-mais{display:block;width:calc(100% - 28px);margin:4px 14px 14px}
+}
