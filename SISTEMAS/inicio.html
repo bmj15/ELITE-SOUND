@@ -7,7 +7,8 @@
 <meta name="description" content="Planeamento financeiro pessoal e gestão de tesouraria para empresas, com autorizações assinadas.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=10">
+<script src="/SISTEMAS/site/pais.js?v=1"></script>
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=11">
 <script>if (/^\/empresas/.test(location.pathname)) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
@@ -26,18 +27,49 @@
   var meses = function (n) { n = Math.ceil(n); var a = Math.floor(n / 12), m = n % 12; return (a ? a + (a > 1 ? ' anos' : ' ano') : '') + (a && m ? ' e ' : '') + (m ? m + (m > 1 ? ' meses' : ' mês') : ''); };
   var ok = ic('i-ok', 16);
 
-  // ---------- ilustrações (CSS) ----------
+  // ---------- ilustrações: cartões de app (valores e termos conforme o país) ----------
+  var BR = Site.pais === 'br', T = Site.T, DIN = window.BXB_DIN || function (v) { return v.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) + ' €'; };
+  var d0 = function (v) { return DIN(v, 0); };
+  var cab = function (t, pl) { return '<div class="ar-cab"><span class="lg">B</span><b>' + t + '</b>' + (pl ? '<span class="pl">' + pl + '</span>' : '') + '</div>'; };
+  var spark = '<svg class="spark" viewBox="0 0 120 44" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="spk" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#a7f3d0" stop-opacity=".5"/><stop offset="1" stop-color="#a7f3d0" stop-opacity="0"/></linearGradient></defs><path d="M0 36 L15 31 L30 33 L45 24 L60 27 L75 17 L90 20 L105 9 L120 6 L120 44 L0 44Z" fill="url(#spk)"/><path d="M0 36 L15 31 L30 33 L45 24 L60 27 L75 17 L90 20 L105 9 L120 6" fill="none" stroke="#a7f3d0" stroke-width="2.2" stroke-linejoin="round"/><circle cx="120" cy="6" r="3.2" fill="#a7f3d0"/></svg>';
+  var barras = function (hs, n) { var M = ['jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez', 'jan'];
+    return '<div class="graf"><div class="barras">' + hs.map(function (h, i) { return '<i' + (i >= hs.length - n ? ' class="n"' : '') + ' style="height:' + h + '%"></i>'; }).join('') + '</div><div class="meses">' + M.map(function (m) { return '<span>' + m + '</span>'; }).join('') + '</div></div>'; };
   var ARTE = {
-    painel: '<div class="ar-cartao"><div class="ar-cab"><b>Painel</b><span>Novembro</span></div><div class="kpi"><small>Sobra este mês</small><b>412,30 €</b><em>▲ 18% face à média</em></div><div class="duo"><div class="mini"><small>Rendimento líquido</small><b>1 640,00 €</b></div><div class="mini"><small>Sem dívidas em</small><b>mar. 2028</b></div></div><div class="barras"><i style="height:45%"></i><i style="height:62%"></i><i style="height:38%"></i><i style="height:70%"></i><i style="height:55%"></i><i style="height:82%"></i><i class="n" style="height:66%"></i><i class="n" style="height:74%"></i></div></div>',
-    dividas: '<div class="ar-cartao"><div class="ar-cab"><b>Plano de pagamento</b><span>3 créditos</span></div><div class="mini-sim"><div class="l"><span>Cartão de crédito</span><span>1 820 €</span></div><div class="t"><i style="width:78%"></i></div><div class="l"><span>Crédito pessoal</span><span>4 300 €</span></div><div class="t"><i style="width:46%"></i></div><div class="l"><span>Crédito automóvel</span><span>9 950 €</span></div><div class="t"><i style="width:22%"></i></div><div class="l" style="margin-top:10px;color:var(--text)"><b>Sem dívidas</b><b class="grad-t">em 28 meses</b></div></div></div>',
-    objetivo: '<div class="ar-cartao"><div class="ar-cab"><b>Fundo de emergência</b><span>objetivo 7 200 €</span></div><div class="anel-p" style="--p:64"><span><div><b>64%</b><small>4 610 € juntos</small></div></span></div><div class="lista"><div>Este mês<span class="ok">+ 250,00 €</span></div><div>Completo em<span>mar. 2027</span></div></div></div>',
-    irs: '<div class="rec"><h6>Estimativa de IRS · 2026</h6><div><span>Despesas gerais familiares</span><span>250,00 €</span></div><div><span>Saúde</span><span>182,40 €</span></div><div><span>Educação</span><span>96,00 €</span></div><div><span>Habitação</span><span>118,50 €</span></div><div><span>Reembolso estimado</span><span>412,00 €</span></div></div>',
-    pagamentos: '<div class="ar-cartao"><div class="ar-cab"><b>Pedidos de pagamento</b><span>hoje</span></div><div class="pedido"><div class="l1"><span>PP-0142 · Fornecedor</span><b>3 200,00 €</b></div><div class="pass"><i class="ok"></i><i class="w"></i><i></i></div><div class="est"><span>1.ª aprovação ✓</span><span>a aguardar 2.ª</span></div></div><div class="pedido"><div class="l1"><span>PP-0141 · Salários</span><b>12 480,00 €</b></div><div class="pass"><i class="ok"></i><i class="ok"></i><i class="ok"></i></div><div class="est"><span>Assinado e executado</span><span>09:42</span></div></div></div>',
-    tesouraria: '<div class="ar-cartao"><div class="ar-cab"><b>Tesouraria</b><span>Novembro</span></div><div class="kpi"><small>Saldo disponível</small><b>28 940,15 €</b><em>Cativo 3 200,00 € em pedidos</em></div><div class="barras"><i style="height:52%"></i><i style="height:48%"></i><i style="height:66%"></i><i style="height:58%"></i><i style="height:74%"></i><i style="height:69%"></i><i class="n" style="height:80%"></i><i class="n" style="height:88%"></i></div></div>',
-    equipa: '<div class="ar-cartao"><div class="ar-cab"><b>Equipa</b><span>4 pessoas</span></div><div class="avs"><div class="av"><i>AM</i>Ana M.<span>Responsável</span></div><div class="av"><i>RC</i>Rui C.<span>Aprova até 5 000 €</span></div><div class="av"><i>SP</i>Sara P.<span>Tesouraria</span></div><div class="av"><i>JL</i>João L.<span>Convite enviado</span></div></div></div>',
-    fluxo: '<div class="fluxo-m"><div><b>1</b>Pedido com fatura<span>registado</span></div><div><b>2</b>1.ª aprovação<span>assinada</span></div><div><b>3</b>2.ª aprovação (acima do limite)<span class="w">pendente</span></div><div><b>4</b>Execução pela tesouraria<span class="w">a aguardar</span></div></div>',
-    extratos: '<div class="ar-cartao"><div class="ar-cab"><b>Extrato importado</b><span>32 movimentos</span></div><div class="lista" style="margin-top:0"><div>Renda · transferência<span class="ok">associado</span></div><div>Crédito automóvel<span class="ok">associado</span></div><div>Eletricidade<span class="ok">associado</span></div><div>Supermercado<span>categoria: casa</span></div><div>Ginásio<span class="w">rever</span></div></div></div>',
-    seguranca: '<div class="cofre" aria-hidden="true" style="max-width:340px"><div class="anel"></div><div class="anel b"></div><div class="anel c"></div><div class="nucleo"><svg width="56" height="56"><use href="#i-chave"/></svg></div><span class="no" style="top:6%;left:50%;transform:translateX(-50%)">assinatura</span><span class="no" style="bottom:12%;left:2%">HTTPS</span><span class="no" style="bottom:12%;right:2%">cópias diárias</span><span class="no" style="top:42%;right:-2%">registo</span><span class="no" style="top:42%;left:-2%">ECDSA</span></div>'
+    painel: '<div class="ar-cartao">' + cab('Painel', 'Novembro') +
+      '<div class="kpi"><small>Sobra este mês</small><b>' + DIN(BR ? 1240 : 412.3) + '</b><em>▲ ' + T('18% face à média', '18% acima da média') + '</em>' + spark + '</div>' +
+      '<div class="duo"><div class="mini"><small>' + T('Rendimento líquido', 'Renda líquida') + '</small><b>' + DIN(BR ? 6850 : 1640) + '</b></div><div class="mini"><small>Sem dívidas em</small><b>mar. 2028</b><span class="prog"><i style="width:62%"></i></span></div></div>' +
+      barras([45, 62, 38, 70, 55, 82, 66, 74], 2) + '</div>',
+    dividas: '<div class="ar-cartao">' + cab(T('Plano de pagamento', 'Plano de quitação'), T('3 créditos', '3 dívidas')) + '<div class="mini-sim">' +
+      [[T('Cartão de crédito', 'Cartão de crédito'), BR ? 4900 : 1820, 78], [T('Crédito pessoal', 'Empréstimo pessoal'), BR ? 12300 : 4300, 46], [T('Crédito automóvel', 'Financiamento do carro'), BR ? 38600 : 9950, 22]].map(function (x) {
+        return '<div class="l"><span>' + x[0] + '</span><span>' + d0(x[1]) + '</span></div><div class="t"><i style="width:' + x[2] + '%"></i></div>'; }).join('') +
+      '<div class="fim-d"><span>Sem dívidas</span><b>em 28 meses</b></div></div></div>',
+    objetivo: '<div class="ar-cartao">' + cab(T('Fundo de emergência', 'Reserva de emergência'), 'objetivo ' + d0(BR ? 24000 : 7200)) +
+      '<div class="anel-p" style="--p:64"><span><div><b>64%</b><small>' + d0(BR ? 15360 : 4610) + ' ' + T('juntos', 'guardados') + '</small></div></span></div>' +
+      '<div class="lista"><div>Este mês<span class="ok">+ ' + DIN(BR ? 900 : 250) + '</span></div><div>' + T('Completo em', 'Completa em') + '<span>mar. 2027</span></div></div></div>',
+    irs: BR
+      ? '<div class="ar-cartao">' + cab('Imposto de Renda', 'Declaração 2026') + '<div class="ded">' +
+        [['Saúde', 3480, 70, '#a78bfa'], ['Educação', 2900, 58, '#22d3ee'], ['Dependentes (1)', 2275.08, 45, '#34d399'], ['Previdência privada', 4100, 82, '#f59e0b']].map(function (x) {
+          return '<div class="r"><i style="--c:' + x[3] + '"></i><span>' + x[0] + '</span><b>' + DIN(x[1]) + '</b><span class="bar"><i style="width:' + x[2] + '%;--c:' + x[3] + '"></i></span></div>'; }).join('') +
+        '</div><div class="res-f"><div><small>Restituição estimada</small><b>' + DIN(1870) + '</b></div><span>Com base nos comprovantes registrados</span></div></div>'
+      : '<div class="ar-cartao">' + cab('IRS', 'Simulação 2026') + '<div class="ded">' +
+        [['Despesas gerais familiares', 250, 100, '#a78bfa'], ['Saúde', 182.4, 73, '#22d3ee'], ['Educação', 96, 38, '#34d399'], ['Habitação', 118.5, 47, '#f59e0b']].map(function (x) {
+          return '<div class="r"><i style="--c:' + x[3] + '"></i><span>' + x[0] + '</span><b>' + DIN(x[1]) + '</b><span class="bar"><i style="width:' + x[2] + '%;--c:' + x[3] + '"></i></span></div>'; }).join('') +
+        '</div><div class="res-f"><div><small>Reembolso estimado</small><b>' + DIN(412) + '</b></div><span>Com base nas faturas do e-Fatura</span></div></div>',
+    pagamentos: '<div class="ar-cartao">' + cab('Pedidos de pagamento', 'hoje') +
+      '<div class="pedido"><div class="l1"><span>PP-0142 · Fornecedor</span><b>' + DIN(BR ? 18500 : 3200) + '</b></div><div class="pass"><i class="ok"></i><i class="w"></i><i></i></div><div class="est"><span>1.ª aprovação ✓</span><span>' + T('a aguardar 2.ª', 'aguardando a 2.ª') + '</span></div></div>' +
+      '<div class="pedido"><div class="l1"><span>PP-0141 · Salários</span><b>' + DIN(BR ? 74300 : 12480) + '</b></div><div class="pass"><i class="ok"></i><i class="ok"></i><i class="ok"></i></div><div class="est"><span>' + T('Assinado e executado', 'Assinado e pago via Pix') + '</span><span>09:42</span></div></div></div>',
+    tesouraria: '<div class="ar-cartao">' + cab(T('Tesouraria', 'Fluxo de caixa'), 'Novembro') +
+      '<div class="kpi"><small>Saldo disponível</small><b>' + DIN(BR ? 186940.15 : 28940.15) + '</b><em>' + T('Cativo ', 'Bloqueado ') + DIN(BR ? 18500 : 3200) + T(' em pedidos', ' em pedidos') + '</em>' + spark + '</div>' + barras([52, 48, 66, 58, 74, 69, 80, 88], 2) + '</div>',
+    equipa: '<div class="ar-cartao">' + cab(T('Equipa', 'Equipe'), '4 pessoas') + '<div class="avs">' +
+      [['AM', 'Ana M.', 'Responsável'], ['RC', T('Rui C.', 'Rafael C.'), 'Aprova até ' + d0(BR ? 30000 : 5000)], ['SP', 'Sara P.', T('Tesouraria', 'Financeiro')], ['JL', 'João L.', 'Convite enviado']].map(function (x) {
+        return '<div class="av"><i>' + x[0] + '</i>' + x[1] + '<span>' + x[2] + '</span></div>'; }).join('') + '</div></div>',
+    fluxo: '<div class="ar-cartao">' + cab('Circuito de aprovação', 'PP-0142') + '<div class="fluxo-m">' +
+      [['1', T('Pedido com fatura', 'Pedido com nota fiscal'), T('registado', 'registrado'), ''], ['2', '1.ª aprovação', 'assinada', ''], ['3', '2.ª aprovação (acima do limite)', 'pendente', 'w'], ['4', T('Execução pela tesouraria', 'Pagamento pelo financeiro'), T('a aguardar', 'aguardando'), 'w']].map(function (x) {
+        return '<div><b>' + x[0] + '</b>' + x[1] + '<span' + (x[3] ? ' class="w"' : '') + '>' + x[2] + '</span></div>'; }).join('') + '</div></div>',
+    extratos: '<div class="ar-cartao">' + cab('Extrato importado', T('32 movimentos', '32 movimentações')) + '<div class="lista" style="margin-top:0">' +
+      [[T('Renda · transferência', 'Aluguel · Pix'), 'associado', 'ok'], [T('Crédito automóvel', 'Financiamento do carro'), 'associado', 'ok'], [T('Eletricidade', 'Conta de luz'), 'associado', 'ok'], ['Supermercado', 'categoria: casa', ''], [T('Ginásio', 'Academia'), 'rever', 'w']].map(function (x) {
+        return '<div>' + x[0] + '<span' + (x[2] ? ' class="' + x[2] + '"' : '') + '>' + x[1] + '</span></div>'; }).join('') + '</div></div>',
+    seguranca: '<div class="cofre" aria-hidden="true" style="max-width:340px"><div class="anel"></div><div class="anel b"></div><div class="anel c"></div><div class="nucleo"><svg width="56" height="56"><use href="#i-chave"/></svg></div><span class="no" style="top:6%;left:50%;transform:translateX(-50%)">assinatura</span><span class="no" style="bottom:12%;left:2%">HTTPS</span><span class="no" style="bottom:12%;right:2%">' + T('cópias diárias', 'backups diários') + '</span><span class="no" style="top:42%;right:-2%">' + T('registo', 'registro') + '</span><span class="no" style="top:42%;left:-2%">ECDSA</span></div>'
   };
 
   // ---------- conteúdo por segmento ----------
