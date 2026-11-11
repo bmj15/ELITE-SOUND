@@ -603,3 +603,15 @@ html.embutido{scrollbar-width:none;scroll-behavior:auto}html.embutido::-webkit-s
 @keyframes mv-pulsa{0%,100%{opacity:.85;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
 @media (max-width:979px){.movel{display:none}}
 @media (min-width:980px) and (max-width:1200px){.mv-c{display:none}}
+
+/* ===== destaques: fotografias e carrossel em onda ===== */
+.dc .foto{position:relative;aspect-ratio:16/9;overflow:hidden;background:#11151d}
+.dc .foto img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.01);transition:transform 1.4s cubic-bezier(.16,.84,.3,1);filter:saturate(1.06) contrast(1.04)}
+.dc:hover .foto img{transform:scale(1.07)}
+.dc .foto:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(7,9,13,0) 50%,rgba(7,9,13,.5)),linear-gradient(135deg,rgba(139,92,246,.22),transparent 42%)}
+.dc .chip{position:absolute;left:16px;top:16px;z-index:2;width:42px;height:42px;border-radius:13px;display:grid;place-items:center;color:#fff;background:rgba(10,12,18,.42);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.22)}
+.dest-c.trilho{overflow:hidden;scroll-snap-type:none;padding-bottom:0}
+.dest-c.trilho>.dc{transform:translateX(var(--dx,0));transition:transform 1.05s cubic-bezier(.7,0,.15,1) calc(max(0,var(--o,0)) * 80ms),opacity .7s ease calc(max(0,var(--o,0)) * 80ms),border-color .25s}
+.dest-c.trilho>.dc.fora{opacity:.25}
+.setas button{transition:border-color .2s,opacity .2s}
+.setas button:disabled{opacity:.35;cursor:default;border-color:var(--line2)}
