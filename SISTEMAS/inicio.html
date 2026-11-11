@@ -287,12 +287,14 @@
   function ajustar() {
     secs.forEach(function (s) {
       var w = s.classList.contains('tela') && s.querySelector(':scope > .wrap'); if (!w) return;
-      w.style.zoom = ''; w.style.width = ''; s.classList.remove('ajusta');
+      w.style.zoom = w.style.width = w.style.maxWidth = w.style.paddingLeft = w.style.paddingRight = ''; s.classList.remove('ajusta');
       if (!ativo()) return;
       var util = innerHeight - hdr; if (s.offsetHeight <= util + 2) return;
       s.classList.add('ajusta');
       var pad = parseFloat(getComputedStyle(s).paddingTop) * 2, z = Math.max(.72, Math.min(1, (util - pad - 4) / w.offsetHeight));
-      if (z < 1) { w.style.zoom = z; w.style.width = (100 / z) + '%'; }
+      // reduzido: a mesma caixa (largura e margens laterais) dos outros segmentos, em px a dividir pelo zoom, centrada
+      if (z < 1) { var lado = parseFloat(getComputedStyle(w).paddingLeft) || 0, larg = w.getBoundingClientRect().width;
+        w.style.zoom = z; w.style.maxWidth = 'none'; w.style.width = (larg / z) + 'px'; w.style.paddingLeft = w.style.paddingRight = (lado / z) + 'px'; }
     });
   }
   function medir() { var nav = document.getElementById('nav'), av = document.getElementById('aviso');
