@@ -922,10 +922,10 @@ SPAP.createApp = function (cfg) {
     // telemóvel: as tabelas passam a cartões; cada célula leva o nome da sua coluna (data-l)
     const rotular = () => view.querySelectorAll('table.tbl').forEach(t => { const ths = [...t.querySelectorAll('thead th')], hs = ths.map(th => { const c = th.cloneNode(true); c.querySelectorAll('.info-tip').forEach(x => x.remove()); return c.textContent.trim(); });
       t.querySelectorAll('tbody tr').forEach(tr => { if (tr.children.length !== hs.length) return; [...tr.children].forEach((td, i) => { if (hs[i] && !td.hasAttribute('data-l')) td.setAttribute('data-l', hs[i]); if (ths[i] && ths[i].classList.contains('m-oculto')) td.classList.add('m-oculto'); if (!td.textContent.trim() && !td.querySelector('button,input,select,a,svg')) td.classList.add('vazio'); }); }); });
-    // cartões fechados no telemóvel (.m-colapso): abrir/fechar no cabeçalho (fica memorizado) e "Mostrar mais"
+    // cartões fechados no telemóvel (.m-colapso): começam fechados ao carregar a página (F5); o estado só fica em memória; abrir/fechar no cabeçalho e "Mostrar mais"
     const colapsos = () => view.querySelectorAll('.card.m-colapso:not([data-mi])').forEach(c => { c.setAttribute('data-mi', '1');
-      const k = 'mc:' + (c.dataset.m || ''), h = c.querySelector(':scope>.card-h'); let ab = false; try { ab = sessionStorage.getItem(k) === '1'; } catch (e) { }
-      c.classList.toggle('aberto', ab); const pos = (on) => { c.classList.toggle('aberto', on); try { sessionStorage.setItem(k, on ? '1' : '0'); } catch (e) { } };
+      const mem = window.__mColapso || (window.__mColapso = {}), k = c.dataset.m || '', h = c.querySelector(':scope>.card-h');
+      c.classList.toggle('aberto', !!mem[k]); const pos = (on) => { c.classList.toggle('aberto', on); mem[k] = on; };
       if (h) h.addEventListener('click', ev => { if (ev.target.closest('button,a,input,select')) return; pos(!c.classList.contains('aberto')); });
       const cp = c.querySelector(':scope>.m-capa'); if (cp) cp.addEventListener('click', () => pos(true));
       const n = c.querySelectorAll('tbody tr:not(.tbl-sec)').length; if (n > 5) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost sm m-mais'; b.textContent = `Mostrar mais (${n - 5})`; b.onclick = () => c.classList.add('tudo'); c.appendChild(b); } });
