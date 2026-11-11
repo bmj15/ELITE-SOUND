@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="/SISTEMAS/site/pais.js?v=1"></script>
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=11">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=12">
 <script>if (/^\/empresas/.test(location.pathname)) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
@@ -261,6 +261,23 @@
   var x0 = null; car.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
   car.addEventListener('touchend', function (e) { if (x0 === null) return; var dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 50) ir(at + (dx < 0 ? 1 : -1)); x0 = null; });
   car.classList.toggle('pausa', pausa); ir(0);
+
+  // ilustração do slide: encolhe só o necessário para caber inteira na altura do slide (com folga para a flutuação)
+  function ajustarArte() {
+    [].forEach.call(car.querySelectorAll('.slide'), function (s) {
+      var a = s.querySelector('.arte'), w = s.querySelector('.wrap'); if (!a || !w) return;
+      a.style.removeProperty('--esc'); a.style.removeProperty('--dy');
+      if (innerWidth <= 900 || !a.offsetHeight) return;
+      var rs = s.getBoundingClientRect(), ra = a.getBoundingClientRect();
+      var esc = Math.min(1, (rs.height - 64) / ra.height);
+      a.style.setProperty('--esc', esc.toFixed(3));
+      // centra na altura do slide (as barras do carrossel ficam à esquerda, não ocupam esta coluna)
+      a.style.setProperty('--dy', ((rs.top + rs.height / 2) - (ra.top + ra.height / 2)).toFixed(1) + 'px');
+    });
+  }
+  ajustarArte(); addEventListener('resize', ajustarArte);
+  if (window.ResizeObserver) { var hAnt = 0; new ResizeObserver(function () { var h = car.clientHeight; if (h !== hAnt) { hAnt = h; ajustarArte(); } }).observe(car); }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajustarArte);
 
   // ---------- como podemos ajudar hoje? ----------
   var QC = document.getElementById('queroC');
