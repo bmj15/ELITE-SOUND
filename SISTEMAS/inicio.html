@@ -96,12 +96,6 @@
       { id: 'partilhar', t: 'Quero partilhar despesas', ico: 'i-pessoas', tg: 'Por convite', lb: 'Despesas partilhadas', h: 'Contas a dois, sem discussões', pts: ['Convide a outra pessoa pelo email', 'Uma folha comum com o acerto do mês', 'Renda, compras ou um objetivo em conjunto'],
         lado: [['Como funcionam as despesas partilhadas', '/ajuda?p=partilhar-despesas'], ['Guia: despesas partilhadas a dois', '/artigos/despesas-partilhadas-a-dois'], ['Abrir conta', ABRIR]] }
     ],
-    dest: [
-      { id: 'dividas', foto: ['1563013544-824ae1b704d3', 'Mãos a usar um cartão junto a um computador portátil'], cat: 'credito', ico: 'i-cartao', h: 'Plano para sair das dívidas', p: 'Junte cartões e créditos, compare várias estratégias de pagamento e veja quanto poupa em juros com cada reforço.', l: ['Simular uma dívida', '/simuladores#divida'] },
-      { id: 'objetivos', foto: ['1522199710521-72d69614c702', 'Mala de viagem aberta ao lado de um portátil'], cat: 'poupanca', ico: 'i-alvo', h: 'Objetivos de poupança', p: 'Férias, carro ou a entrada da casa: o que sobra em cada mês é repartido pelos seus objetivos, por prioridade.', l: ['Simular um objetivo', '/simuladores#objetivo'] },
-      { id: 'partilhar', foto: ['1758523417851-80ae1a8531fb', 'Casal na cozinha com compras frescas'], cat: 'casa', ico: 'i-pessoas', h: 'Despesas partilhadas', p: 'Renda, compras ou um objetivo a dois, com uma folha comum e o acerto do mês feito por si.', l: ['Saber como funciona', '/ajuda?p=partilhar-despesas'] },
-      { id: 'irs', foto: ['1725258080098-727051947997', 'Notas de euro e calculadora'], cat: 'impostos', ico: 'i-recibo', h: 'Recibos e IRS', p: 'Recibos de vencimento e recibos verdes, deduções do e-Fatura e uma estimativa do que vai receber ou pagar.', l: ['Ver guias de impostos', '/artigos?c=impostos'] }
-    ],
     sims: [['emergencia', 'i-alvo', 'Fundo de emergência', 'Quanto ter de parte e quando lá chega.'], ['divida', 'i-cartao', 'Prazo de uma dívida', 'Quando fica paga e quanto paga de juros.'], ['objetivo', 'i-graf', 'Objetivo de poupança', 'Quanto poupar por mês até à data.'], ['', 'i-calc', 'Todos os simuladores', 'Também para empresas: margem e recebimentos.']],
     blocos: [
       { id: 'plano', sob: 'Plano pessoal', h: 'Um plano que diz o que fazer <b>com o que sobra</b>', p: 'Quanto entra, quanto sai e quanto sobra, mês a mês, com a projeção até dezembro, os pagamentos do mês e quanto pôr em cada objetivo.', l: ['Abrir conta', ABRIR], arte: 'painel' },
@@ -129,12 +123,6 @@
         vals: [20, 30, 40, 50, 60], def: 40, un: '%', fmt: function (v) { return v + '%'; }, res: function (v) { var p = 100 / (1 - v / 100); return 'Para um custo de 100 €, o preço sem IVA é <b>' + p.toLocaleString('pt-PT', { maximumFractionDigits: 2 }) + ' €</b>, um markup de <b>' + Math.round(p - 100) + '%</b> sobre o custo.'; }, cta: ['Simular com os meus valores', '/simuladores#margem'] },
       { id: 'equipa', t: 'Quero organizar a equipa', ico: 'i-pessoas', tg: 'Por convite', lb: 'Equipa', h: 'Cada colaborador com o seu acesso', pts: ['Convite pelo email', 'Papel e alçada definidos pelo responsável', 'Registo de quem fez o quê'],
         lado: [['Como entram os colaboradores', '/ajuda?p=colaboradores'], ['Gerir mais do que uma empresa', '/ajuda?p=varias-empresas'], ['Abrir conta de empresa', ABRIR]] }
-    ],
-    dest: [
-      { id: 'pagamentos', foto: ['1556742208-999815fca738', 'Pagamento num terminal de cartão'], cat: 'credito', ico: 'i-chave', h: 'Pedidos de pagamento com alçadas', p: 'O colaborador pede, aprova quem tem alçada para o valor e, acima do limite, são precisas duas pessoas diferentes.', l: ['Ler sobre dupla aprovação', '/artigos/dupla-aprovacao-pagamentos'] },
-      { id: 'tesouraria', foto: ['1551288049-bebda4e38f71', 'Gráficos financeiros num ecrã'], cat: 'empresas', ico: 'i-carteira', h: 'Tesouraria e reconciliação', p: 'Saldos por conta, saldo cativo em pedidos e extratos ligados aos pagamentos executados.', l: ['Simular recebimentos', '/simuladores#pmr'] },
-      { id: 'resultados', foto: ['1556740758-90de374c12ad', 'Atendimento ao balcão de uma loja'], cat: 'poupanca', ico: 'i-carrinho', h: 'Vendas, comissões e resultados', p: 'Registe vendas, calcule comissões de vendedores e acompanhe o orçamento e a demonstração de resultados.', l: ['Simular preço e margem', '/simuladores#margem'] },
-      { id: 'equipa', foto: ['1517048676732-d65bc937f952', 'Equipa reunida à mesa'], cat: 'casa', ico: 'i-pessoas', h: 'Equipa por convite', p: 'Cada colaborador entra com o seu email. O responsável define o papel e a alçada de cada um.', l: ['Saber como funciona', '/ajuda?p=colaboradores'] }
     ],
     sims: [['pmr', 'i-carteira', 'Prazo médio de recebimentos', 'Quantos dias os clientes demoram a pagar.'], ['margem', 'i-carrinho', 'Preço e margem', 'O preço para a margem que pretende.'], ['guia', 'i-graf', 'Previsão a 13 semanas', 'Guia para a previsão de tesouraria.'], ['', 'i-calc', 'Todos os simuladores', 'Incluindo poupança e dívidas.']],
     blocos: [
@@ -171,12 +159,6 @@
         { id: 'partilhar', t: 'Quero dividir despesas', ico: 'i-pessoas', tg: 'Por convite', lb: 'Despesas compartilhadas', h: 'Contas a dois, sem brigas', pts: ['Convide a outra pessoa pelo e-mail', 'Uma planilha comum com o acerto do mês', 'Aluguel, mercado ou um objetivo em conjunto'],
           lado: [['Como funcionam as despesas compartilhadas', '/ajuda?p=partilhar-despesas'], ['Guia: despesas compartilhadas a dois', A + 'despesas-compartilhadas-a-dois'], ['Abrir conta', ABRIR]] }
       ],
-      dest: [
-        { id: 'dividas', foto: ['1563013544-824ae1b704d3', 'Mãos usando um cartão junto a um notebook'], cat: 'credito', ico: 'i-cartao', h: 'Plano para sair das dívidas', p: 'Junte cartões, empréstimos e financiamentos, compare estratégias de pagamento e veja quanto economiza em juros com cada valor extra.', l: ['Simular uma dívida', '/simuladores#divida'] },
-        { id: 'objetivos', foto: ['1522199710521-72d69614c702', 'Mala de viagem aberta ao lado de um notebook'], cat: 'poupanca', ico: 'i-alvo', h: 'Objetivos de economia', p: 'Viagem, carro ou a entrada do apartamento: o que sobra em cada mês é dividido entre seus objetivos, por prioridade.', l: ['Simular um objetivo', '/simuladores#objetivo'] },
-        { id: 'partilhar', foto: ['1758523417851-80ae1a8531fb', 'Casal na cozinha com compras do mercado'], cat: 'casa', ico: 'i-pessoas', h: 'Despesas compartilhadas', p: 'Aluguel, mercado ou um objetivo a dois, com uma planilha comum e o acerto do mês feito por você.', l: ['Saber como funciona', '/ajuda?p=partilhar-despesas'] },
-        { id: 'irs', foto: ['1740592909790-c56aef6d5ae6', 'Notas e moedas de real'], cat: 'impostos', ico: 'i-recibo', h: 'Comprovantes e Imposto de Renda', p: 'Informes de rendimentos, recibos de saúde e educação e uma estimativa da restituição ou do imposto a pagar.', l: ['Ver guias de impostos', '/artigos?c=impostos'] }
-      ],
       sims: [['emergencia', 'i-alvo', 'Reserva de emergência', 'Quanto ter guardado e quando chega lá.'], ['divida', 'i-cartao', 'Prazo de uma dívida', 'Quando fica quitada e quanto paga de juros.'], ['objetivo', 'i-graf', 'Objetivo de economia', 'Quanto guardar por mês até a data.'], ['', 'i-calc', 'Todos os simuladores', 'Também para empresas: margem e recebimentos.']],
       blocos: [
         { id: 'plano', sob: 'Plano pessoal', h: 'Um plano que diz o que fazer <b>com o que sobra</b>', p: 'Quanto entra, quanto sai e quanto sobra, mês a mês, com a projeção até dezembro, as contas do mês e quanto colocar em cada objetivo.', l: ['Abrir conta', ABRIR], arte: 'painel' },
@@ -205,12 +187,6 @@
         { id: 'equipa', t: 'Quero organizar a equipe', ico: 'i-pessoas', tg: 'Por convite', lb: 'Equipe', h: 'Cada colaborador com seu acesso', pts: ['Convite pelo e-mail', 'Papel e alçada definidos pelo responsável', 'Registro de quem fez o quê'],
           lado: [['Como os colaboradores entram', '/ajuda?p=colaboradores'], ['Gerenciar mais de uma empresa', '/ajuda?p=varias-empresas'], ['Abrir conta de empresa', ABRIR]] }
       ],
-      dest: [
-        { id: 'pagamentos', foto: ['1556742208-999815fca738', 'Pagamento numa maquininha de cartão'], cat: 'credito', ico: 'i-chave', h: 'Pedidos de pagamento com alçadas', p: 'O colaborador pede, aprova quem tem alçada para o valor e, acima do limite, são necessárias duas pessoas diferentes.', l: ['Ler sobre dupla aprovação', A + 'dupla-aprovacao-pix-e-boleto'] },
-        { id: 'tesouraria', foto: ['1551288049-bebda4e38f71', 'Gráficos financeiros numa tela'], cat: 'empresas', ico: 'i-carteira', h: 'Fluxo de caixa e conciliação', p: 'Saldos por conta, saldo bloqueado em pedidos e extratos ligados aos pagamentos realizados.', l: ['Simular recebimentos', '/simuladores#pmr'] },
-        { id: 'resultados', foto: ['1556740758-90de374c12ad', 'Atendimento no balcão de uma loja'], cat: 'poupanca', ico: 'i-carrinho', h: 'Vendas, comissões e resultados', p: 'Registre vendas, calcule comissões de vendedores e acompanhe o orçamento e o DRE.', l: ['Simular preço e margem', '/simuladores#margem'] },
-        { id: 'equipa', foto: ['1517048676732-d65bc937f952', 'Equipe reunida à mesa'], cat: 'casa', ico: 'i-pessoas', h: 'Equipe por convite', p: 'Cada colaborador entra com seu e-mail. O responsável define o papel e a alçada de cada um.', l: ['Saber como funciona', '/ajuda?p=colaboradores'] }
-      ],
       sims: [['pmr', 'i-carteira', 'Prazo médio de recebimento', 'Quantos dias os clientes levam para pagar.'], ['margem', 'i-carrinho', 'Preço e margem', 'O preço para a margem que você quer.'], ['guia', 'i-graf', 'Previsão de 13 semanas', 'Guia para a previsão do fluxo de caixa.'], ['', 'i-calc', 'Todos os simuladores', 'Incluindo economia e dívidas.']],
       blocos: [
         { id: 'regras', sob: 'Autorização de pagamentos', h: 'Do pedido ao pagamento, <b>com as regras da empresa</b>', p: 'Cada pedido segue as alçadas definidas. Alterações sensíveis, como mudar limites ou usuários, só entram em vigor com uma segunda aprovação.', l: ['Ajuda sobre pagamentos', '/ajuda?t=pagamentos'], arte: 'fluxo' },
@@ -232,8 +208,6 @@
     '</div><div class="carr-c"><div class="wrap"><div class="barras-c" id="cB">' + D.slides.map(function (s, i) { return '<button type="button" aria-label="Ir para ' + (i + 1) + '"><i></i></button>'; }).join('') + '</div></div></div></div>';
   h += '</section>';
   h += '<section class="hp-sec tela" id="quero"><div class="wrap"><p class="sobre-t">Passe das ideias à ação</p><h2 class="tit" style="margin-bottom:24px">Como podemos <b>ajudar hoje?</b></h2><div class="quero-t" id="queroT" role="tablist">' + D.quero.map(function (q, i) { return '<button type="button" role="tab" data-q="' + i + '"' + (i ? '' : ' class="on"') + '>' + ic(q.ico, 16) + q.t + '</button>'; }).join('') + '</div><div id="queroC"></div></div></section>';
-  h += '<section class="hp-sec alt tela" id="destaques"><div class="wrap"><div class="cab-s"><div><p class="sobre-t">Em destaque</p><h2 class="tit">Os destaques <b>que importam</b></h2></div><div class="setas"><button type="button" data-d="-1" aria-label="Anterior">‹</button><button type="button" data-d="1" aria-label="Seguinte">›</button></div></div><div class="dest-c" id="destC">' +
-    D.dest.map(function (d) { return '<a class="dc" id="' + d.id + '" href="' + d.l[1] + '">' + (d.foto ? foto(d) : capa(d.cat, d.ico)) + '<div class="tx"><h3>' + d.h + '</h3><p>' + d.p + '</p><span class="lk-s">' + d.l[0] + '</span></div></a>'; }).join('') + '</div></div></section>';
   if (!embutido) { var M = D.movel;
     h += '<section class="hp-sec tela movel" id="movel"><div class="wrap"><div class="mv"><div class="mv-txt"><p class="sobre-t">' + M.sob + '</p><h2 class="tit mv-h">' + M.h + '</h2><p class="mv-p">' + M.p + '</p><ul class="mv-pts">' + M.pts.map(function (t) { return '<li>' + ok + t + '</li>'; }).join('') + '</ul>' +
       '<div class="ctas"><a class="btn btn-p" href="' + M.c1[1] + '">' + M.c1[0] + ' ' + ic('i-seta', 16) + '</a><a class="btn btn-s" href="' + M.c2[1] + '">' + M.c2[0] + '</a></div></div>' +
@@ -385,19 +359,6 @@
   document.getElementById('queroT').onclick = function (e) { var b = e.target.closest('[data-q]'); if (b) quero(+b.dataset.q); };
   quero(0);
 
-  // ---------- destaques: carrossel com transição em onda (computador); deslizar com o dedo no telemóvel ----------
-  var dc = document.getElementById('destC'), cards = [].slice.call(dc.children), pos = 0, setas = document.querySelectorAll('[data-d]');
-  cards.forEach(function (el, j) { el.style.setProperty('--j', j); });
-  var mqD = matchMedia('(min-width:980px)');
-  function porEcra() { var w = cards[0].offsetWidth; return Math.max(1, Math.round((dc.clientWidth + 20) / (w + 20))); }
-  function moverD(nova) { var maxP = Math.max(0, cards.length - porEcra()), ant = pos; pos = Math.max(0, Math.min(maxP, nova));
-    if (!mqD.matches) { dc.classList.remove('trilho'); dc.style.removeProperty('--dx'); return; }
-    dc.classList.add('trilho'); var dir = pos >= ant ? 1 : -1;
-    dc.style.setProperty('--dx', (-pos * (cards[0].offsetWidth + 20)) + 'px');
-    cards.forEach(function (el, j) { el.classList.toggle('fora', j < pos || j >= pos + porEcra()); el.style.setProperty('--o', dir > 0 ? j - pos : pos + porEcra() - 1 - j); });
-    setas[0].disabled = pos === 0; setas[1].disabled = pos === maxP; }
-  setas.forEach(function (b) { b.onclick = function () { if (mqD.matches) moverD(pos + (+b.dataset.d)); else dc.scrollBy({ left: +b.dataset.d * (cards[0].offsetWidth + 20), behavior: 'smooth' }); }; });
-  moverD(0); addEventListener('resize', function () { moverD(pos); });
 
 
   // ---------- telemóvel a flutuar: uma parte do sistema (dados de exemplo), usada por um dedo ----------
