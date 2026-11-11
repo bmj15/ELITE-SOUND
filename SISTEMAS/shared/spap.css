@@ -499,3 +499,9 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .ml-row.atraso .ml-dir small{color:var(--bad);font-weight:600}
 }
 @media (max-width:640px){.m-colapso.aberto .tbl tfoot.m-sem-total{display:none}}
+@media (max-width:640px){
+  .ml-av.txt{font-size:11.5px;letter-spacing:.02em}
+  .ml-row.aviso .ml-dir small{color:var(--warn);font-weight:600}
+  .ml-row.ok .ml-dir small{color:var(--ok)}
+  .ml-dir small .badge{font-size:11px;padding:1px 7px}
+}
