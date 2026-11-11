@@ -81,7 +81,7 @@ var cab = aviso + '<header class="nav" id="nav"><div class="wrap barra"><a class
 
 var col = function (t, l) { return '<div><h4>' + t + '</h4><ul>' + l.map(function (x) { return '<li><a href="' + x[0] + '">' + x[1] + '</a></li>'; }).join('') + '</ul></div>'; };
 var rod = '<footer><div class="wrap">' +
-  '<div class="rod-topo"><a class="marca" href="' + casa + '"><b>BXB</b>BXB</a><button type="button" class="subir" id="subir">Voltar ao início ↑</button></div>' +
+  '<div class="rod-topo"><a class="marca" href="' + casa + '"><b>BXB</b>BXB</a></div>' +
   '<div class="g">' +
   col('Particulares', [['/#plano', 'Plano pessoal'], ['/#dividas', 'Sair das dívidas'], ['/#objetivos', 'Objetivos de poupança'], ['/artigos?c=impostos', T('Recibos e IRS', 'Imposto de Renda')], ['/#partilhar', T('Despesas partilhadas', 'Despesas compartilhadas')]]) +
   col('Empresas', [['/empresas#pagamentos', 'Autorização de pagamentos'], ['/empresas#tesouraria', T('Tesouraria', 'Fluxo de caixa')], ['/empresas#resultados', 'Vendas e resultados'], ['/empresas#equipa', T('Equipa', 'Equipe')]]) +
@@ -151,7 +151,16 @@ function abrirPesq() { fechar(); mm.classList.remove('on'); P.classList.add('on'
 function fecharPesq() { P.classList.remove('on'); }
 document.getElementById('bPesq').onclick = abrirPesq; document.getElementById('bPesqM').onclick = abrirPesq;
 var avF = document.getElementById('avisoF'); if (avF) avF.onclick = function () { document.getElementById('aviso').remove(); try { localStorage.setItem('bxb:aviso', 'simuladores-1'); } catch (e) { } };
-document.getElementById('subir').onclick = function () { scrollTo({ top: 0, behavior: 'smooth' }); };
+// botão Topo: aparece quando se chega ao fim da página (o rodapé fica à vista)
+(function () {
+  var b = document.createElement('button'); b.type = 'button'; b.className = 'ir-topo'; b.id = 'subir'; b.setAttribute('aria-label', 'Voltar ao topo da página');
+  b.innerHTML = '<i><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></i><span>Topo</span>';
+  b.onclick = function () { scrollTo({ top: 0, behavior: 'smooth' }); };
+  document.body.appendChild(b);
+  var rodape = document.querySelector('footer'); if (!rodape) return;
+  var ver = function () { b.classList.toggle('on', rodape.getBoundingClientRect().top < innerHeight - 40 && scrollY > 200); };
+  addEventListener('scroll', ver, { passive: true }); addEventListener('resize', ver); ver();
+})();
 // rodapé no telemóvel: cada grupo de ligações abre e fecha
 document.querySelectorAll('footer .g h4').forEach(function (h) { h.setAttribute('role', 'button'); h.tabIndex = 0; h.setAttribute('aria-expanded', 'false');
   var t = function () { var ab = h.parentElement.classList.toggle('ab'); h.setAttribute('aria-expanded', ab ? 'true' : 'false'); };
