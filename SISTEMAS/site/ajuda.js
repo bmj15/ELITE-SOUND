@@ -22,7 +22,7 @@ window.AJUDA = [
   { id: 'o-que-e-plano', t: 'pessoal', seg: 'p', topo: 1, q: 'O que inclui o plano pessoal?',
     r: 'Painel com a projeção do ano, despesas fixas e rendimentos, dívidas e cartões com plano de pagamento, objetivos de poupança, recibos e IRS, importação de extratos e despesas partilhadas.' },
   { id: 'plano-dividas', t: 'pessoal', seg: 'p', topo: 1, q: 'Como funciona o plano para sair das dívidas?',
-    r: 'Indica os créditos e cartões com saldo, taxa e prestação, e o valor extra que consegue pagar por mês. O plano compara várias estratégias de pagamento e mostra, para cada uma, a data em que fica sem dívidas e o total de juros. Veja também o artigo <a href="/artigos/avalanche-ou-bola-de-neve">sobre como escolher a ordem de pagamento</a>.' },
+    r: 'Indica os créditos e cartões com saldo, taxa e prestação, e o valor extra que consegue pagar por mês. O plano compara várias estratégias de pagamento e mostra, para cada uma, a data em que fica sem dívidas e o total de juros. Veja também o artigo <a href="/artigos/por-qual-divida-comecar">sobre como escolher a ordem de pagamento</a>.' },
   { id: 'extratos', t: 'pessoal', seg: 'p', q: 'Posso importar o extrato do meu banco?',
     r: 'Sim. Exporte o extrato no site do seu banco e carregue-o na área Extratos. Os movimentos são associados às despesas fixas e aos créditos correspondentes, e pode corrigir qualquer associação.' },
   { id: 'irs', t: 'pessoal', seg: 'p', q: 'O plano calcula o meu IRS?',

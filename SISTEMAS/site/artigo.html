@@ -6,7 +6,7 @@
 <title>Artigo · BXB</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=2">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=3">
 </head>
 <body data-pagina="artigos">
 <div class="progresso" id="prog"></div>
@@ -14,8 +14,8 @@
   <article class="wrap"><div class="leitura" id="art"></div></article>
   <section style="padding-top:60px"><div class="wrap"><div class="sec-h" style="margin-bottom:30px"><h2 style="font-size:32px">Continue a ler</h2></div><div class="arts" id="rel"></div></div></section>
 </main>
-<script src="/SISTEMAS/site/artigos.js?v=2"></script>
-<script src="/SISTEMAS/site/site.js?v=2"></script>
+<script src="/SISTEMAS/site/artigos.js?v=3"></script>
+<script src="/SISTEMAS/site/site.js?v=3"></script>
 <script>
 (function () {
   'use strict';
@@ -23,6 +23,7 @@
   var meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   var data = function (d) { var p = d.split('-'); return +p[2] + ' de ' + meses[+p[1] - 1] + ' de ' + p[0]; };
   var id = decodeURIComponent(location.pathname.replace(/^\/artigos\/?/, '').replace(/\/$/, '')) || new URLSearchParams(location.search).get('a');
+  id = ({ 'avalanche-ou-bola-de-neve': 'por-qual-divida-comecar' })[id] || id;
   var a = ARTIGOS.find(function (x) { return x.id === id; }), box = document.getElementById('art');
   if (!a) { box.innerHTML = '<div class="topo-art"><h1>Artigo não encontrado</h1><p class="resumo">Pode ter mudado de endereço.</p><a class="btn btn-p" href="/artigos">Ver todos os artigos</a></div>'; document.getElementById('rel').parentNode.parentNode.remove(); return; }
   var c = CATEGORIAS[a.cat] || {};

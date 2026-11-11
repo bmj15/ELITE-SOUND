@@ -14,13 +14,13 @@ var casa = seg === 'empresa' ? '/empresas' : '/';
 
 var MENU = {
   particular: [
-    { id: 'planear', nome: 'Planear', sol: [['/#planear', 'Painel e projeção do ano', 'Quanto entra, sai e sobra, mês a mês'], ['/#planear', 'Despesas fixas e rendimentos', 'Salário, renda, contas e subscrições'], ['/#extratos', 'Extratos do banco', 'Importe e associe os movimentos']],
+    { id: 'planear', nome: 'Planear', sol: [['/#plano', 'Painel e projeção do ano', 'Quanto entra, sai e sobra, mês a mês'], ['/#plano', 'Despesas fixas e rendimentos', 'Salário, renda, contas e subscrições'], ['/#extratos', 'Extratos do banco', 'Importe e associe os movimentos']],
       fer: [['/simuladores#emergencia', 'Simulador de fundo de emergência'], ['/simuladores#objetivo', 'Simulador de objetivo de poupança']], cats: ['poupanca', 'casa'] },
     { id: 'dividas', nome: 'Dívidas e crédito', sol: [['/#dividas', 'Plano para sair das dívidas', 'Compare várias estratégias'], ['/#dividas', 'Cartões e créditos', 'Prestações, taxas e data de fim']],
       fer: [['/simuladores#divida', 'Simular o prazo de uma dívida'], ['/artigos/tan-taeg-mtic', 'Guia: TAN, TAEG e MTIC']], cats: ['credito'] },
     { id: 'poupanca', nome: 'Poupança', sol: [['/#objetivos', 'Objetivos de poupança', 'Férias, carro ou a entrada da casa'], ['/#objetivos', 'Fundo de emergência', 'O primeiro objetivo de qualquer plano']],
       fer: [['/simuladores#objetivo', 'Quanto poupar por mês'], ['/simuladores#emergencia', 'De quanto precisa o seu fundo']], cats: ['poupanca'] },
-    { id: 'impostos', nome: 'Impostos', sol: [['/#irs', 'Recibos e IRS', 'Recibos de vencimento e recibos verdes'], ['/#irs', 'Deduções do e-Fatura', 'Saúde, educação, habitação e gerais']],
+    { id: 'impostos', nome: 'Impostos', sol: [['/artigos?c=impostos', 'Recibos e IRS', 'Recibos de vencimento e recibos verdes'], ['/artigos/deducoes-irs-e-fatura', 'Deduções do e-Fatura', 'Saúde, educação, habitação e gerais']],
       fer: [['/artigos/deducoes-irs-e-fatura', 'Guia: deduções no IRS'], ['/artigos/recibos-verdes-sem-surpresas', 'Guia: recibos verdes']], cats: ['impostos'] },
     { id: 'partilhar', nome: 'Partilhar', sol: [['/#partilhar', 'Despesas partilhadas', 'Renda, compras e objetivos a dois'], ['/#partilhar', 'Acerto do mês', 'Quem paga o quê, sem contas de cabeça']],
       fer: [['/artigos/despesas-partilhadas-a-dois', 'Guia: despesas a dois'], ['/ajuda?t=partilhas', 'Ajuda sobre partilhas']], cats: ['casa'] }
@@ -40,15 +40,16 @@ var M = MENU[seg];
 var artigosDe = function (cats) { var A = window.ARTIGOS || []; return A.filter(function (a) { return cats.indexOf(a.cat) >= 0; }).sort(function (a, b) { return b.data.localeCompare(a.data); }).slice(0, 3); };
 var ENT = '/SISTEMAS/entrar.html', abrir = ENT + '?criar=1&tipo=' + seg;
 
-var segs = '<a href="/"' + (seg === 'particular' && pagina !== 'artigos' && pagina !== 'ajuda' ? ' class="on"' : '') + '>Particulares</a><a href="/empresas"' + (seg === 'empresa' && pagina !== 'artigos' && pagina !== 'ajuda' ? ' class="on"' : '') + '>Empresas</a><a href="/artigos"' + (pagina === 'artigos' ? ' class="on"' : '') + '>Artigos</a>';
-var util = '<a href="/simuladores"' + (pagina === 'simuladores' ? ' style="color:var(--text)"' : '') + '>' + ic('i-calc', 15) + '<span class="tx">Simuladores</span></a><a href="/ajuda"' + (pagina === 'ajuda' ? ' style="color:var(--text)"' : '') + '>' + ic('i-ajuda', 15) + '<span class="tx">Ajuda</span></a><button type="button" id="bPesq" aria-label="Pesquisar">' + ic('i-lupa', 15) + '<span class="tx">Pesquisar</span></button>';
+var fora = pagina === 'artigos' || pagina === 'ajuda' || pagina === 'simuladores';
+var lsg = function (href, txt, on) { return '<a href="' + href + '"' + (on ? ' class="on"' : '') + '>' + txt + '</a>'; };
+var segs = lsg('/', 'Particulares', seg === 'particular' && !fora) + lsg('/empresas', 'Empresas', seg === 'empresa' && !fora) + lsg('/artigos', 'Artigos', pagina === 'artigos') + lsg('/simuladores', 'Simuladores', pagina === 'simuladores') + lsg('/ajuda', 'Ajuda', pagina === 'ajuda');
 var chev = '<svg width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>';
 var mega = M.map(function (m) { return '<button type="button" data-m="' + m.id + '">' + m.nome + chev + '</button>'; }).join('');
 var dropEnt = '<div class="drop-ent" id="dropEnt"><h6>Entrar na sua área</h6>' +
   '<a class="op" href="' + ENT + '?tipo=particular"><i>' + ic('i-casa', 18) + '</i><div><b>Particulares</b><span>Plano pessoal e partilhas</span></div></a>' +
   '<a class="op" href="' + ENT + '?tipo=empresa"><i>' + ic('i-carteira', 18) + '</i><div><b>Empresas</b><span>Pagamentos, tesouraria e equipa</span></div></a>' +
   '<div class="rod-d">Ainda não é cliente? <a href="' + abrir + '">Abrir conta</a></div></div>';
-var acoes = '<div class="acoes" id="acoes"><button class="btn btn-s" type="button" id="bEnt">' + ic('i-user', 16) + 'Entrar' + chev + '</button><a class="btn btn-p" href="' + abrir + '" data-abr>Abrir conta</a>' + dropEnt + '</div>';
+var acoes = '<div class="acoes" id="acoes"><button class="btn btn-o" type="button" id="bEnt">' + ic('i-cad', 16) + 'Entrar' + chev + '</button><a class="btn btn-p" href="' + abrir + '" data-abr>Abrir conta</a>' + dropEnt + '</div>';
 var paineis = M.map(function (m) {
   var ler = artigosDe(m.cats);
   return '<div class="painel" data-p-m="' + m.id + '"><div class="wrap">' +
@@ -58,21 +59,27 @@ var paineis = M.map(function (m) {
     '<div class="promo"><b>' + (seg === 'empresa' ? 'Controlo sobre cada pagamento' : 'O seu plano em 1 minuto') + '</b><p>' + (seg === 'empresa' ? 'Abra a área da empresa e convide a equipa.' : 'Crie a conta e veja já o seu mês.') + '</p><a class="btn btn-p" href="' + abrir + '" data-abr>Abrir conta</a></div>' +
     '</div></div>';
 }).join('');
-var menuM = '<div class="menu-m" id="menuM">' + M.map(function (m) { return '<details><summary>' + m.nome + '</summary>' + m.sol.concat(m.fer).map(function (x) { return '<a href="' + x[0] + '">' + x[1] + '</a>'; }).join('') + '</details>'; }).join('') +
+var menuM = '<div class="menu-m" id="menuM"><div class="sg">' + lsg('/', 'Particulares', seg === 'particular') + lsg('/empresas', 'Empresas', seg === 'empresa') + '</div>' +
+  M.map(function (m) { return '<details><summary>' + m.nome + '</summary>' + m.sol.concat(m.fer).map(function (x) { return '<a href="' + x[0] + '">' + x[1] + '</a>'; }).join('') + '</details>'; }).join('') +
   '<a class="lk" href="/artigos">Artigos</a><a class="lk" href="/simuladores">Simuladores</a><a class="lk" href="/ajuda">Ajuda</a>' +
   '<div class="bts" id="btsM"><a class="btn btn-s" href="' + ENT + '?tipo=' + seg + '" data-ent>Entrar</a><a class="btn btn-p" href="' + abrir + '" data-abr>Abrir conta</a></div></div>';
-var cab = '<header class="nav" id="nav"><div class="nav-seg"><div class="wrap"><div class="segs">' + segs + '</div><div class="util">' + util + '</div></div></div>' +
-  '<div class="wrap barra"><a class="marca" href="' + casa + '"><b>BXB</b>BXB</a><nav class="mega" id="mega">' + mega + '</nav>' + acoes +
-  '<button class="hamb" id="hamb" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>' +
+var avisoFechado = false; try { avisoFechado = localStorage.getItem('bxb:aviso') === 'simuladores-1'; } catch (e) { }
+var aviso = avisoFechado ? '' : '<div class="aviso" id="aviso"><div class="wrap"><span class="et">Novidade</span><p>Já pode simular o prazo de uma dívida, o fundo de emergência e a tesouraria da empresa, sem registo. <a href="/simuladores">Experimentar</a></p><button type="button" id="avisoF" aria-label="Fechar aviso">×</button></div></div>';
+var cab = aviso + '<header class="nav" id="nav"><div class="wrap barra"><a class="marca" href="' + casa + '"><b>BXB</b>BXB</a><nav class="segs">' + segs + '</nav>' +
+  '<button type="button" class="eu-quero" id="bPesq" aria-label="Pesquisar">' + ic('i-lupa', 17) + '<span>Eu quero…</span></button>' + acoes +
+  '<button class="ic-m pq" id="bPesqM" aria-label="Pesquisar">' + ic('i-lupa', 19) + '</button><button class="ic-m" id="hamb" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>' +
+  '<div class="temas-b"><div class="wrap"><nav class="mega" id="mega">' + mega + '</nav></div></div>' +
   paineis + menuM + '</header>';
 
 var col = function (t, l) { return '<div><h4>' + t + '</h4><ul>' + l.map(function (x) { return '<li><a href="' + x[0] + '">' + x[1] + '</a></li>'; }).join('') + '</ul></div>'; };
-var rod = '<footer><div class="wrap"><div class="g">' +
-  '<div><a class="marca" href="' + casa + '"><b>BXB</b>BXB</a><p style="margin:14px 0 0;max-width:300px">Planeamento financeiro pessoal e gestão de tesouraria para empresas, com autorizações assinadas.</p></div>' +
-  col('Particulares', [['/#planear', 'Plano pessoal'], ['/#dividas', 'Sair das dívidas'], ['/#objetivos', 'Poupança'], ['/#irs', 'Recibos e IRS'], ['/#partilhar', 'Despesas partilhadas']]) +
+var rod = '<footer><div class="wrap">' +
+  '<div class="rod-topo"><a class="marca" href="' + casa + '"><b>BXB</b>BXB</a><button type="button" class="subir" id="subir">Voltar ao início ↑</button></div>' +
+  '<div class="g">' +
+  col('Particulares', [['/#plano', 'Plano pessoal'], ['/#dividas', 'Sair das dívidas'], ['/#objetivos', 'Objetivos de poupança'], ['/artigos?c=impostos', 'Recibos e IRS'], ['/#partilhar', 'Despesas partilhadas']]) +
   col('Empresas', [['/empresas#pagamentos', 'Autorização de pagamentos'], ['/empresas#tesouraria', 'Tesouraria'], ['/empresas#resultados', 'Vendas e resultados'], ['/empresas#equipa', 'Equipa']]) +
-  col('Ajuda e informação', [['/ajuda', 'Centro de ajuda'], ['/simuladores', 'Simuladores'], ['/artigos', 'Artigos'], ['/' + (seg === 'empresa' ? 'empresas' : '') + '#seguranca', 'Segurança'], ['/artigos/proteger-a-sua-conta', 'Segurança online']]) +
-  '</div><div class="base"><span>© ' + new Date().getFullYear() + ' BXB</span><span>A BXB nunca pede a palavra-passe ou o PIN por email, SMS ou telefone.</span></div></div></footer>';
+  col('Ferramentas', [['/simuladores', 'Simuladores'], ['/artigos', 'Artigos'], ['/ajuda', 'Centro de ajuda'], ['/artigos/proteger-a-sua-conta', 'Segurança online']]) +
+  col('Área de cliente', [[ENT + '?tipo=particular', 'Entrar · Particulares'], [ENT + '?tipo=empresa', 'Entrar · Empresas'], [abrir, 'Abrir conta'], ['/SISTEMAS/conta.html', 'A minha conta']]) +
+  '</div><div class="base"><span>© ' + new Date().getFullYear() + ' BXB · Planeamento financeiro e tesouraria</span><span>A BXB nunca pede a palavra-passe ou o PIN por email, SMS ou telefone.</span></div></div></footer>';
 var pesq = '<div class="pesq" id="pesq" role="dialog" aria-label="Pesquisar"><div class="cx"><div class="lin">' + ic('i-lupa', 20) + '<input id="pesqI" placeholder="O que procura?" autocomplete="off"><button class="fechar" type="button" id="pesqF">Esc</button></div><div class="res" id="pesqR"></div></div></div>';
 
 document.body.insertAdjacentHTML('afterbegin', SPRITE + cab);
@@ -95,7 +102,7 @@ var P = document.getElementById('pesq'), PI = document.getElementById('pesqI'), 
 var PAGS = [['/simuladores', 'Simuladores', 'Fundo de emergência, dívidas, poupança, margem e recebimentos'], ['/ajuda', 'Centro de ajuda', 'Perguntas frequentes por tema'], ['/artigos', 'Artigos', 'Poupança, crédito, impostos e empresas'],
   [ENT + '?criar=1&tipo=particular', 'Abrir conta particular', 'Plano pessoal'], [ENT + '?criar=1&tipo=empresa', 'Abrir conta de empresa', 'Pagamentos, tesouraria e equipa'], [ENT, 'Entrar', 'Aceder à sua área']];
 var norm = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
-function carregarAjuda(cb) { if (window.AJUDA) return cb(); var s = document.createElement('script'); s.src = '/SISTEMAS/site/ajuda.js?v=1'; s.onload = cb; s.onerror = cb; document.head.appendChild(s); }
+function carregarAjuda(cb) { if (window.AJUDA) return cb(); var s = document.createElement('script'); s.src = '/SISTEMAS/site/ajuda.js?v=2'; s.onload = cb; s.onerror = cb; document.head.appendChild(s); }
 function pesquisar() {
   var q = norm(PI.value.trim());
   if (!q) { PR.innerHTML = '<h6>Pesquisas frequentes</h6><div class="chips">' + ['IRS', 'Fundo de emergência', 'Cartão de crédito', 'Dupla aprovação', 'Palavra-passe', 'Tesouraria'].map(function (c) { return '<button type="button">' + c + '</button>'; }).join('') + '</div>';
@@ -112,7 +119,9 @@ function pesquisar() {
 }
 function abrirPesq() { fechar(); mm.classList.remove('on'); P.classList.add('on'); carregarAjuda(pesquisar); setTimeout(function () { PI.focus(); }, 30); }
 function fecharPesq() { P.classList.remove('on'); }
-document.getElementById('bPesq').onclick = abrirPesq;
+document.getElementById('bPesq').onclick = abrirPesq; document.getElementById('bPesqM').onclick = abrirPesq;
+var avF = document.getElementById('avisoF'); if (avF) avF.onclick = function () { document.getElementById('aviso').remove(); try { localStorage.setItem('bxb:aviso', 'simuladores-1'); } catch (e) { } };
+document.getElementById('subir').onclick = function () { scrollTo({ top: 0, behavior: 'smooth' }); };
 document.getElementById('pesqF').onclick = fecharPesq;
 P.onclick = function (e) { if (e.target === P) fecharPesq(); };
 PI.oninput = pesquisar;

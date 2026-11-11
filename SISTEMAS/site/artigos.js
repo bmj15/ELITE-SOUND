@@ -33,9 +33,9 @@ window.ARTIGOS = [
 <div class="caixa"><b>No BXB</b>O objetivo "Fundo de emergência" calcula o valor a partir das suas despesas fixas e mostra quanto falta e em que mês o completa, com a parte do que sobra que lhe dedica.</div>`
 },
 {
-  id: 'avalanche-ou-bola-de-neve', cat: 'credito', data: '2026-11-06', min: 7,
-  titulo: 'Avalanche ou bola de neve: qual a melhor forma de pagar dívidas',
-  resumo: 'Duas estratégias para amortizar vários créditos ao mesmo tempo. Uma poupa mais juros, a outra dá mais motivação. Veja qual faz sentido para si.',
+  id: 'por-qual-divida-comecar', cat: 'credito', data: '2026-11-06', min: 7,
+  titulo: 'Várias dívidas ao mesmo tempo: por qual começar a pagar',
+  resumo: 'Com vários créditos e algum dinheiro extra por mês, a ordem de pagamento conta. Compare várias estratégias e veja qual faz sentido para si.',
   corpo: `
 <p>Quem tem vários créditos ao mesmo tempo (um cartão, um crédito pessoal, o carro) e algum dinheiro extra por mês enfrenta sempre a mesma pergunta: <strong>qual pago primeiro?</strong> Em todas as estratégias, a regra de base é igual: paga-se a prestação mínima de todos e o dinheiro extra vai todo para um só.</p>
 <h2>Método avalanche: a taxa mais alta primeiro</h2>
