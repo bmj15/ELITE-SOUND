@@ -7,12 +7,12 @@
 <meta name="description" content="Planeamento financeiro pessoal e gestão de tesouraria para empresas, com autorizações assinadas.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=9">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=10">
 <script>if (/^\/empresas/.test(location.pathname)) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
 <main id="hp"></main>
-<script src="/SISTEMAS/site/artigos.js?v=4"></script>
+<script src="/SISTEMAS/site/artigos.js?v=5"></script>
 <script src="/SISTEMAS/site/ajuda.js?v=2"></script>
 <script>if (document.documentElement.dataset.seg) { document.body.dataset.seg = 'empresa'; document.title = 'BXB Empresas · Pagamentos autorizados e tesouraria'; }</script>
 <script src="/SISTEMAS/site/site.js?v=3"></script>
@@ -137,7 +137,7 @@
   h += D.blocos.map(function (b, i) { return '<section class="hp-sec tela' + (i % 2 ? '' : ' alt') + '"><div class="wrap"><div class="bloco-z' + (i % 2 ? ' inv' : '') + '" id="' + b.id + '"><div><p class="sobre-t">' + b.sob + '</p><h2 class="tit" style="font-size:clamp(26px,3vw,38px)">' + b.h + '</h2><p style="margin-top:16px">' + b.p + '</p><a class="lk-s" href="' + b.l[1] + '">' + b.l[0] + '</a></div><div class="vis-z">' + ARTE[b.arte] + '</div></div></div></section>'; }).join('');
   var arts = ARTIGOS.slice().sort(function (a, b) { return ((b.cat === 'empresas') === emp) - ((a.cat === 'empresas') === emp) || b.data.localeCompare(a.data); }).slice(0, 3);
   h += '<section class="hp-sec tela" id="artigos"><div class="wrap"><p class="sobre-t">Artigos, dicas e muito mais</p><h2 class="tit" style="margin-bottom:30px">Tudo o que precisa <b>para decidir melhor</b></h2><div class="dicas"><div class="dica-p"><div><p class="sobre-t" style="color:#e9e5ff">Artigos BXB</p><h3>Poupança, crédito, impostos e gestão, sem jargão</h3></div><a class="btn btn-s" href="/artigos" style="align-self:flex-start;border-radius:999px">Ver todos os artigos</a></div>' +
-    arts.map(function (a) { var c = CATEGORIAS[a.cat] || {}; return '<a class="art" href="/artigos/' + a.id + '">' + capa(a.cat, c.ico || 'i-livro') + '<div class="tx"><span class="tagc">' + esc(c.nome) + '</span><h3>' + esc(a.titulo) + '</h3><span class="meta">' + a.min + ' min de leitura</span></div></a>'; }).join('') + '</div></div></section>';
+    arts.map(function (a) { var c = CATEGORIAS[a.cat] || {}; return '<a class="art" href="/artigos/' + a.id + '">' + capaArtigo(a, '(max-width:860px) 92vw, 30vw', true) + '<div class="tx"><span class="tagc">' + esc(c.nome) + '</span><h3>' + esc(a.titulo) + '</h3><span class="meta">' + a.min + ' min de leitura</span></div></a>'; }).join('') + '</div></div></section>';
   var s = emp ? 'e' : 'p';
   var faq = AJUDA.filter(function (x) { return x.topo && x.seg.indexOf(s) >= 0; }).concat(AJUDA.filter(function (x) { return !x.topo && x.seg.indexOf(s) >= 0; })).slice(0, 6);
   h += '<section class="hp-sec alt tela" id="duvidas"><div class="wrap"><div class="cab-s"><div><p class="sobre-t">Dúvidas frequentes</p><h2 class="tit">Antes de <b>começar</b></h2></div><a class="lk-s" href="/ajuda">Ir para a Ajuda</a></div><div class="faq6">' +

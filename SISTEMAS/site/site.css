@@ -615,3 +615,12 @@ html.embutido{scrollbar-width:none;scroll-behavior:auto}html.embutido::-webkit-s
 .dest-c.trilho>.dc.fora{opacity:.25}
 .setas button{transition:border-color .2s,opacity .2s}
 .setas button:disabled{opacity:.35;cursor:default;border-color:var(--line2)}
+
+/* ===== capas dos artigos com fotografia ===== */
+.capa.foto-a{display:block;background:#11151d}
+.capa.foto-a:before{display:none}
+.capa.foto-a img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scale(1.01);transition:transform 1.4s cubic-bezier(.16,.84,.3,1);filter:saturate(1.06) contrast(1.04)}
+a:hover .capa.foto-a img{transform:scale(1.07)}
+.capa.foto-a:after{z-index:1;background-image:linear-gradient(180deg,rgba(7,9,13,0) 50%,rgba(7,9,13,.45)),linear-gradient(135deg,rgba(139,92,246,.22),transparent 42%)}
+.capa .chip{position:absolute;left:14px;top:14px;z-index:2;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:#fff;background:rgba(10,12,18,.42);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.22)}
+.capa .chip svg{width:17px;height:17px;max-width:none;filter:none;opacity:1}

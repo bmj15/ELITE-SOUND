@@ -10,7 +10,7 @@ window.CATEGORIAS = {
 };
 window.ARTIGOS = [
 {
-  id: 'fundo-de-emergencia', cat: 'poupanca', data: '2026-11-10', min: 6, destaque: true,
+  id: 'fundo-de-emergencia', foto: '1619718082268-5a1b74988497', cat: 'poupanca', data: '2026-11-10', min: 6, destaque: true,
   titulo: 'Fundo de emergência: quanto juntar e onde o guardar',
   resumo: 'É a primeira poupança a fazer, antes de qualquer investimento. Saiba como calcular o valor certo para si e como lá chegar sem sacrifícios.',
   corpo: `
@@ -33,7 +33,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>No BXB</b>O objetivo "Fundo de emergência" calcula o valor a partir das suas despesas fixas e mostra quanto falta e em que mês o completa, com a parte do que sobra que lhe dedica.</div>`
 },
 {
-  id: 'por-qual-divida-comecar', cat: 'credito', data: '2026-11-06', min: 7,
+  id: 'por-qual-divida-comecar', foto: '1625980344922-a4df108b2bd0', cat: 'credito', data: '2026-11-06', min: 7,
   titulo: 'Várias dívidas ao mesmo tempo: por qual começar a pagar',
   resumo: 'Com vários créditos e algum dinheiro extra por mês, a ordem de pagamento conta. Compare várias estratégias e veja qual faz sentido para si.',
   corpo: `
@@ -58,7 +58,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>No BXB</b>O plano para sair das dívidas compara várias estratégias com as suas dívidas reais e mostra, para cada uma, a data em que fica sem dívidas e os juros que paga.</div>`
 },
 {
-  id: 'tan-taeg-mtic', cat: 'credito', data: '2026-10-30', min: 5,
+  id: 'tan-taeg-mtic', foto: '1709880945165-d2208c6ad2ec', cat: 'credito', data: '2026-10-30', min: 5,
   titulo: 'TAN, TAEG e MTIC: o que cada sigla diz sobre um crédito',
   resumo: 'Antes de assinar um crédito, há três números que importam. Perceba a diferença e compare propostas como deve ser.',
   corpo: `
@@ -77,7 +77,7 @@ window.ARTIGOS = [
 <p>Para mais informação, o <strong>Portal do Cliente Bancário</strong> do Banco de Portugal explica estes conceitos e os seus direitos enquanto consumidor.</p>`
 },
 {
-  id: 'cartao-de-credito-pagamento-minimo', cat: 'credito', data: '2026-10-22', min: 5,
+  id: 'cartao-de-credito-pagamento-minimo', foto: '1640545232493-9a9b5c88ede4', cat: 'credito', data: '2026-10-22', min: 5,
   titulo: 'Cartão de crédito: o custo escondido de pagar só o mínimo',
   resumo: 'A modalidade de pagamento por percentagem parece confortável, mas pode transformar uma compra pequena numa dívida de anos.',
   corpo: `
@@ -92,7 +92,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>No BXB</b>Ao registar uma despesa paga a prestações pelo cartão, o plano calcula mês a mês a prestação, os juros e o imposto do selo, e mostra quando fica liquidada.</div>`
 },
 {
-  id: 'deducoes-irs-e-fatura', cat: 'impostos', data: '2026-10-15', min: 6,
+  id: 'deducoes-irs-e-fatura', foto: '1554224154-26032ffc0d07', cat: 'impostos', data: '2026-10-15', min: 6,
   titulo: 'Deduções no IRS: o que confirmar no e-Fatura antes do prazo',
   resumo: 'Uma parte do reembolso decide-se muito antes da entrega da declaração. Veja o que deve verificar e porque é que as faturas pendentes importam.',
   corpo: `
@@ -114,7 +114,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>No BXB</b>A página do IRS junta os seus rendimentos e retenções, os valores do e-Fatura que indicar e os escalões do ano, e estima se vai receber ou pagar.</div>`
 },
 {
-  id: 'recibos-verdes-sem-surpresas', cat: 'impostos', data: '2026-10-08', min: 7,
+  id: 'recibos-verdes-sem-surpresas', foto: '1682669328101-3a0f8a12d06d', cat: 'impostos', data: '2026-10-08', min: 7,
   titulo: 'Recibos verdes sem surpresas: IRS e Segurança Social',
   resumo: 'Trabalhar por conta própria traz obrigações que não existem num contrato. Organize-se para não ter um susto em junho ou na fatura da Segurança Social.',
   corpo: `
@@ -132,7 +132,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>No BXB</b>Os recibos verdes são reconhecidos pelo número do documento: se tentar inserir um que já existe, o sistema avisa e ignora-o.</div>`
 },
 {
-  id: 'despesas-partilhadas-a-dois', cat: 'casa', data: '2026-09-30', min: 5,
+  id: 'despesas-partilhadas-a-dois', foto: '1758523417936-fa871f4a840d', cat: 'casa', data: '2026-09-30', min: 5,
   titulo: 'Despesas partilhadas a dois sem discussões',
   resumo: '50/50, proporcional ao rendimento ou conta comum? Três formas de dividir as despesas da casa e como fazer o acerto todos os meses.',
   corpo: `
@@ -149,7 +149,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>No BXB</b>As despesas partilhadas funcionam por convite: cada pessoa aceita a partilha com a sua conta, vê só a folha comum e o acerto do mês, e o resto do plano continua privado.</div>`
 },
 {
-  id: 'dupla-aprovacao-pagamentos', cat: 'empresas', data: '2026-11-03', min: 6,
+  id: 'dupla-aprovacao-pagamentos', foto: '1556740714-a8395b3bf30f', cat: 'empresas', data: '2026-11-03', min: 6,
   titulo: 'Porque é que a dupla aprovação protege a tesouraria da sua empresa',
   resumo: 'A fraude da mudança de IBAN, o pagamento duplicado e o erro de digitação têm a mesma defesa: ninguém paga sozinho acima de um certo valor.',
   corpo: `
@@ -169,7 +169,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>No BXB</b>Cada pedido de pagamento passa por pedido, aprovação e execução, com alçadas por pessoa, dupla aprovação acima do valor que definir e assinatura com PIN e rubrica em cada passo. Tudo fica no registo de auditoria.</div>`
 },
 {
-  id: 'tesouraria-pme-13-semanas', cat: 'empresas', data: '2026-10-27', min: 6,
+  id: 'tesouraria-pme-13-semanas', foto: '1460925895917-afdab827c52f', cat: 'empresas', data: '2026-10-27', min: 6,
   titulo: 'Tesouraria de uma PME: a previsão a 13 semanas',
   resumo: 'Lucro não é dinheiro no banco. Uma previsão simples, semana a semana, mostra com antecedência quando vai faltar liquidez.',
   corpo: `
@@ -186,7 +186,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>No BXB</b>A tesouraria mostra o saldo de cada conta, o saldo cativo dos pedidos aprovados e a previsão dos pagamentos recorrentes, para ver o disponível real a cada dia.</div>`
 },
 {
-  id: 'proteger-a-sua-conta', cat: 'seguranca', data: '2026-09-22', min: 4,
+  id: 'proteger-a-sua-conta', foto: '1584433144859-1fc3ab64a957', cat: 'seguranca', data: '2026-09-22', min: 4,
   titulo: 'Cinco hábitos para proteger as suas contas online',
   resumo: 'A maior parte dos ataques não quebra sistemas: engana pessoas. Pequenos hábitos que evitam a maioria dos problemas.',
   corpo: `
@@ -199,3 +199,12 @@ window.ARTIGOS = [
 <div class="caixa"><b>No BXB</b>A palavra-passe serve para entrar e o PIN só para assinar operações: mesmo que alguém descubra a palavra-passe, não consegue aprovar pagamentos sem o PIN e a rubrica. Cada entrada e acesso fica registado.</div>`
 },
 ];
+
+/* Capa de um artigo: fotografia (Unsplash, licença gratuita) com várias resoluções; sem fotografia, usa o gradiente da categoria. */
+window.capaArtigo = function (a, sizes, ja) {
+  var c = window.CATEGORIAS[a.cat] || {}, ico = '<svg viewBox="0 0 24 24"><use href="#' + (c.ico || 'i-livro') + '"/></svg>';
+  if (!a.foto) return '<div class="capa cat-' + a.cat + '">' + ico + '</div>';
+  var u = function (w) { return 'https://images.unsplash.com/photo-' + a.foto + '?auto=format&fit=crop&crop=entropy&q=82&w=' + w + '&h=' + Math.round(w * 9 / 16); };
+  return '<div class="capa foto-a cat-' + a.cat + '"><img src="' + u(960) + '" srcset="' + [480, 640, 960, 1280, 1600, 2000].map(function (w) { return u(w) + ' ' + w + 'w'; }).join(', ') +
+    '" sizes="' + (sizes || '(max-width:640px) 92vw, (max-width:1100px) 46vw, 30vw') + '" alt="" decoding="async"' + (ja ? '' : ' loading="lazy"') + '><span class="chip">' + ico + '</span></div>';
+};
