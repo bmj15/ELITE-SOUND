@@ -37,25 +37,25 @@ window.ARTIGOS = [
   titulo: 'Várias dívidas ao mesmo tempo: por qual começar a pagar',
   resumo: 'Com vários créditos e algum dinheiro extra por mês, a ordem de pagamento conta. Compare várias estratégias e veja qual faz sentido para si.',
   corpo: `
-<p>Quem tem vários créditos ao mesmo tempo (um cartão, um crédito pessoal, o carro) e algum dinheiro extra por mês enfrenta sempre a mesma pergunta: <strong>qual pago primeiro?</strong> Em todas as estratégias, a regra de base é igual: paga-se a prestação mínima de todos e o dinheiro extra vai todo para um só.</p>
-<h2>Método avalanche: a taxa mais alta primeiro</h2>
-<p>O dinheiro extra vai para a dívida com a <strong>taxa de juro mais alta</strong>. Quando fica paga, a prestação que se libertou junta-se ao extra e passa para a seguinte taxa mais alta.</p>
-<p>É o método que, matematicamente, <strong>paga menos juros</strong> e termina mais cedo. O ponto fraco: se a dívida mais cara também for a maior, pode passar muitos meses sem ver nenhum crédito desaparecer.</p>
-<h2>Método bola de neve: o saldo mais pequeno primeiro</h2>
-<p>O dinheiro extra vai para a dívida com o <strong>saldo mais pequeno</strong>, independentemente da taxa. As primeiras dívidas desaparecem depressa, e cada uma que termina liberta mais dinheiro para a seguinte, como uma bola de neve.</p>
+<p>Quem tem vários créditos ao mesmo tempo (um cartão, um crédito pessoal, o carro) e algum dinheiro extra por mês enfrenta sempre a mesma pergunta: <strong>qual pago primeiro?</strong> Seja qual for a escolha, a regra de base é igual: paga-se a prestação mínima de todos e o dinheiro extra vai todo para um só. Quando esse fica pago, a prestação que se libertou junta-se ao extra e passa para o seguinte.</p>
+<h2>Começar pela taxa de juro mais alta</h2>
+<p>O dinheiro extra vai para a dívida mais cara, a que tem a <strong>taxa de juro mais alta</strong>. É a ordem que, matematicamente, <strong>paga menos juros</strong> e termina mais cedo.</p>
+<p>O ponto fraco: se a dívida mais cara também for a maior, pode passar muitos meses sem ver nenhum crédito desaparecer, e é aí que muitos planos se abandonam.</p>
+<h2>Começar pelo saldo mais pequeno</h2>
+<p>O dinheiro extra vai para a dívida com o <strong>saldo mais baixo</strong>, independentemente da taxa. As primeiras dívidas desaparecem depressa e cada uma que termina liberta mais dinheiro para a seguinte.</p>
 <p>Paga um pouco mais de juros, mas muita gente cumpre melhor o plano por ver resultados cedo. Um plano que se cumpre vale mais do que um plano perfeito que se abandona.</p>
+<h2>Repartir por todas</h2>
+<p>Uma terceira via é dividir o dinheiro extra por todas as dívidas, em proporção ao custo de cada uma. Termina mais tarde, mas reduz todas ao mesmo tempo, o que pode ajudar se precisa de baixar várias prestações em simultâneo.</p>
 <h2>Um exemplo</h2>
 <div class="tbl"><table><thead><tr><th>Dívida</th><th class="n">Saldo</th><th class="n">Taxa (TAN)</th><th class="n">Mínimo</th></tr></thead><tbody>
 <tr><td>Cartão de crédito</td><td class="n">1 800 €</td><td class="n">16%</td><td class="n">60 €</td></tr>
 <tr><td>Crédito pessoal</td><td class="n">4 300 €</td><td class="n">9%</td><td class="n">140 €</td></tr>
 <tr><td>Crédito automóvel</td><td class="n">9 900 €</td><td class="n">7%</td><td class="n">210 €</td></tr></tbody></table></div>
-<p>Com 150 € extra por mês, os dois métodos começam pelo cartão (é ao mesmo tempo o mais caro e o mais pequeno). A diferença aparece depois: neste caso coincidem, mas basta o crédito pessoal ter um saldo menor e uma taxa mais baixa do que o automóvel para os caminhos se separarem.</p>
-<h2>E a estratégia equilibrada?</h2>
-<p>Uma terceira via é repartir o dinheiro extra por todas as dívidas, em proporção ao custo de cada uma. Termina mais tarde do que as outras duas, mas reduz todas ao mesmo tempo, o que pode ajudar se quer baixar várias prestações em simultâneo.</p>
+<p>Com 150 € extra por mês, tanto a ordem pela taxa como a ordem pelo saldo começam pelo cartão, que é ao mesmo tempo o mais caro e o mais pequeno. Os caminhos só se separam quando a dívida mais cara não é a mais pequena: por exemplo, um crédito pessoal de 6 000 € a 12% e um cartão de 900 € a 10%.</p>
 <div class="caixa"><b>Antes de amortizar</b>Confirme no contrato a comissão de reembolso antecipado. Nos créditos aos consumidores ela tem limites legais e, em muitos casos, compensa na mesma, mas é um custo a pôr na conta.</div>
 <h2>O que escolher</h2>
-<ul><li>Se é disciplinado e quer pagar o mínimo de juros: <strong>avalanche</strong>.</li><li>Se já tentou antes e desistiu: <strong>bola de neve</strong>.</li><li>Em qualquer dos casos: não volte a usar o cartão que está a pagar.</li></ul>
-<div class="caixa"><b>No BXB</b>O simulador de amortização compara as três estratégias com as suas dívidas reais e mostra a data em que fica livre e os juros que poupa em cada uma.</div>`
+<ul><li>Se é disciplinado e quer pagar o mínimo de juros: comece pela <strong>taxa mais alta</strong>.</li><li>Se já tentou antes e desistiu: comece pelo <strong>saldo mais pequeno</strong>.</li><li>Em qualquer dos casos: não volte a usar o cartão que está a pagar.</li></ul>
+<div class="caixa"><b>No BXB</b>O plano para sair das dívidas compara várias estratégias com as suas dívidas reais e mostra, para cada uma, a data em que fica sem dívidas e os juros que paga.</div>`
 },
 {
   id: 'tan-taeg-mtic', cat: 'credito', data: '2026-10-30', min: 5,
