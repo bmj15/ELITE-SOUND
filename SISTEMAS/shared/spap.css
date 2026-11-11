@@ -417,9 +417,7 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
 @media (max-width:640px){
   /* Objetivos: nome em cima, estado por baixo; números e botões a toda a largura */
   .obj-topo{flex-wrap:wrap;gap:6px 8px}
-  .obj-topo>div:first-child{flex:1 1 100%}
-  .obj-topo>.badge{margin-left:0!important}
-  .obj-num{flex-direction:column;align-items:flex-start!important;gap:2px}
+  .obj-topo>h3{flex:1 1 100%}
   .obj-acoes{display:grid!important;grid-template-columns:1fr 1fr;gap:8px!important}
   .obj-acoes>.btn{justify-content:center;width:100%;min-height:38px}
   .obj-acoes>.btn.primary{grid-column:1/-1}
@@ -633,7 +631,7 @@ body.tq-aberto{overflow:hidden}
 .pp-ic svg{width:17px;height:17px}
 .pp-val{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin:2px 0 12px}
 .pp-val b{font-size:28px;font-weight:800;letter-spacing:-.03em;line-height:1.15;font-variant-numeric:tabular-nums}
-.pp-val span{font-size:13.5px;color:var(--muted)}
+.pp-val>span{font-size:13.5px;color:var(--muted)}
 .pp-barra{height:8px;margin:-2px 0 14px}
 .pp-lista{border-top:1px solid var(--line)}
 .pp-lista>div{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--line)}
@@ -645,3 +643,26 @@ body.tq-aberto{overflow:hidden}
 .pp-link{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;font-size:13.5px;font-weight:600;color:var(--text);text-decoration:none;transition:border-color .15s}
 .pp-link:hover{border-color:var(--accent)}
 .pp-link i{font-style:normal;font-size:20px;line-height:1;color:var(--muted)}
+
+/* Objetivos: o mesmo desenho dos cartões das Poupanças (ícone da categoria, valor em destaque, lista e botões em baixo) */
+.obj-topo{align-items:flex-start}
+.obj-topo>h3{min-width:0;align-items:flex-start!important}
+.obj-nome{display:block;min-width:0;line-height:1.3;padding-top:1px}
+.obj-nome small{display:block;margin-top:2px;font-size:12px;font-weight:400;color:var(--faint);letter-spacing:0}
+.obj-prog{display:flex;align-items:center;gap:12px;margin:-2px 0 14px}
+.obj-prog>.progress{flex:1;min-width:0;margin:0}
+.obj-prog>span{flex:none;min-width:36px;text-align:right;font-size:12.5px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.pp-val>.obj-estado{flex:none;display:inline-flex;align-items:center;gap:4px;margin-left:auto;align-self:center;white-space:nowrap;font-size:inherit}
+.obj-card .pp-lista span>svg{width:14px;height:14px;vertical-align:-2px;margin-right:2px;color:var(--muted)}
+.obj-extra{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.obj-acoes{gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:16px}
+/* Sugestões: ícone num quadrado com a cor do tipo */
+.sug-l{gap:12px;padding:12px 18px;border-top:1px solid var(--line);align-items:center}
+.sug-ic.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
+.sug-ic.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
+.sug-ic.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.sug-ic.info{color:var(--info);background:color-mix(in srgb,var(--info) 14%,transparent)}
+@media (max-width:640px){
+  .pp-val>.obj-estado{margin-left:0}
+  .sug-l{padding:12px 14px;gap:10px;flex-wrap:wrap}
+}
