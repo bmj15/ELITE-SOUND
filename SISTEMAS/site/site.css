@@ -544,11 +544,11 @@ section.curta{padding:clamp(48px,6vw,80px) 0}
 @media (min-width:980px) and (min-height:620px){
   html.snap{scroll-behavior:auto;scroll-padding-top:var(--hdr,118px);overscroll-behavior-y:none;scrollbar-width:none}
   html.snap::-webkit-scrollbar{display:none}
-  html.snap .tela{min-height:calc(100vh - var(--hdr,118px));display:flex;flex-direction:column;justify-content:center;padding:clamp(32px,6vh,72px) 0;box-sizing:border-box}
+  html.snap .tela{min-height:calc(var(--alto,100vh) - var(--hdr,118px));display:flex;flex-direction:column;justify-content:center;padding:clamp(32px,6vh,72px) 0;box-sizing:border-box}
   html.snap .tela>.wrap{width:100%}
   html.snap footer{margin-top:0}
   /* primeiro ecrã: só o carrossel, a ocupar tudo */
-  html.snap .ecra1{height:calc(100vh - var(--topo,162px));min-height:520px;display:flex;flex-direction:column}
+  html.snap .ecra1{height:calc(var(--alto,100vh) - var(--topo,162px));min-height:520px;display:flex;flex-direction:column}
   html.snap .ecra1 .carr{flex:1 1 auto;min-height:0;border-bottom:0}
   html.snap .ecra1 .faixa-s{height:100%}
   html.snap .ecra1 .slide{height:100%;min-height:0}
@@ -572,7 +572,7 @@ section.curta{padding:clamp(48px,6vw,80px) 0}
 /* ===== telemóvel a flutuar com o site real lá dentro (inspiração Revolut) ===== */
 html.embutido{scrollbar-width:none;scroll-behavior:auto}html.embutido::-webkit-scrollbar{display:none}
 .movel{position:relative;overflow:hidden;background:radial-gradient(55% 70% at 74% 52%,rgba(139,92,246,.16),transparent 70%),radial-gradient(35% 45% at 90% 85%,rgba(34,211,238,.1),transparent 70%),var(--bg)}
-.mv{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(30px,5vw,90px);align-items:center;--tel-h:clamp(440px,calc(100vh - var(--hdr,120px) - 190px),740px)}
+.mv{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(30px,5vw,90px);align-items:center;--tel-h:clamp(440px,calc(var(--alto,100vh) - var(--hdr,120px) - 190px),740px)}
 .mv-h{font-size:clamp(40px,4.4vw,78px);line-height:1.02;letter-spacing:-.045em}
 .mv-p{font-size:clamp(16px,1.25vw,19px);color:var(--muted);max-width:540px;margin:22px 0 22px;line-height:1.6}
 .mv-pts{list-style:none;padding:0;margin:0 0 30px;display:grid;gap:12px}
@@ -851,7 +851,13 @@ a:hover .capa.foto-a img{transform:scale(1.07)}
   footer .g>div.ab ul{display:block}
 }
 
-@media(pointer:coarse){html.snap .seg-x:not(.vis) .anim{opacity:1}html.snap .seg-x.sai{opacity:1;filter:none;transform:none}html.snap .seg-x{touch-action:pan-x;touch-action:pan-x pinch-zoom}}
+/* ecrã tátil: sem efeito de aparecer (a passagem é o próprio deslize) e sem scroll livre nos segmentos */
+html.snap.tatil .seg-x{transition:none;touch-action:pan-x;touch-action:pan-x pinch-zoom}
+html.snap.tatil .seg-x.vis,html.snap.tatil .seg-x.vis .anim{animation:none}
+html.snap.tatil .seg-x:not(.vis) .anim{opacity:1}
+html.snap.tatil .seg-x.sai{opacity:1;filter:none;transform:none}
+/* segmento com conteúdo a mais: menos margem em cima e em baixo (o JS reduz o resto) */
+html.snap .tela.ajusta{padding-top:20px;padding-bottom:20px}
 
 /* Entrar e abrir conta: faixa sob o cabeçalho, sem sair da página */
 .acesso[hidden]{display:none}

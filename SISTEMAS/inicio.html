@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="/SISTEMAS/site/pais.js?v=2"></script>
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=21">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=22">
 <script>if (/^\/empresas/.test((window.BXB_CAMINHO || location.pathname))) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
@@ -248,6 +248,7 @@
   function irSeg(i, ja) {
     i = Math.max(0, Math.min(secs.length - 1, i));
     if (!ativo() || ja || reduz) { scrollTo(0, alvo(i)); marcar(i); return; }
+    if (raiz.classList.contains('tatil')) { if (ocupado) return; ocupado = true; idx = i; scrollTo({ top: alvo(i), behavior: 'smooth' }); setTimeout(function () { ocupado = false; marcar(i); }, 650); return; }
     if (i === idx || ocupado) return;
     ocupado = true;
     var saem = secs.filter(function (s) { return s.classList.contains('vis'); });
@@ -258,9 +259,23 @@
       setTimeout(function () { ocupado = false; esperar = true; }, 560);
     }, 360);
   }
+  // segmento com mais conteúdo do que o ecrã: reduz o conteúdo (até 72%) para caber inteiro, sem cortar nada
+  function ajustar() {
+    secs.forEach(function (s) {
+      var w = s.classList.contains('tela') && s.querySelector(':scope > .wrap'); if (!w) return;
+      w.style.zoom = ''; w.style.width = ''; s.classList.remove('ajusta');
+      if (!ativo()) return;
+      var util = innerHeight - hdr; if (s.offsetHeight <= util + 2) return;
+      s.classList.add('ajusta');
+      var pad = parseFloat(getComputedStyle(s).paddingTop) * 2, z = Math.max(.72, Math.min(1, (util - pad - 4) / w.offsetHeight));
+      if (z < 1) { w.style.zoom = z; w.style.width = (100 / z) + '%'; }
+    });
+  }
   function medir() { var nav = document.getElementById('nav'), av = document.getElementById('aviso');
     hdr = nav.offsetHeight; raiz.style.setProperty('--hdr', hdr + 'px'); raiz.style.setProperty('--topo', (hdr + (av ? av.offsetHeight : 0)) + 'px');
+    raiz.style.setProperty('--alto', innerHeight + 'px');
     var era = ativo(); raiz.classList.toggle('snap', mq.matches);
+    ajustar();
     if (ativo()) { if (era) scrollTo(0, alvo(idx)); marcar(era ? idx : maisPerto()); } else secs.forEach(function (s) { s.classList.remove('sai'); }); }
   try { history.scrollRestoration = 'manual'; } catch (e) { }
   if (!location.hash && mq.matches) scrollTo(0, 0);
@@ -306,6 +321,7 @@
   // cada deslize do dedo avança um passo, sempre: o segmento seguinte, ou o resto do segmento quando é mais alto do que o ecrã.
   // o CSS impede o scroll livre do navegador nos segmentos, para os dois nunca se misturarem.
   var toque = null;
+  if (matchMedia('(pointer:coarse)').matches) raiz.classList.add('tatil');
   function paragens() {
     var util = innerHeight - hdr, max = raiz.scrollHeight - innerHeight, p = [];
     var junta = function (y, k) { y = Math.max(0, Math.min(max, Math.round(y))); if (!p.length || y > p[p.length - 1].y + 40) p.push({ y: y, k: k }); };
@@ -328,6 +344,7 @@
     setTimeout(function () { ocupado = false; marcar(p[j].k); }, reduz ? 60 : 650);
   }
   addEventListener('touchstart', function (e) {
+    raiz.classList.add('tatil');
     if (!ativo() || aberto() || e.touches.length !== 1 || e.target.closest('input,select,textarea,.sim-nav,.pesq,.sub-m')) { toque = null; return; }
     toque = { x: e.touches[0].clientX, y: e.touches[0].clientY, eixo: null, feito: false };
   }, { passive: true });
