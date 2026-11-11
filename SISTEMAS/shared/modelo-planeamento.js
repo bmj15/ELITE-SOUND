@@ -2020,7 +2020,7 @@ function parametrosPlano(v, T, modo = 'par') {
 }
 /* ---------- Poupanças ----------
    Página de indicadores: quanto se põe de lado por mês, a taxa de poupança, o fundo de emergência e a evolução
-   nos próximos 24 meses. As escolhas (fundo, poupança mensal, amortização extra) ajustam-se pelo [+], em modais. */
+   nos próximos 24 meses. Cada cartão (fundo, poupança mensal, amortização extra) tem o seu lápis para alterar. */
 const cSeg = (k, ops) => `<div class="tabs" data-seg="${k}" style="flex-wrap:wrap;width:max-content;max-width:100%">${ops.map(([val, rot]) => `<button type="button" data-v="${esc(String(val))}">${rot}</button>`).join('')}</div>`;
 const cRng = (k, min, max, step) => `<div class="pf-rng"><input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}"><output data-out="${k}"></output></div>`;
 const cEur = k => `<span class="pf-eur"><input class="inp num" type="number" step="any" min="0" data-k="${k}" placeholder="0,00"></span>`;
@@ -2108,7 +2108,7 @@ function poupancas(v) {
   // um só quadro no topo; o fundo, a poupança e as dívidas têm cada um o seu cartão em baixo
   v.innerHTML = `<div>
       ${kpi(`${icon('target')} Poupa este mês`, eur(mes), `<b class="${taxaCls}">${pct(taxa)}</b> do rendimento (recomendado ≥ ${pct(BENCH.poupMin)}) · poupança ${eur(p0.poup)} · fundo ${eur(p0.fundoMes)} · extra ${eur(extra)}`, '', true)}</div>
-    <div class="grid g2" style="margin-top:16px;align-items:stretch">
+    <div class="grid g3" style="margin-top:16px;align-items:stretch">
       <div class="card"><div class="card-h"><h3>${icon('shield')} Fundo de emergência</h3>${ajustar('fundo')}</div>
         ${alvo ? `<div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(saldoF)}</span><span class="muted">de ${eur(alvo)}</span></div>
         <div class="progress" style="height:10px"><i style="width:${r2(fr * 100)}%"></i></div>
@@ -2125,14 +2125,11 @@ function poupancas(v) {
           <div><div class="faint" style="font-size:12px">Em 12 meses</div><b>${eur(em12.acc)}</b><div class="faint" style="font-size:12px">acumulado</div></div>
           <div><div class="faint" style="font-size:12px">Em 24 meses</div><b>${eur((P[P.length - 1] || { acc: 0 }).acc)}</b><div class="faint" style="font-size:12px">acumulado</div></div></div>
         <div class="faint" style="font-size:12px;margin-top:12px">Sai primeiro, antes dos <a href="#/objetivos">objetivos</a> e da amortização extra.</div>`
-        : `<div class="empty">Não separa poupança todos os meses.${ed ? ' Use o lápis para pôr de parte um valor fixo ou uma percentagem.' : ''}</div>`}</div></div>
-    <div class="grid g2" style="margin-top:16px;grid-template-columns:2fr 1fr;align-items:stretch">
-      <div class="card pp-evol"><div class="card-h"><h3>Evolução</h3><span class="sub">próximos 24 meses</span></div><div id="chp"></div></div>
+        : `<div class="empty">Não separa poupança todos os meses.${ed ? ' Use o lápis para pôr de parte um valor fixo ou uma percentagem.' : ''}</div>`}</div>
       <div class="card"><div class="card-h"><h3>${icon('credit')} Dívidas</h3>${ajustar('extra')}</div>
         <div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(extra)}</span><span class="muted">extra por mês</span></div>
         <div class="faint" style="font-size:12.5px">Além do que sobrar em cada mês. Prestações atuais: ${eur(prestacoesMensais())}/mês.</div>
         <div style="margin-top:14px"><a href="#/simulador">Ver no Simulador de estratégias</a></div></div></div>`;
-  if (P.length) chart.linha(v.querySelector('#chp'), { labels: P.map(x => `${MES3[+x.ym.slice(5) - 1]} ${x.ym.slice(2, 4)}`), series: [{ name: 'Fundo de emergência', values: P.map(x => x.fundo) }, { name: 'Poupança acumulada', values: P.map(x => x.acc) }] });
   v.querySelectorAll('[data-aj]').forEach(b => b.onclick = () => ajustarPoupanca(b.dataset.aj));
 }
 function simulador(v) {
