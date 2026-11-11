@@ -1047,6 +1047,7 @@ SPAP.createApp = function (cfg) {
             <button class="btn ghost sm" id="b-out" title="Terminar sessão">${icon('logout')}</button>
           </div>
           ${cfg.outroSistema ? `<a class="btn ghost sm" style="margin-top:8px;width:100%" href="${cfg.outroSistema.href}">${icon('swap')} ${esc(cfg.outroSistema.label)}</a>` : ''}
+          ${contaSite() ? `<div class="side-links"><a href="/SISTEMAS/conta.html">${icon('user')}<span>A minha conta</span></a>${(contaSite().areas || []).length > 1 ? `<a href="/SISTEMAS/index.html?trocar=1">${icon('swap')}<span>Trocar de área</span></a>` : ''}${contaSite().admin ? `<a href="/SISTEMAS/acessos.html">${icon('shield')}<span>Administração</span></a>` : ''}</div>` : ''}
         </div></aside><div class="side-veu" id="side-veu"></div>
       <main><header class="top">
         <button class="btn ghost icon menu-btn" id="b-menu" title="Mostrar ou esconder o menu" aria-label="Mostrar ou esconder o menu">${icon('menu')}</button>

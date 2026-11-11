@@ -1,4 +1,9 @@
 @echo off
+if exist "%~dp0BXB Gestor.exe" (
+  start "" "%~dp0BXB Gestor.exe"
+  exit /b
+)
+
 rem Corre a partir de uma copia temporaria: assim a atualizacao pelo git pode
 rem substituir este ficheiro sem baralhar a execucao.
 if not "%~1"=="--copia" (

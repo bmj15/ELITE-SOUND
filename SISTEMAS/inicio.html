@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="/SISTEMAS/site/pais.js?v=2"></script>
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=19">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=20">
 <script>if (/^\/empresas/.test((window.BXB_CAMINHO || location.pathname))) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
@@ -16,7 +16,7 @@
 <script src="/SISTEMAS/site/artigos.js?v=7"></script>
 <script src="/SISTEMAS/site/ajuda.js?v=4"></script>
 <script>if (document.documentElement.dataset.seg) { document.body.dataset.seg = 'empresa'; document.title = 'BXB Empresas · Pagamentos autorizados e tesouraria'; }</script>
-<script src="/SISTEMAS/site/site.js?v=9"></script>
+<script src="/SISTEMAS/site/site.js?v=10"></script>
 <script>
 (function () {
   'use strict';
@@ -266,7 +266,7 @@
   raiz.classList.add('parado'); medir(); setTimeout(function () { raiz.classList.remove('parado'); }, 60);
   addEventListener('resize', medir);
   new MutationObserver(medir).observe(document.body, { childList: true });
-  var aberto = function () { return document.querySelector('.pesq.on, .painel.on, .menu-m.on'); };
+  var aberto = function () { return document.querySelector('.pesq.on, .painel.on, .menu-m.on, #acessoPainel:not([hidden])'); };
   // zona livre: do último segmento até ao rodapé o scroll é normal; ao subir acima do último segmento volta a troca por desvanecimento
   var ULT = secs.length - (rod ? 2 : 1);
   function livre(dy) {
@@ -301,7 +301,25 @@
     if (e.key === 'End') { e.preventDefault(); return irSeg(secs.length - 1); }
     if (m) { var z = livre(m * innerHeight * .4); if (z === true) return; e.preventDefault(); if (z !== 'fim') irSeg(idx + m); }
   });
-  var tSc = null; addEventListener('scroll', function () { if (!ativo() || ocupado) return; clearTimeout(tSc); tSc = setTimeout(function () { if (!ocupado) marcar(maisPerto()); }, 160); }, { passive: true });
+  var toque = null;
+  addEventListener('touchstart', function (e) {
+    if (!ativo() || aberto() || e.touches.length !== 1 || e.target.closest('input,select,textarea,button,a,.sim-nav')) { toque = null; return; }
+    toque = { x: e.touches[0].clientX, y: e.touches[0].clientY, scroll: scrollY, idx: maisPerto(), feito: false };
+  }, { passive: true });
+  addEventListener('touchmove', function (e) {
+    if (!toque || e.touches.length !== 1) return;
+    var dy = toque.y - e.touches[0].clientY, dx = toque.x - e.touches[0].clientX;
+    if (Math.abs(dy) < 12 || Math.abs(dx) > Math.abs(dy)) return;
+    var s = secs[toque.idx], r = s.getBoundingClientRect(), longo = r.height > innerHeight - hdr + 24;
+    // só um segmento mais alto do que o ecrã (ou a zona do rodapé) faz scroll normal até à borda; os outros trocam com o deslizar do dedo
+    if (longo && ((dy > 0 && r.bottom > innerHeight + 4) || (dy < 0 && r.top < hdr - 4))) return;
+    var z = livre(dy); if (z === true) return;
+    e.preventDefault();
+    if (z !== 'fim' && !toque.feito && Math.abs(dy) > 40) { toque.feito = true; irSeg(toque.idx + (dy > 0 ? 1 : -1)); }
+  }, { passive: false });
+  addEventListener('touchend', function () { toque = null; }, { passive: true });
+  addEventListener('touchcancel', function () { toque = null; }, { passive: true });
+  var tSc = null; addEventListener('scroll', function () { if (!ativo() || ocupado) return; marcar(maisPerto()); clearTimeout(tSc); tSc = setTimeout(function () { if (!ocupado) marcar(maisPerto()); }, 160); }, { passive: true });
   function secDe(el) { for (var k = 0; k < secs.length; k++) if (secs[k].contains(el)) return k; return -1; }
   document.addEventListener('click', function (e) {
     if (!ativo()) return;

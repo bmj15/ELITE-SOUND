@@ -98,17 +98,12 @@ const params = new URLSearchParams(location.search), pagina = location.pathname;
 const sistemaPagina = /\/bxb-investimentos\//.test(pagina) ? 'bxb' : /\/subsidiaria\//.test(pagina) ? (params.get('s') || (sessao.sistemas || [])[0] || '-') : /\/elite-sound\//.test(pagina) ? 'elite' : null;
 const semAcesso = sistemaPagina && !podeVer(sistemaPagina);
 
-/* ---------- identificação da sessão (canto do ecrã) ---------- */
+/* ---------- página de um sistema sem acesso para esta conta ---------- */
 document.addEventListener('DOMContentLoaded', () => {
   if (semAcesso) {
     document.body.innerHTML = `<div style="min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center;font-family:Inter,system-ui,sans-serif;background:#07090d;color:#e9edf5"><div><h1 style="margin:0 0 8px">Sem acesso</h1><p style="opacity:.75">Esta área não pertence à conta <b>${(sessao.email || sessao.nome).replace(/</g, '&lt;')}</b>.</p><a href="/SISTEMAS/index.html" style="color:#c3a6ff">Ir para a minha área</a></div></div>`;
     return;
   }
-  const chip = document.createElement('div');
-  chip.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:9998;padding:6px 10px;border-radius:999px;background:rgba(20,24,34,.88);color:#cfd6e4;font:500 12px/1 Inter,system-ui,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 4px 18px rgba(0,0,0,.3)';
-  chip.innerHTML = `<span title="Sessão iniciada">● ${sessao.nome.replace(/</g, '&lt;')}</span>${(sessao.areas || []).length > 1 ? '<a href="/SISTEMAS/index.html?trocar=1" style="color:#c3a6ff;text-decoration:none">Trocar de área</a>' : ''}<a href="/SISTEMAS/conta.html" style="color:#c3a6ff;text-decoration:none">A minha conta</a>${sessao.admin ? '<a href="/SISTEMAS/acessos.html" style="color:#c3a6ff;text-decoration:none">Administração</a>' : ''}<a href="#" id="bxb-sair" style="color:#c3a6ff;text-decoration:none">Sair</a>`;
-  document.body.appendChild(chip);
-  chip.querySelector('#bxb-sair').onclick = e => { e.preventDefault(); pedido('POST', '/api/sair', {}); location.replace(ENTRAR); };
 });
 // chaves disponíveis para esta conta (ex.: para encontrar as partilhas em que é membro)
 const chaves = () => [...mem.keys()];

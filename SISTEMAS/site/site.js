@@ -59,7 +59,7 @@ var acoes = '<div class="acoes" id="acoes"><button class="btn btn-o" type="butto
 var subM = ['particular', 'empresa'].map(function (k) {
   var L = SUB[k], d = (window.ARTIGOS || []).filter(function (x) { return x.id === L.dest; })[0];
   var col = function (tit, itens) { return '<div class="sub-col"><b>' + tit + '</b>' + itens.join('') + '</div>'; };
-  return '<div class="sub-m" data-sm="' + k + '"><div class="wrap"><div class="sub-cols">' +
+  return '<div class="sub-m" data-sm="' + k + '"><div class="wrap"><a class="sub-ir" href="' + (k === 'empresa' ? '/empresas' : '/') + '">' + (k === 'empresa' ? 'Página de Empresas' : 'Página de Particulares') + ' ›</a><div class="sub-cols">' +
     col('Simuladores', L.fer.map(function (x) { return '<a href="' + x[0] + '">' + x[2] + '</a>'; }).concat('<a class="ver" href="/simuladores">Todos os simuladores ›</a>')) +
     L.grupos.map(function (g, i) { var it = g[1].map(function (x) { return '<a href="' + A_ + x[0] + '">' + x[1] + '</a>'; });
       if (i === L.grupos.length - 1) it.push('<a class="ver" href="/artigos' + (k === 'empresa' ? '?c=empresas' : '') + '">Todos os artigos ›</a>');
@@ -102,9 +102,11 @@ function abrirSub(k) { clearTimeout(tSub);
   document.querySelectorAll('[data-sd]').forEach(function (a) { var on = a.dataset.sd === k; a.classList.toggle('ab', on); a.setAttribute('aria-expanded', on); }); }
 function fecharSub(ms) { clearTimeout(tSub); tSub = setTimeout(function () { abrirSub(null); }, ms || 0); }
 document.querySelectorAll('[data-sd]').forEach(function (a) {
-  a.addEventListener('mouseenter', function () { if (!a.classList.contains('ab')) { document.querySelectorAll('.pais-m.on').forEach(function (e) { e.classList.remove('on'); }); dEnt.classList.remove('on'); } abrirSub(a.dataset.sd); });
-  a.addEventListener('mouseleave', function () { fecharSub(220); });
-  a.addEventListener('focus', function () { abrirSub(a.dataset.sd); });
+  a.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'mouse') return; if (!matchMedia('(hover:hover) and (pointer:fine)').matches) return; if (!a.classList.contains('ab')) { document.querySelectorAll('.pais-m.on').forEach(function (e) { e.classList.remove('on'); }); dEnt.classList.remove('on'); } abrirSub(a.dataset.sd); });
+  a.addEventListener('mouseleave', function () { if (matchMedia('(hover:hover) and (pointer:fine)').matches) fecharSub(220); });
+  // ecrã tátil: tocar abre ou fecha o menu (nunca salta para a página; o menu tem a ligação para ela)
+  a.addEventListener('click', function (e) { if (e.pointerType === 'touch' || e.pointerType === 'pen' || !matchMedia('(hover:hover) and (pointer:fine)').matches) { e.preventDefault(); e.stopPropagation();
+    if (a.classList.contains('ab')) { abrirSub(null); return; } document.querySelectorAll('.pais-m.on').forEach(function (x) { x.classList.remove('on'); }); dEnt.classList.remove('on'); abrirSub(a.dataset.sd); } });
   a.addEventListener('keydown', function (e) { if (e.key === 'ArrowDown') { e.preventDefault(); abrirSub(a.dataset.sd); var l = document.querySelector('.sub-m.on a'); if (l) l.focus(); } });
 });
 document.querySelectorAll('.sub-m').forEach(function (p) {
@@ -177,3 +179,5 @@ fetch('/api/estado', { credentials: 'same-origin' }).then(function (r) { return 
 }).catch(function () { });
 window.Site = { revelar: revelar, seg: seg, esc: esc, ic: ic, pais: pais, T: T, band: BAND };
 })();
+
+;(() => { const s=document.createElement('script');s.src='/SISTEMAS/site/acesso.js?v=3';document.body.appendChild(s); })();
