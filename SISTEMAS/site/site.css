@@ -555,12 +555,12 @@ section.curta{padding:clamp(48px,6vw,80px) 0}
   html.snap .tela>.wrap{width:100%}
   html.snap footer{margin-top:0}
   /* primeiro ecrã: só o carrossel, a ocupar tudo */
-  html.snap .ecra1{height:calc(var(--alto,100vh) - var(--topo,162px));min-height:520px;display:flex;flex-direction:column}
+  html.snap .ecra1{height:calc(var(--alto,100vh) - var(--topo,162px));min-height:520px;display:flex;flex-direction:column;padding:0}
   html.snap .ecra1 .carr{flex:1 1 auto;min-height:0;border-bottom:0}
   html.snap .ecra1 .faixa-s{height:100%}
   html.snap .ecra1 .slide{height:100%;min-height:0}
-  html.snap .ecra1 .slide .wrap{padding-top:clamp(24px,5vh,56px);padding-bottom:clamp(96px,13vh,128px)}
-  html.snap .ecra1 .carr-c{bottom:clamp(32px,5vh,52px)}
+  html.snap .ecra1 .slide .wrap{padding-top:clamp(48px,9vh,96px);padding-bottom:clamp(48px,9vh,96px)}
+  html.snap .ecra1 .carr-c{bottom:clamp(16px,3vh,30px)}
   html.snap .ecra1 .slide h1,html.snap .ecra1 .slide h2.h{font-size:clamp(38px,min(4.6vw,7.4vh),76px)}
   html.snap .ecra1 .slide p{font-size:clamp(16px,min(1.35vw,2.3vh),20px)}
   html.snap .ecra1 .slide .arte{transform-origin:right center}
@@ -859,10 +859,17 @@ a:hover .capa.foto-a img{transform:scale(1.07)}
 }
 
 /* ecrã tátil: sem efeito de aparecer (a passagem é o próprio deslize) e sem scroll livre nos segmentos */
-html.snap.tatil .seg-x{transition:none;touch-action:pan-x;touch-action:pan-x pinch-zoom}
-html.snap.tatil .seg-x.vis,html.snap.tatil .seg-x.vis .anim{animation:none}
-html.snap.tatil .seg-x:not(.vis) .anim{opacity:1}
-html.snap.tatil .seg-x.sai{opacity:1;filter:none;transform:none}
+html.snap.tatil .seg-x{touch-action:pan-x;touch-action:pan-x pinch-zoom}
+/* efeitos reduzidos automaticamente quando o aparelho mostra lentidão: fx1 sem desfoque, fx0 sem efeitos */
+html.snap.fx1 .seg-x{transition:opacity .26s ease,transform .26s ease}
+html.snap.fx1 .seg-x.sai{filter:none}
+html.snap.fx1 .seg-x.vis{animation:seg-entra-leve .45s ease both}
+html.snap.fx1 .seg-x.vis .anim{animation:anim-entra-leve .6s cubic-bezier(.16,.84,.3,1) both;animation-delay:calc(var(--k,0) * 50ms + 60ms)}
+@keyframes seg-entra-leve{from{opacity:0}to{opacity:1}}
+@keyframes anim-entra-leve{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+html.snap.fx0 .seg-x,html.snap.fx0 .seg-x .anim{transition:none;animation:none}
+html.snap.fx0 .seg-x:not(.vis) .anim{opacity:1}
+html.snap.fx0 .seg-x.sai{opacity:1;filter:none;transform:none}
 /* segmento com conteúdo a mais: menos margem em cima e em baixo (o JS reduz o resto) */
 html.snap .tela.ajusta{padding-top:20px;padding-bottom:20px}
 

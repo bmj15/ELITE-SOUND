@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="/SISTEMAS/site/pais.js?v=2"></script>
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=23">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=25">
 <script>if (/^\/empresas/.test((window.BXB_CAMINHO || location.pathname))) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
@@ -248,16 +248,40 @@
   function irSeg(i, ja) {
     i = Math.max(0, Math.min(secs.length - 1, i));
     if (!ativo() || ja || reduz) { scrollTo(0, alvo(i)); marcar(i); return; }
-    if (raiz.classList.contains('tatil')) { if (ocupado) return; ocupado = true; idx = i; scrollTo({ top: alvo(i), behavior: 'smooth' }); setTimeout(function () { ocupado = false; marcar(i); }, 650); return; }
     if (i === idx || ocupado) return;
+    trocar(i, alvo(i));
+  }
+  // troca de segmento com efeito: o atual desvanece, o seguinte entra e o conteúdo aparece por ordem
+  function trocar(i, y) {
     ocupado = true;
+    if (fx === 0) { scrollTo(0, y); marcar(i); setTimeout(function () { ocupado = false; esperar = true; }, 120); return; }
+    medirFluidez();
     var saem = secs.filter(function (s) { return s.classList.contains('vis'); });
     saem.forEach(function (s) { s.classList.add('sai'); });
     setTimeout(function () {
       saem.forEach(function (s) { s.classList.remove('sai', 'vis'); });
-      scrollTo(0, alvo(i)); void raiz.offsetHeight; marcar(i);
+      scrollTo(0, y); void raiz.offsetHeight; marcar(i);
       setTimeout(function () { ocupado = false; esperar = true; }, 560);
-    }, 360);
+    }, fx === 1 ? 260 : 360);
+  }
+  // efeitos especiais: 2 = todos, 1 = sem desfoque (mais leve), 0 = nenhum. Se o aparelho mostrar lentidão nas trocas,
+  // desce um nível sozinho e lembra-se disso neste aparelho.
+  var fx = 2, lentas = 0;
+  try { var fxG = localStorage.getItem('bxb:efeitos'); if (fxG === '0' || fxG === '1') fx = +fxG; } catch (e) { }
+  function aplicarFx() { raiz.classList.toggle('fx1', fx === 1); raiz.classList.toggle('fx0', fx === 0); }
+  aplicarFx();
+  function medirFluidez() {
+    if (fx === 0 || document.visibilityState !== 'visible' || !window.requestAnimationFrame) return;
+    var ini = performance.now(), ant = ini, n = 0, longos = 0;
+    (function quadro(t) {
+      if (n++) { if (t - ant > 50) longos++; }
+      ant = t;
+      if (t - ini < 900) return requestAnimationFrame(quadro);
+      if (n < 6) return; // sem quadros: separador escondido, não é lentidão
+      var fps = n / ((t - ini) / 1000);
+      if (fps < 40 || longos >= 3) { if (++lentas >= 2) { fx--; lentas = 0; aplicarFx(); try { localStorage.setItem('bxb:efeitos', String(fx)); } catch (e) { } } }
+      else lentas = 0;
+    })(ini);
   }
   // segmento com mais conteúdo do que o ecrã: reduz o conteúdo (até 72%) para caber inteiro, sem cortar nada
   function ajustar() {
@@ -339,6 +363,8 @@
     if (dir > 0) { for (i = 0; i < p.length; i++) if (p[i].y > scrollY + 3) { j = i; break; } }
     else { for (i = p.length - 1; i >= 0; i--) if (p[i].y < scrollY - 3) { j = i; break; } }
     if (j < 0) return;
+    var atual = 0, d = 1e9; p.forEach(function (x) { var dd = Math.abs(x.y - scrollY); if (dd < d) { d = dd; atual = x.k; } });
+    if (p[j].k !== atual && !reduz) { trocar(p[j].k, p[j].y); return; }
     ocupado = true; idx = p[j].k;
     scrollTo({ top: p[j].y, behavior: reduz ? 'auto' : 'smooth' });
     setTimeout(function () { ocupado = false; marcar(p[j].k); }, reduz ? 60 : 650);
