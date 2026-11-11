@@ -7,7 +7,7 @@
 <meta name="description" content="Planeamento financeiro pessoal e gestão de tesouraria para empresas, com autorizações assinadas.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=7">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=8">
 <script>if (/^\/empresas/.test(location.pathname)) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
@@ -153,14 +153,12 @@
       var filhos = f.matches('.cab-s, .sim4, .faq6, .aj3, .dicas, .bloco-z, .dest-c, .mv') ? [].slice.call(f.children) : [f];
       filhos.forEach(function (el) { el.classList.add('anim'); el.style.setProperty('--k', Math.min(k++, 9)); }); });
     if (s.classList.contains('tela') && !s.id) { var a = s.querySelector('[id]'); if (a) s.dataset.alvo = a.id; } });
-  var nomes = secs.map(function (s, i) { if (!i) return 'Início'; if (s === rod) return 'Mapa do site'; var t = s.querySelector('.sobre-t'); return t ? t.textContent : ''; });
-  document.body.insertAdjacentHTML('beforeend', '<nav class="pontos" id="pontos" aria-label="Secções da página">' + nomes.map(function (n, i) { return '<button type="button" data-i="' + i + '" aria-label="' + esc(n) + '"><span>' + esc(n) + '</span></button>'; }).join('') + '</nav>');
-  var pts = [].slice.call(document.querySelectorAll('#pontos button')), idx = 0, ocupado = false, esperar = false, ultW = 0, acum = 0, hdr = 0;
+  var idx = 0, ocupado = false, esperar = false, ultW = 0, acum = 0, hdr = 0;
   function ativo() { return raiz.classList.contains('snap'); }
   function alvo(i) { var max = raiz.scrollHeight - innerHeight; if (!i) return 0; if (secs[i] === rod) return max;
     return Math.min(max, Math.round(secs[i].getBoundingClientRect().top + scrollY - hdr)); }
   function maisPerto() { var b = 0, d = 1e9; secs.forEach(function (s, i) { var x = Math.abs(alvo(i) - scrollY); if (x < d) { d = x; b = i; } }); return b; }
-  function marcar(i) { idx = i; pts.forEach(function (p, k) { p.classList.toggle('on', k === i); });
+  function marcar(i) { idx = i;
     secs.forEach(function (s) { var r = s.getBoundingClientRect(); s.classList.toggle('vis', r.top < innerHeight - 40 && r.bottom > hdr + 40); }); }
   function irSeg(i, ja) {
     i = Math.max(0, Math.min(secs.length - 1, i));
@@ -210,7 +208,6 @@
   document.addEventListener('click', function (e) {
     if (!ativo()) return;
     if (e.target.closest('#subir')) { e.preventDefault(); e.stopImmediatePropagation(); return irSeg(0); }
-    var p = e.target.closest('#pontos button'); if (p) return irSeg(+p.dataset.i);
     var a = e.target.closest('a[href*="#"]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return;
     var u = new URL(a.href, location.href); if (u.pathname !== location.pathname || !u.hash) return;
     var el = document.getElementById(u.hash.slice(1)), k = el ? secDe(el) : -1; if (k < 0) return;
