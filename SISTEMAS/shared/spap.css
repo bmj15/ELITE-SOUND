@@ -405,3 +405,15 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
 .pp-div b{font-size:14.5px;color:var(--text);font-variant-numeric:tabular-nums}
 .pp-div b.pos{color:var(--ok)}.pp-div b.neg{color:var(--bad)}
 @media (max-width:640px){.pp-div{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
+@media (max-width:640px){
+  /* Objetivos: nome em cima, estado por baixo; números e botões a toda a largura */
+  .obj-topo{flex-wrap:wrap;gap:6px 8px}
+  .obj-topo>div:first-child{flex:1 1 100%}
+  .obj-topo>.badge{margin-left:0!important}
+  .obj-num{flex-direction:column;align-items:flex-start!important;gap:2px}
+  .obj-acoes{display:grid!important;grid-template-columns:1fr 1fr;gap:8px!important}
+  .obj-acoes>.btn{justify-content:center;width:100%;min-height:38px}
+  .obj-acoes>.btn.primary{grid-column:1/-1}
+  .obj-acoes>.btn.ghost{border:1px solid var(--line)}
+  .obj-acoes>.btn:not(.primary):last-child:nth-child(even){grid-column:1/-1}
+}
