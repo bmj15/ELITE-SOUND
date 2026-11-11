@@ -92,7 +92,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>No BXB</b>Ao registar uma despesa paga a prestações pelo cartão, o plano calcula mês a mês a prestação, os juros e o imposto do selo, e mostra quando fica liquidada.</div>`
 },
 {
-  id: 'deducoes-irs-e-fatura', foto: '1554224154-26032ffc0d07', cat: 'impostos', data: '2026-10-15', min: 6,
+  id: 'deducoes-irs-e-fatura', foto: '1762265591492-1454ae17f31a', cat: 'impostos', data: '2026-10-15', min: 6,
   titulo: 'Deduções no IRS: o que confirmar no e-Fatura antes do prazo',
   resumo: 'Uma parte do reembolso decide-se muito antes da entrega da declaração. Veja o que deve verificar e porque é que as faturas pendentes importam.',
   corpo: `
