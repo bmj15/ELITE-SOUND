@@ -355,22 +355,22 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .m-colapso.aberto .m-resumo::after{transform:rotate(90deg)}
   .m-colapso:not(.aberto)>:not(.card-h,.m-capa){display:none}
   .m-colapso.aberto>.m-capa{display:none}
-  /* cartão fechado com capa: ocupa o resto do ecrã, com o conteúdo distribuído na vertical */
-  .m-colapso:not(.aberto):has(>.m-capa){display:flex;flex-direction:column;min-height:var(--m-alt,380px);cursor:pointer}
-  .m-colapso:not(.aberto)>.m-capa{display:flex;flex-direction:column;justify-content:space-between;gap:18px;flex:1;padding:6px 16px 16px}
+  /* cartão fechado com capa: compacto; se a página couber no ecrã e sobrar espaço, estica e centra o conteúdo */
+  .m-colapso:not(.aberto):has(>.m-capa){display:flex;flex-direction:column;min-height:var(--m-alt,0);cursor:pointer}
+  .m-colapso:not(.aberto)>.m-capa{display:flex;flex-direction:column;justify-content:center;gap:12px;flex:1;padding:4px 14px 14px}
   .m-capa-n{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .m-capa-n>div{background:var(--panel2);border-radius:12px;padding:14px}
+  .m-capa-n>div{background:var(--panel2);border-radius:12px;padding:10px 12px}
   .m-capa-n span,.m-capa-t{display:block;font-size:12px;color:var(--muted)}
-  .m-capa-n b{display:block;font-size:28px;font-weight:750;letter-spacing:-.6px;margin-top:4px;font-variant-numeric:tabular-nums}
+  .m-capa-n b{display:block;font-size:24px;font-weight:750;letter-spacing:-.6px;margin-top:4px;font-variant-numeric:tabular-nums}
   .m-capa-at{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad);font-size:13.5px;font-weight:600}
   .m-capa-at svg{width:16px;height:16px;flex:none}
   .m-capa-l{display:flex;flex-direction:column;gap:2px}
   .m-capa-t{margin-bottom:6px}
-  .m-capa-l>div{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:15px}
+  .m-capa-l>div{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:15px}
   .m-capa-l>div:last-child{border-bottom:0}
   .m-capa-l small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
   .m-capa-l b{font-variant-numeric:tabular-nums}
-  .m-capa-ver{text-align:center;padding:12px;border-radius:12px;border:1px solid var(--line);font-weight:600;font-size:14.5px;color:var(--accent)}
+  .m-capa-ver{text-align:center;padding:9px;border-radius:12px;border:1px solid var(--line);font-weight:600;font-size:14.5px;color:var(--accent)}
   .m-colapso.aberto:not(.tudo) tbody tr:nth-child(n+6){display:none}
   .m-colapso.aberto:not(.tudo)>.m-mais{display:block;width:calc(100% - 28px);margin:4px 14px 14px}
 }
