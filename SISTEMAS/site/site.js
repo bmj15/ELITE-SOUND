@@ -14,32 +14,22 @@ var seg = document.body.dataset.seg || (/^\/empresas/.test(cam) ? 'empresa' : /^
 ss('bxb:seg', seg); document.body.classList.toggle('emp', seg === 'empresa');
 var casa = seg === 'empresa' ? '/empresas' : '/';
 
-var MENU = {
-  particular: [
-    { id: 'planear', nome: T('Planear', 'Planejar'), sol: [['/#plano', 'Painel e projeção do ano', 'Quanto entra, sai e sobra, mês a mês'], ['/#plano', 'Despesas fixas e rendimentos', T('Salário, renda, contas e subscrições', 'Salário, aluguel, contas e assinaturas')], ['/#extratos', 'Extratos do banco', T('Importe e associe os movimentos', 'Importe e associe as movimentações')]],
-      fer: [['/simuladores#emergencia', T('Simulador de fundo de emergência', 'Simulador de reserva de emergência')], ['/simuladores#objetivo', 'Simulador de objetivo de poupança']], cats: ['poupanca', 'casa'] },
-    { id: 'dividas', nome: 'Dívidas e crédito', sol: [['/#dividas', 'Plano para sair das dívidas', 'Compare várias estratégias'], ['/#dividas', 'Cartões e créditos', T('Prestações, taxas e data de fim', 'Parcelas, juros e data de quitação')]],
-      fer: [['/simuladores#divida', 'Simular o prazo de uma dívida'], T(['/artigos/tan-taeg-mtic', 'Guia: TAN, TAEG e MTIC'], ['/artigos/juros-e-cet', 'Guia: juros e CET'])], cats: ['credito'] },
-    { id: 'poupanca', nome: 'Poupança', sol: [['/#objetivos', 'Objetivos de poupança', T('Férias, carro ou a entrada da casa', 'Viagem, carro ou a entrada da casa')], ['/#objetivos', T('Fundo de emergência', 'Reserva de emergência'), 'O primeiro objetivo de qualquer plano']],
-      fer: [['/simuladores#objetivo', T('Quanto poupar por mês', 'Quanto guardar por mês')], ['/simuladores#emergencia', T('De quanto precisa o seu fundo', 'De quanto precisa a sua reserva')]], cats: ['poupanca'] },
-    { id: 'impostos', nome: 'Impostos', sol: T([['/artigos?c=impostos', 'Recibos e IRS', 'Recibos de vencimento e recibos verdes'], ['/artigos/deducoes-irs-e-fatura', 'Deduções do e-Fatura', 'Saúde, educação, habitação e gerais']],
-        [['/artigos?c=impostos', 'Imposto de Renda', 'Declaração, restituição e comprovantes'], ['/artigos/imposto-de-renda-deducoes', 'Deduções do IR', 'Saúde, educação, dependentes e previdência']]),
-      fer: T([['/artigos/deducoes-irs-e-fatura', 'Guia: deduções no IRS'], ['/artigos/recibos-verdes-sem-surpresas', 'Guia: recibos verdes']], [['/artigos/imposto-de-renda-deducoes', 'Guia: deduções no IR'], ['/artigos/mei-ou-autonomo', 'Guia: MEI ou autônomo']]), cats: ['impostos'] },
-    { id: 'partilhar', nome: T('Partilhar', 'Compartilhar'), sol: [['/#partilhar', T('Despesas partilhadas', 'Despesas compartilhadas'), T('Renda, compras e objetivos a dois', 'Aluguel, compras e objetivos a dois')], ['/#partilhar', 'Acerto do mês', 'Quem paga o quê, sem contas de cabeça']],
-      fer: [T(['/artigos/despesas-partilhadas-a-dois', 'Guia: despesas a dois'], ['/artigos/despesas-compartilhadas-a-dois', 'Guia: despesas a dois']), ['/ajuda?t=partilhas', T('Ajuda sobre partilhas', 'Ajuda sobre compartilhamento')]], cats: ['casa'] }
-  ],
-  empresa: [
-    { id: 'pagamentos', nome: 'Pagamentos', sol: [['/empresas#pagamentos', 'Pedidos de pagamento', T('Com fatura e rubrica do orçamento', 'Com nota fiscal e rubrica do orçamento')], ['/empresas#pagamentos', 'Alçadas e dupla aprovação', 'Quem aprova cada valor'], ['/empresas#pagamentos', 'Regra das duas pessoas', 'Alterações sensíveis com segunda aprovação']],
-      fer: [T(['/artigos/dupla-aprovacao-pagamentos', 'Guia: dupla aprovação'], ['/artigos/dupla-aprovacao-pix-e-boleto', 'Guia: dupla aprovação']), ['/ajuda?t=pagamentos', 'Ajuda sobre pagamentos']], cats: ['empresas'] },
-    { id: 'tesouraria', nome: T('Tesouraria', 'Fluxo de caixa'), sol: [['/empresas#tesouraria', 'Saldos e extratos', T('Saldo disponível e saldo cativo', 'Saldo disponível e saldo bloqueado')], ['/empresas#tesouraria', T('Reconciliação bancária', 'Conciliação bancária'), T('Movimentos ligados aos pedidos', 'Movimentações ligadas aos pedidos')]],
-      fer: [['/simuladores#pmr', 'Simulador de prazo médio de recebimentos'], T(['/artigos/tesouraria-pme-13-semanas', 'Guia: previsão a 13 semanas'], ['/artigos/fluxo-de-caixa-13-semanas', 'Guia: fluxo de caixa de 13 semanas'])], cats: ['empresas'] },
-    { id: 'resultados', nome: 'Vendas e resultados', sol: [['/empresas#resultados', 'Vendas e comissões', 'Comissões de vendedores e resultados por sócio'], ['/empresas#resultados', T('Orçamentos e relatórios', 'Orçamentos e relatórios'), T('Demonstração de resultados e relatórios anuais', 'DRE e relatórios anuais')]],
-      fer: [['/simuladores#margem', 'Simulador de preço e margem']], cats: ['empresas'] },
-    { id: 'equipa', nome: T('Equipa', 'Equipe'), sol: [['/empresas#equipa', 'Colaboradores por convite', T('Cada um entra com o seu email', 'Cada um entra com o seu e-mail')], ['/empresas#equipa', 'Papéis e alçadas', 'Definidos pelo responsável'], ['/empresas#equipa', T('Registo de operações', 'Registro de operações'), 'Quem fez o quê e quando']],
-      fer: [['/ajuda?t=empresas', 'Ajuda para empresas']], cats: ['empresas', 'seguranca'] }
-  ]
+// submenus: só o que abre uma ferramenta ou um guia (nada de links que apenas fazem scroll na página inicial)
+var SUB = {
+  particular: {
+    fer: [['/simuladores#emergencia', 'i-escudo', T('Fundo de emergência', 'Reserva de emergência'), T('Quanto ter de parte', 'Quanto ter guardado')],
+      ['/simuladores#divida', 'i-cartao', 'Prazo de uma dívida', T('Quando fica paga e quanto custa', 'Quando fica quitada e quanto custa')],
+      ['/simuladores#objetivo', 'i-alvo', T('Objetivo de poupança', 'Objetivo de economia'), T('Quanto poupar por mês', 'Quanto guardar por mês')]],
+    guias: T([['/artigos/por-qual-divida-comecar', 'Por qual dívida começar'], ['/artigos/tan-taeg-mtic', 'TAN, TAEG e MTIC'], ['/artigos/deducoes-irs-e-fatura', 'Deduções no IRS']],
+      [['/artigos/varias-dividas-por-onde-comecar', 'Por qual dívida começar'], ['/artigos/juros-e-cet', 'Juros e CET'], ['/artigos/imposto-de-renda-deducoes', 'Deduções no Imposto de Renda']])
+  },
+  empresa: {
+    fer: [['/simuladores#pmr', 'i-carteira', T('Prazo médio de recebimentos', 'Prazo médio de recebimento'), T('Quanta tesouraria fica presa', 'Quanto caixa fica preso')],
+      ['/simuladores#margem', 'i-carrinho', 'Preço e margem', T('O preço para a margem que pretende', 'O preço para a margem que você quer')]],
+    guias: T([['/artigos/dupla-aprovacao-pagamentos', 'Dupla aprovação de pagamentos'], ['/artigos/tesouraria-pme-13-semanas', 'Tesouraria a 13 semanas']],
+      [['/artigos/dupla-aprovacao-pix-e-boleto', 'Dupla aprovação: Pix e boleto'], ['/artigos/fluxo-de-caixa-13-semanas', 'Fluxo de caixa em 13 semanas']])
+  }
 };
-var M = MENU[seg];
 var artigosDe = function (cats) { var A = window.ARTIGOS || []; return A.filter(function (a) { return cats.indexOf(a.cat) >= 0; }).sort(function (a, b) { return b.data.localeCompare(a.data); }).slice(0, 3); };
 var ENT = '/SISTEMAS/entrar.html', abrir = ENT + '?criar=1&tipo=' + seg;
 
@@ -60,17 +50,16 @@ var dropEnt = '<div class="drop-ent" id="dropEnt"><h6>Entrar na sua área</h6>' 
   '<a class="op" href="' + ENT + '?tipo=empresa"><i>' + ic('i-carteira', 18) + '</i><div><b>Empresas</b><span>' + T('Pagamentos, tesouraria e equipa', 'Pagamentos, fluxo de caixa e equipe') + '</span></div></a>' +
   '<div class="rod-d">Ainda não é cliente? <a href="' + abrir + '">Abrir conta</a></div></div>';
 var acoes = '<div class="acoes" id="acoes"><button class="btn btn-o" type="button" id="bEnt">' + ic('i-cad', 16) + 'Entrar' + chev + '</button><a class="btn btn-p" href="' + abrir + '" data-abr>Abrir conta</a>' + dropEnt + '</div>';
-var ICM = { planear: 'i-graf', dividas: 'i-cartao', poupanca: 'i-alvo', impostos: 'i-recibo', partilhar: 'i-pessoas', pagamentos: 'i-chave', tesouraria: 'i-carteira', resultados: 'i-carrinho', equipa: 'i-pessoas' };
 var subM = ['particular', 'empresa'].map(function (k) {
-  var L = MENU[k], emp = k === 'empresa', ab = ENT + '?criar=1&tipo=' + k;
-  return '<div class="sub-m" data-sm="' + k + '"><div class="wrap"><div class="sub-g" style="--n:' + L.length + '">' + L.map(function (m) {
-    return '<div class="sub-c"><h5><i>' + ic(ICM[m.id] || 'i-graf', 16) + '</i>' + m.nome + '</h5><ul>' + m.sol.map(function (x) { return '<li><a href="' + x[0] + '">' + x[1] + '<small>' + x[2] + '</small></a></li>'; }).join('') + '</ul>' +
-      '<ul class="fer">' + m.fer.map(function (x) { return '<li><a href="' + x[0] + '">' + x[1] + '</a></li>'; }).join('') + '</ul></div>'; }).join('') + '</div>' +
-    '<div class="sub-p"><span class="et">' + (emp ? 'Empresas' : 'Particulares') + '</span><b>' + (emp ? T('Controlo sobre cada pagamento', 'Controle sobre cada pagamento') : T('O seu plano em 1 minuto', 'Seu plano em 1 minuto')) + '</b><p>' + (emp ? T('Abra a área da empresa e convide a equipa.', 'Abra a área da empresa e convide a equipe.') : T('Crie a conta e veja já o seu mês.', 'Crie a conta e veja agora o seu mês.')) + '</p>' +
-    '<a class="btn btn-p" href="' + ab + '">Abrir conta</a><a class="lk" href="' + (emp ? '/empresas' : '/') + '">' + (emp ? 'Ver a página de empresas' : 'Ver a página de particulares') + ' ›</a></div></div></div>';
+  var L = SUB[k];
+  return '<div class="sub-m" data-sm="' + k + '"><div class="wrap"><div class="sub-f"><h6>Simuladores</h6><div class="sub-t">' +
+    L.fer.map(function (x) { return '<a class="sub-a" href="' + x[0] + '"><i>' + ic(x[1], 18) + '</i><span><b>' + x[2] + '</b><small>' + x[3] + '</small></span></a>'; }).join('') + '</div></div>' +
+    '<div class="sub-l"><h6>Guias</h6>' + L.guias.map(function (x) { return '<a href="' + x[0] + '">' + x[1] + '</a>'; }).join('') +
+    '<a class="ver" href="/artigos' + (k === 'empresa' ? '?c=empresas' : '') + '">Todos os artigos ›</a></div></div></div>';
 }).join('');
 var menuM = '<div class="menu-m" id="menuM"><div class="sg">' + lsg('/', 'Particulares', seg === 'particular') + lsg('/empresas', 'Empresas', seg === 'empresa') + '</div>' +
-  M.map(function (m) { return '<details><summary>' + m.nome + '</summary>' + m.sol.concat(m.fer).map(function (x) { return '<a href="' + x[0] + '">' + x[1] + '</a>'; }).join('') + '</details>'; }).join('') +
+  '<details open><summary>Simuladores</summary>' + SUB[seg].fer.map(function (x) { return '<a href="' + x[0] + '">' + x[2] + '</a>'; }).join('') + '</details>' +
+  '<details><summary>Guias</summary>' + SUB[seg].guias.map(function (x) { return '<a href="' + x[0] + '">' + x[1] + '</a>'; }).join('') + '</details>' +
   '<a class="lk" href="/artigos">Artigos</a><a class="lk" href="/simuladores">Simuladores</a><a class="lk" href="/ajuda">Ajuda</a>' +
   '<div class="bts" id="btsM"><a class="btn btn-s" href="' + ENT + '?tipo=' + seg + '" data-ent>Entrar</a><a class="btn btn-p" href="' + abrir + '" data-abr>Abrir conta</a></div></div>';
 var avisoFechado = false; try { avisoFechado = localStorage.getItem('bxb:aviso') === 'simuladores-1'; } catch (e) { }
