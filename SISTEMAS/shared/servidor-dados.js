@@ -19,7 +19,7 @@ function pedido(metodo, url, corpo) {
 }
 const est = pedido('GET', '/api/estado');
 if (!est.json || est.status !== 200) return; // servidor antigo, sem contas: os dados continuam no navegador
-if (location.pathname === ENTRAR || location.pathname === '/SISTEMAS/acessos.html') { window.BXBServidor = { sessao: est.json.sessao, configurado: est.json.configurado }; return; }
+if (location.pathname === ENTRAR || location.pathname === '/SISTEMAS/acessos.html' || location.pathname === '/SISTEMAS/conta.html') { window.BXBServidor = { sessao: est.json.sessao, configurado: est.json.configurado }; return; }
 
 const real = { get: Storage.prototype.getItem, set: Storage.prototype.setItem, rem: Storage.prototype.removeItem };
 const nossa = (st, k) => st === window.localStorage && typeof k === 'string' && k.startsWith('spap:') && !LOCAIS.has(k);
@@ -32,27 +32,14 @@ if (!sessao) {
   location.replace(ENTRAR + '?voltar=' + encodeURIComponent(location.pathname + location.search + location.hash));
   return;
 }
-const todos = s => s.admin || (s.sistemas || []).includes('*');
-// planos pessoais de outras pessoas nunca aparecem, nem ao administrador (RGPD)
-const podeVer = key => !(sessao.privados || []).includes(key) && (todos(sessao) || (sessao.sistemas || []).includes(key));
+// como num banco: cada conta só tem acesso às suas áreas (e às partilhas em que essas áreas estão); o servidor confirma sempre
+const podeVer = key => (sessao.sistemas || []).includes(key);
 const sistemaDaChave = k => { const m = /^spap:([^:]+)/.exec(k); return m ? m[1] : null; };
-// partilhas entre planos pessoais: o servidor confirma que esta conta é membro
-const podeGravar = k => todos(sessao) || sistemaDaChave(k) === 'partilha' || (k === 'spap:grupo' ? (sessao.sistemas || []).includes('bxb') : (sessao.sistemas || []).includes(sistemaDaChave(k)));
+const podeGravar = k => sistemaDaChave(k) === 'partilha' || podeVer(sistemaDaChave(k));
 
 let dados = pedido('GET', '/api/dados');
 if (dados.status !== 200) { alert('Não foi possível ler os dados do servidor. Tente de novo.'); return; }
 dados = dados.json || {};
-// primeira utilização: o servidor está vazio e este navegador tem dados dos sistemas → enviar primeiro (página Acessos);
-// até lá os sistemas não abrem, para não criarem dados novos vazios no servidor
-const locais = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('spap:') && !LOCAIS.has(k)) locais.push(k); }
-if (!Object.keys(dados).length && locais.length && !sessao.tipo) {
-  Storage.prototype.getItem = function (k) { return nossa(this, k) ? null : real.get.call(this, k); };
-  Storage.prototype.setItem = function (k, v) { if (!nossa(this, k)) real.set.call(this, k, v); };
-  Storage.prototype.removeItem = function (k) { if (!nossa(this, k)) real.rem.call(this, k); };
-  if (sessao.admin) location.replace('/SISTEMAS/acessos.html?migrar=1');
-  else document.addEventListener('DOMContentLoaded', () => { document.body.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center;font-family:Inter,system-ui,sans-serif;background:#07090d;color:#e9edf5"><div><h1>O servidor ainda não tem dados</h1><p style="opacity:.75">O administrador tem de enviar os dados para o servidor antes de os sistemas poderem ser usados.</p></div></div>'; });
-  return;
-}
 const mem = new Map(), versao = new Map(); // valor atual e versão confirmada pelo servidor
 Object.entries(dados).forEach(([k, r]) => { mem.set(k, r.valor); versao.set(k, r.versao); });
 
@@ -101,25 +88,25 @@ async function verificar() {
   try {
     const r = await fetch('/api/versoes', { headers: { 'X-BXB': '1' } }); if (r.status === 401) return; const v = await r.json();
     const novas = Object.entries(v).filter(([k, n]) => !pendentes.has(k) && n > (versao.get(k) || 0));
-    if (novas.length) aviso('Há dados novos de outra pessoa nos sistemas.', 'warn', { texto: 'Atualizar', acao: () => location.reload() });
+    if (novas.length) aviso('Há dados novos de outra pessoa.', 'warn', { texto: 'Atualizar', acao: () => location.reload() });
   } catch (e) { }
 }
 setInterval(verificar, 20000); document.addEventListener('visibilitychange', verificar);
 
 /* ---------- sistema sem acesso para esta conta ---------- */
 const params = new URLSearchParams(location.search), pagina = location.pathname;
-const sistemaPagina = /\/bxb-investimentos\//.test(pagina) ? 'bxb' : /\/subsidiaria\//.test(pagina) ? (params.get('s') || 'elite') : /\/elite-sound\//.test(pagina) ? 'elite' : null;
+const sistemaPagina = /\/bxb-investimentos\//.test(pagina) ? 'bxb' : /\/subsidiaria\//.test(pagina) ? (params.get('s') || (sessao.sistemas || [])[0] || '-') : /\/elite-sound\//.test(pagina) ? 'elite' : null;
 const semAcesso = sistemaPagina && !podeVer(sistemaPagina);
 
 /* ---------- identificação da sessão (canto do ecrã) ---------- */
 document.addEventListener('DOMContentLoaded', () => {
   if (semAcesso) {
-    document.body.innerHTML = `<div style="min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center;font-family:Inter,system-ui,sans-serif;background:#07090d;color:#e9edf5"><div><h1 style="margin:0 0 8px">Sem acesso a este sistema</h1><p style="opacity:.75">A conta <b>${sessao.nome.replace(/</g, '&lt;')}</b> não tem acesso a este sistema no servidor.</p><a href="/SISTEMAS/index.html" style="color:#c3a6ff">Voltar ao portal</a></div></div>`;
+    document.body.innerHTML = `<div style="min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center;font-family:Inter,system-ui,sans-serif;background:#07090d;color:#e9edf5"><div><h1 style="margin:0 0 8px">Sem acesso</h1><p style="opacity:.75">Esta área não pertence à conta <b>${(sessao.email || sessao.nome).replace(/</g, '&lt;')}</b>.</p><a href="/SISTEMAS/index.html" style="color:#c3a6ff">Ir para a minha área</a></div></div>`;
     return;
   }
   const chip = document.createElement('div');
   chip.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:9998;padding:6px 10px;border-radius:999px;background:rgba(20,24,34,.88);color:#cfd6e4;font:500 12px/1 Inter,system-ui,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 4px 18px rgba(0,0,0,.3)';
-  chip.innerHTML = `<span title="Dados no servidor do Grupo BXB">● ${sessao.nome.replace(/</g, '&lt;')}</span>${sessao.admin ? '<a href="/SISTEMAS/acessos.html" style="color:#c3a6ff;text-decoration:none">Acessos</a>' : ''}<a href="#" id="bxb-sair" style="color:#c3a6ff;text-decoration:none">Sair</a>`;
+  chip.innerHTML = `<span title="Sessão iniciada">● ${sessao.nome.replace(/</g, '&lt;')}</span>${(sessao.areas || []).length > 1 ? '<a href="/SISTEMAS/index.html?trocar=1" style="color:#c3a6ff;text-decoration:none">Trocar de área</a>' : ''}<a href="/SISTEMAS/conta.html" style="color:#c3a6ff;text-decoration:none">A minha conta</a>${sessao.admin ? '<a href="/SISTEMAS/acessos.html" style="color:#c3a6ff;text-decoration:none">Administração</a>' : ''}<a href="#" id="bxb-sair" style="color:#c3a6ff;text-decoration:none">Sair</a>`;
   document.body.appendChild(chip);
   chip.querySelector('#bxb-sair').onclick = e => { e.preventDefault(); pedido('POST', '/api/sair', {}); location.replace(ENTRAR); };
 });

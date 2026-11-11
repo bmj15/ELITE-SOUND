@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A minha conta · BXB</title>
+<script src="shared/servidor-dados.js?v=7"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/spap.css?v=45">
+<style>
+  body{min-height:100vh;margin:0;background:radial-gradient(55% 45% at 15% 10%,rgba(139,92,246,.16),transparent 60%),var(--bg)}
+  .wrap{max-width:860px;margin:0 auto;padding:22px 16px 60px}
+  .topo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+  .topo a{color:#a78bfa;text-decoration:none;font-weight:600}
+  h1{font-size:30px;letter-spacing:-1px;margin:0 0 4px}
+  .stack{display:flex;flex-direction:column;gap:16px}
+  .lin{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .lin:last-child{border-bottom:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topo"><a href="/SISTEMAS/index.html">‹ Voltar</a><a href="#" id="sair">Sair</a></div>
+  <h1>A minha conta</h1>
+  <p class="muted" id="quem" style="margin:0 0 22px"></p>
+  <div class="stack" id="c"></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var S = window.BXBServidor || {}, c = document.getElementById('c');
+  if (!S.sessao) { location.replace('/SISTEMAS/entrar.html?voltar=' + encodeURIComponent('/SISTEMAS/conta.html')); return; }
+  var ses = S.sessao;
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (x) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x]; }); };
+  var api = function (m, url, corpo) { return fetch(url, { method: m, headers: { 'Content-Type': 'application/json', 'X-BXB': '1' }, body: corpo ? JSON.stringify(corpo) : undefined }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); }); };
+  document.getElementById('quem').textContent = ses.nome + ' · ' + (ses.email || ses.utilizador);
+  document.getElementById('sair').onclick = function (e) { e.preventDefault(); api('POST', '/api/sair', {}).then(function () { location.replace('/SISTEMAS/entrar.html'); }); };
+
+  // as minhas áreas
+  var areas = ses.areas || [];
+  c.insertAdjacentHTML('beforeend', '<div class="card"><div class="card-h"><h3>As minhas áreas</h3></div>' + (areas.length ? areas.map(function (a) {
+    return '<div class="lin"><div><b>' + esc(a.nome) + '</b><div class="faint">' + (a.tipo === 'empresa' ? 'Empresa' : 'Particular') + ' · ' + (a.papel === 'dono' ? 'responsável' : 'colaborador') + '</div></div><a class="btn sm" href="/SISTEMAS/subsidiaria/index.html?s=' + encodeURIComponent(a.key) + '">Abrir</a></div>'; }).join('') : '<div class="empty">Ainda não tem nenhuma área.</div>') +
+    '<p class="faint" style="margin:12px 0 0;font-size:12.5px">Os dados de cada área só são enviados às contas dessa área. Nem o administrador do site lhes tem acesso.</p></div>');
+
+  // colaboradores das empresas de que é responsável
+  areas.filter(function (a) { return a.tipo === 'empresa' && a.papel === 'dono'; }).forEach(function (a) {
+    var id = 'col-' + a.key.replace(/[^a-z0-9-]/gi, '');
+    c.insertAdjacentHTML('beforeend', '<div class="card" id="' + id + '"><div class="card-h"><h3>Colaboradores · ' + esc(a.nome) + '</h3></div><div data-l></div>' +
+      '<form class="form" data-f style="margin-top:12px"><div class="fld"><label>Convidar por email</label><input class="inp" type="email" name="email" required placeholder="nome@empresa.pt"></div><div class="fld"><label>&nbsp;</label><button class="btn primary" type="submit">Convidar</button></div></form>' +
+      '<p class="faint" style="margin:8px 0 0;font-size:12.5px">Quem convidar entra com o seu email e palavra-passe (se ainda não tiver conta, cria-a com este email). Dentro da empresa, defina-lhe o papel e a alçada em Utilizadores e alçadas.</p><div data-e></div></div>');
+    var box = document.getElementById(id);
+    var pintar = function (j) {
+      box.querySelector('[data-l]').innerHTML = (j.membros || []).map(function (m) { return '<div class="lin"><div><b>' + esc(m.nome) + '</b><div class="faint">' + esc(m.email || '') + ' · ' + (m.papel === 'dono' ? 'responsável' : 'colaborador') + '</div></div>' +
+        (m.papel === 'colaborador' ? '<button class="btn sm ghost" data-rm="' + esc(m.id) + '">Retirar</button>' : '') + '</div>'; }).join('') +
+        (j.convites || []).map(function (v) { return '<div class="lin"><div><b>' + esc(v.email) + '</b><div class="faint">convite pendente (ainda sem conta)</div></div><button class="btn sm ghost" data-rme="' + esc(v.email) + '">Cancelar</button></div>'; }).join('');
+      box.querySelectorAll('[data-rm]').forEach(function (b) { b.onclick = function () { if (confirm('Retirar este colaborador? Deixa de ter acesso aos dados da empresa.')) api('DELETE', '/api/colaboradores', { area: a.key, conta: b.dataset.rm }).then(function (r) { if (r.ok) pintar(r.j); }); }; });
+      box.querySelectorAll('[data-rme]').forEach(function (b) { b.onclick = function () { api('DELETE', '/api/colaboradores', { area: a.key, email: b.dataset.rme }).then(function (r) { if (r.ok) pintar(r.j); }); }; });
+    };
+    api('GET', '/api/colaboradores?area=' + encodeURIComponent(a.key)).then(function (r) { if (r.ok) pintar(r.j); });
+    box.querySelector('[data-f]').onsubmit = function (e) { e.preventDefault(); var em = e.target.email.value;
+      api('POST', '/api/colaboradores', { area: a.key, email: em }).then(function (r) { box.querySelector('[data-e]').innerHTML = r.ok ? '' : '<div class="alert bad" style="margin-top:10px"><div>' + esc(r.j.erro) + '</div></div>'; if (r.ok) { e.target.reset(); pintar(r.j); } }); };
+  });
+
+  // palavra-passe
+  c.insertAdjacentHTML('beforeend', '<div class="card"><div class="card-h"><h3>Palavra-passe</h3></div><form class="form" id="fp">' +
+    '<div class="fld"><label>Atual</label><input class="inp" type="password" name="atual" autocomplete="current-password" required></div>' +
+    '<div class="fld"><label>Nova (mín. 8)</label><input class="inp" type="password" name="nova" autocomplete="new-password" required></div>' +
+    '<div class="fld"><label>Repetir a nova</label><input class="inp" type="password" name="nova2" autocomplete="new-password" required></div>' +
+    '<div class="fld full"><button class="btn primary" type="submit">Alterar palavra-passe</button> <span id="pm" class="muted"></span></div></form>' +
+    '<p class="faint" style="margin:8px 0 0;font-size:12.5px">O PIN de assinatura é outro: altera-se dentro da área (botão da chave).</p></div>');
+  document.getElementById('fp').onsubmit = function (e) { e.preventDefault(); var f = Object.fromEntries(new FormData(e.target)), pm = document.getElementById('pm');
+    if (f.nova !== f.nova2) { pm.textContent = 'As palavras-passe não coincidem'; return; }
+    api('POST', '/api/palavra', { atual: f.atual, nova: f.nova }).then(function (r) { pm.textContent = r.ok ? 'Palavra-passe alterada.' : r.j.erro; if (r.ok) e.target.reset(); }); };
+})();
+</script>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('spap:theme')||'dark')}catch(e){}</script>
+</body>
+</html>

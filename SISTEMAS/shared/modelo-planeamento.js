@@ -1640,6 +1640,17 @@ const PER_PARTILHA = [['mensal', 'Mensal'], ['trimestral', 'Trimestral'], ['seme
 const nomePer = k => (PER_PARTILHA.find(x => x[0] === k) || [0, k === 'cartao' ? 'A prestações pelo cartão' : k])[1];
 const semPessoal = n => String(n || '').replace(/\s*\(pessoal\)\s*$/i, '');
 const pessoasGrupo = () => ((window.Grupo && Grupo.lista()) || []).filter(s => s.modelo === 'planeamento' && s.ativa !== false && s.key !== sub.key);
+// no site: juntar uma pessoa pelo email da conta dela (só particulares); depois pode propor-lhe partilhas
+function juntarPessoa(depois) {
+  if (!(window.BXBServidor && BXBServidor.sessao)) { ui.toast('Não há outras pessoas com quem partilhar.', 'warn'); return; }
+  ui.modal({ title: 'Partilhar com quem?', sub: 'Indique o email com que a outra pessoa entra no site. Ela recebe o pedido na Caixa de entrada e só partilham a folha comum.',
+    body: `<form class="form"><div class="fld full"><label>Email</label><input class="inp" type="email" name="email" placeholder="nome@exemplo.pt" autocomplete="off"></div></form>`,
+    actions: [{ label: 'Cancelar', kind: 'ghost' }, { label: 'Continuar', kind: 'primary', onClick: async el => { const f = ui.formData(el);
+      const r = await fetch('/api/pessoas', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-BXB': '1' }, body: JSON.stringify({ email: f.email }) }).then(x => x.json().then(j => ({ ok: x.ok, j })));
+      if (!r.ok) { ui.toast(esc(r.j.erro || 'Não foi possível'), 'bad'); return false; }
+      const ps = BXBServidor.sessao.pessoas = BXBServidor.sessao.pessoas || []; if (!ps.some(x => x.key === r.j.pessoa.key)) ps.push(r.j.pessoa);
+      setTimeout(depois, 0); } }] });
+}
 function convDe(e) { if (!e || !e.partilha || !CC()) return null; return (CC().registo(e.partilha.casa).convites || []).find(c => c.id === e.partilha.convite) || null; }
 function partilhaAceite(e, ym) { const c = e && e.partilha ? convDe(e) : null; return !!(c && c.estado === 'aceite' && (!c.despesa.inicio || ym >= c.despesa.inicio)); }
 const nomeMembro = (casa, id) => { const mb = ((CC() && CC().registo(casa).membros) || []).find(x => x.id === id); return mb ? mb.nome : '—'; };
@@ -1667,7 +1678,7 @@ const textoConv = (casa, c) => ehAlt(c) ? textoAlteracao(casa, c) : ehObj(c) ? t
 const textoContrib = (casa, o, c) => ['PARTILHA-CONTRIBUICAO', casa, o.id, c.id, c.membro, (+c.valor || 0).toFixed(2), c.data || '', c.descricao || ''].join('|');
 const textoConvite = (casa, c) => ['PARTILHA', casa, c.id, c.de, c.para, c.deSistema, c.paraSistema, c.despesa.nome, (+c.despesa.valor || 0).toFixed(2), c.despesa.periodicidade, c.despesa.inicio || '', c.despesa.fim || '', c.despesa.pagaPor, JSON.stringify(c.despesa.partes), ...(c.paraSistemas ? [JSON.stringify(c.paraSistemas)] : [])].join('|');
 function partilharDespesa(e0) {
-  const pessoas = pessoasGrupo(); if (!pessoas.length) { ui.toast('Não há outros planos pessoais no grupo com quem partilhar.', 'warn'); return; }
+  const pessoas = pessoasGrupo(); if (!pessoas.length) { juntarPessoa(() => partilharDespesa(e0)); return; }
   const e = e0 || { categoria: 'Habitação', periodicidade: 'mensal', valor: 0, dia: 1 }, ini = e0 && e0.inicio && e0.inicio > ymHoje() ? e0.inicio : ymHoje();
   ui.modal({ title: e0 ? 'Partilhar · ' + esc(e0.nome) : 'Nova despesa partilhada', wide: true, sub: 'Cada pessoa recebe o pedido na Caixa de entrada.',
     body: `<form class="form"><div class="fld full"><label>Partilhar com</label><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:center;max-width:420px">${pessoas.map((x, i) => `<label class="check" style="margin:0"><input type="checkbox" data-com="${x.key}" ${i === 0 ? 'checked' : ''}> ${esc(semPessoal(x.nome))}</label><span style="display:inline-flex;gap:6px;align-items:center"><input class="inp inp-sm num" type="number" step="any" min="0" max="100" data-pc="${x.key}" style="width:80px"> %</span>`).join('')}</div><span class="hint">Escolha uma ou mais pessoas e a parte de cada uma. A partilha começa quando todas aceitarem.</span></div>
@@ -2308,7 +2319,7 @@ function objPartilhados() {
   });
 }
 function novoObjPartilhado(o0) {
-  const pessoas = pessoasGrupo(); if (!pessoas.length) { ui.toast('Não há outros planos pessoais no grupo com quem partilhar.', 'warn'); return; }
+  const pessoas = pessoasGrupo(); if (!pessoas.length) { juntarPessoa(() => novoObjPartilhado(o0)); return; }
   const L = ligacaoCasa(); if (L && !(CC().livro(L.casa) || {}).partilha) { ui.toast('Este plano ainda está ligado a uma casa antiga. Peça a migração para partilhas.', 'bad'); return; }
   const v0 = o0 || {}; ui.modal({ title: o0 ? 'Partilhar · ' + esc(o0.nome) : 'Novo objetivo partilhado', wide: true, sub: 'A outra pessoa recebe o pedido na Caixa de entrada. O objetivo começa quando ela aceitar.',
     body: `<form class="form"><div class="fld"><label>Partilhar com</label><select class="inp" name="com">${pessoas.map(x => `<option value="${x.key}">${esc(semPessoal(x.nome))}</option>`).join('')}</select></div>
@@ -2620,7 +2631,7 @@ function objetivos(v) {
 function seed(db, a) {
   app = a; db.settings.duplaAcima = 1000;
   (sub.utilizadores && sub.utilizadores.length ? sub.utilizadores : [{ id: 'u_bruno', nome: 'Bruno Alexandre Elias Monteiro', username: 'bruno', role: 'ADMIN', limite: 0 }])
-    .forEach(u => db.users.push({ id: u.id, nome: u.nome, username: u.username, role: u.role, limite: u.role === 'ADMIN' ? 0 : Math.max(+u.limite || 0, 5000), ativo: true, pinHash: null }));
+    .forEach(u => db.users.push(Object.assign({ id: u.id, nome: u.nome, username: u.username, role: u.role, limite: u.role === 'ADMIN' ? 0 : Math.max(+u.limite || 0, 5000), ativo: true, pinHash: null }, u.contaId ? { contaId: u.contaId, email: u.email } : {})));
   const s = sub.sigla || 'PF';
   db.contas.push(
     { id: CAIXA, codigo: s + '-CX-001', nome: 'Tesouraria ' + sub.nome, tipo: 'INTERNA', categoria: 'TESOURARIA', saldoInicial: 0, ativo: true },

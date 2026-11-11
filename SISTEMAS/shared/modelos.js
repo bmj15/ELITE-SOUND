@@ -195,7 +195,7 @@ function seedElite(db) {
 function seedNova(db) {
   db.settings.duplaAcima = 500;
   (sub.utilizadores && sub.utilizadores.length ? sub.utilizadores : [{ id: 'u_bruno', nome: 'Bruno Alexandre Elias Monteiro', username: 'bruno', role: 'ADMIN', limite: 0 }])
-    .forEach(u => db.users.push({ id: u.id, nome: u.nome, username: u.username, role: u.role, limite: u.role === 'ADMIN' ? 0 : Math.max(+u.limite || 0, 5000), ativo: true, pinHash: null }));
+    .forEach(u => db.users.push(Object.assign({ id: u.id, nome: u.nome, username: u.username, role: u.role, limite: u.role === 'ADMIN' ? 0 : Math.max(+u.limite || 0, 5000), ativo: true, pinHash: null }, u.contaId ? { contaId: u.contaId, email: u.email } : {})));
   const s = sub.sigla || 'SB', part = Math.min(1, Math.max(0, +sub.participacao || 0));
   db.contas.push(
     { id: CAIXA, codigo: s + '-CX-001', nome: 'Caixa ' + NOME, tipo: 'INTERNA', categoria: 'TESOURARIA', saldoInicial: 0, ativo: true },
@@ -756,7 +756,7 @@ SPAP.modelos.base = function (sub) {
   function seed(db, a) {
     app = a; db.settings.duplaAcima = 1000;
     (sub.utilizadores && sub.utilizadores.length ? sub.utilizadores : [{ id: 'u_bruno', nome: 'Bruno Alexandre Elias Monteiro', username: 'bruno', role: 'ADMIN', limite: 0 }])
-      .forEach(u => db.users.push({ id: u.id, nome: u.nome, username: u.username, role: u.role, limite: u.role === 'ADMIN' ? 0 : Math.max(+u.limite || 0, 5000), ativo: true, pinHash: null }));
+      .forEach(u => db.users.push(Object.assign({ id: u.id, nome: u.nome, username: u.username, role: u.role, limite: u.role === 'ADMIN' ? 0 : Math.max(+u.limite || 0, 5000), ativo: true, pinHash: null }, u.contaId ? { contaId: u.contaId, email: u.email } : {})));
     const s = sub.sigla || 'SB';
     db.contas.push(
       { id: CAIXA, codigo: s + '-CX-001', nome: 'Tesouraria ' + sub.nome, tipo: 'INTERNA', categoria: 'TESOURARIA', saldoInicial: 0, ativo: true },

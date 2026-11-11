@@ -21,8 +21,11 @@ const r2 = v => Math.round((+v || 0) * 100) / 100;
 const Grupo = global.Grupo = {
   ELITE, MODELOS,
   // registo do grupo + os sistemas próprios da conta (particulares e empresas que criaram conta no site)
-  lista() { let l = null; try { l = JSON.parse(localStorage.getItem(CHAVE)); } catch (e) { }
-    const prop = (((global.BXBServidor || {}).sessao || {}).proprios || []);
+  lista() { const ses = (global.BXBServidor || {}).sessao;
+    // no site: as áreas da conta e as pessoas com quem pode partilhar (nada de registo do grupo)
+    if (ses) return (ses.proprios || []).concat(ses.pessoas || []);
+    let l = null; try { l = JSON.parse(localStorage.getItem(CHAVE)); } catch (e) { }
+    const prop = [];
     const base = Array.isArray(l) && l.length ? l : prop.length ? [] : [Object.assign({}, ELITE)];
     return base.concat(prop.filter(p => !base.some(b => b.key === p.key))); },
   guardar(l) { try { localStorage.setItem(CHAVE, JSON.stringify(l)); } catch (e) { } },

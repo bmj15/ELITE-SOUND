@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Os meus sistemas · BXB</title>
-<script src="shared/servidor-dados.js?v=6"></script>
+<title>As minhas áreas · BXB</title>
+<script src="shared/servidor-dados.js?v=7"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/spap.css?v=29">
@@ -26,45 +26,43 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="muted" id="sup" style="letter-spacing:.14em;font-size:12px;text-transform:uppercase">Os meus sistemas</div>
+  <div class="muted" id="sup" style="letter-spacing:.14em;font-size:12px;text-transform:uppercase"></div>
   <h1 id="tit">Olá</h1>
   <div class="sys" id="sys"></div>
-  <p class="muted" id="vazio" style="display:none">Esta conta ainda não tem nenhum sistema deste tipo. <a href="entrar.html">Voltar à entrada</a></p>
+  <div id="criar"></div>
 </div>
-<script src="shared/grupo.js?v=6"></script>
+<script src="shared/grupo.js?v=7"></script>
 <script>
 (function () {
+  // a área de cada conta: particular entra sempre direto na sua área pessoal; empresa escolhe só se tiver várias
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
-  var pode = function (k) { return !window.BXBServidor || !BXBServidor.podeVer || BXBServidor.podeVer(k); };
-  var ses = (window.BXBServidor || {}).sessao || {};
-  // o separador escolhido na entrada (Particulares / Empresas) decide o que aparece; com um só sistema entra logo nele
-  var tipo = null; try { tipo = sessionStorage.getItem('bxb:tipo'); } catch (e) { }
-  tipo = ses.tipo || tipo || 'particular';
-  var eTipo = function (s) { return (s.tipo || (s.modelo === 'planeamento' ? 'particular' : 'empresa')) === tipo; };
-  var meus = Grupo.lista().filter(function (s) { return s.ativa !== false && pode(s.key) && eTipo(s); });
-  // particulares: um só plano pessoal, entra sempre direto; esta página de escolha é só para empresas
-  if (tipo === 'particular' && meus.length) { location.replace(Grupo.href(meus[0], '')); return; }
-  if (meus.length === 1) { location.replace(Grupo.href(meus[0], '')); return; }
-  if (tipo === 'particular') {
-    document.getElementById('sup').textContent = 'Particulares';
-    document.getElementById('tit').textContent = 'Olá' + (ses.nome ? ', ' + String(ses.nome).split(' ')[0] : '');
-    document.getElementById('sys').outerHTML = '<div class="card" style="margin-top:24px;max-width:560px"><h3 style="margin:0 0 8px">Ainda não tem um plano pessoal nesta conta</h3>' +
-      '<p class="muted" style="margin:0 0 16px">Crie o seu plano pessoal: só esta conta o vê.' + (ses.admin ? ' Se já tinha um plano no servidor, atribua-o à sua conta em <a href="acessos.html">Acessos</a>.' : '') + '</p>' +
-      '<button class="btn primary" id="criarPlano">Criar o meu plano pessoal</button> <span class="muted" id="cpErro"></span></div>';
-    document.getElementById('criarPlano').onclick = function () { this.disabled = true;
-      fetch('/api/meu-plano', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-BXB': '1' }, body: '{}' }).then(function (r) { return r.json(); })
-        .then(function (j) { if (j.destino) location.replace(j.destino); else document.getElementById('cpErro').textContent = j.erro || 'Erro'; }); };
-    return;
-  }
-  document.getElementById('sup').textContent = tipo === 'empresa' ? 'Empresas' : 'Particulares';
-  document.getElementById('tit').textContent = 'Olá' + (ses.nome ? ', ' + String(ses.nome).split(' ')[0] : '');
-  if (!meus.length) document.getElementById('vazio').style.display = '';
-  document.getElementById('sys').innerHTML = meus.map(function (s) {
+  var ses = (window.BXBServidor || {}).sessao; if (!ses) return;
+  var trocar = /trocar=1/.test(location.search), tipo = null; try { tipo = sessionStorage.getItem('bxb:tipo'); } catch (e) { }
+  var areas = ses.proprios || [];
+  if (trocar) tipo = null; else if (!tipo) tipo = areas.some(function (a) { return a.tipo === 'particular'; }) ? 'particular' : 'empresa';
+  var minhas = areas.filter(function (a) { return !tipo || a.tipo === tipo; });
+  if (!trocar && minhas.length && (tipo === 'particular' || minhas.length === 1)) { location.replace(Grupo.href(minhas[0], '')); return; }
+  var post = function (url, corpo) { return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-BXB': '1' }, body: JSON.stringify(corpo || {}) }).then(function (r) { return r.json(); }); };
+  document.getElementById('sup').textContent = trocar ? 'As minhas áreas' : tipo === 'empresa' ? 'Empresas' : 'Particulares';
+  document.getElementById('tit').textContent = 'Olá, ' + String(ses.nome || '').split(' ')[0];
+  document.getElementById('sys').innerHTML = minhas.map(function (s) {
     var m = Grupo.MODELOS[s.modelo] || { nome: s.modelo, desc: '' };
     return '<a href="' + Grupo.href(s, '') + '" style="--c1:' + esc(s.cor1) + ';--c2:' + esc(s.cor2) + ';--ink:#fff">' +
       '<div class="logo">' + esc(s.sigla) + '</div><div><h2>' + esc(s.nome) + '</h2><p>' + esc(s.setor || m.desc) + '</p></div>' +
-      '<ul><li>' + (tipo === 'empresa' ? 'Empresa' : 'Particular') + '</li><li>' + esc(m.nome) + '</li></ul></a>';
+      '<ul><li>' + (s.tipo === 'empresa' ? 'Empresa' : 'Particular') + '</li><li>' + (s.papel === 'dono' ? 'Responsável' : 'Colaborador') + '</li></ul></a>';
   }).join('');
+  var cr = document.getElementById('criar');
+  if (tipo === 'particular' && !minhas.length) {
+    cr.innerHTML = '<div class="card" style="margin-top:24px;max-width:560px"><h3 style="margin:0 0 8px">Ainda não tem a sua área pessoal</h3><p class="muted" style="margin:0 0 16px">Abra já o seu plano pessoal: só a sua conta lhe tem acesso.</p><button class="btn primary" id="cp">Abrir a minha área pessoal</button> <span class="muted" id="ce"></span></div>';
+    document.getElementById('cp').onclick = function () { this.disabled = true; post('/api/criar-area', { tipo: 'particular' }).then(function (j) { if (j.destino) location.replace(j.destino); else document.getElementById('ce').textContent = j.erro || 'Erro'; }); };
+  } else if (tipo === 'empresa' || trocar) {
+    cr.innerHTML = '<div class="card" style="margin-top:24px;max-width:560px"><h3 style="margin:0 0 8px">' + (minhas.length ? 'Abrir outra empresa' : 'Ainda não tem nenhuma empresa nesta conta') + '</h3>' +
+      '<p class="muted" style="margin:0 0 14px">Se trabalha numa empresa que já usa o site, peça ao responsável para o convidar com o seu email.</p>' +
+      '<form id="fe" class="form"><div class="fld"><label>Nome da empresa</label><input class="inp" name="empresa" required></div><div class="fld"><label>NIF (opcional)</label><input class="inp" name="nif" inputmode="numeric" maxlength="9"></div>' +
+      '<div class="fld full"><button class="btn primary" type="submit">Criar empresa</button> <span class="muted" id="ce"></span></div></form></div>';
+    document.getElementById('fe').onsubmit = function (e) { e.preventDefault(); var f = Object.fromEntries(new FormData(e.target));
+      post('/api/criar-area', { tipo: 'empresa', empresa: f.empresa, nif: f.nif }).then(function (j) { if (j.destino) location.replace(j.destino); else document.getElementById('ce').textContent = j.erro || 'Erro'; }); };
+  }
 })();
 </script>
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('spap:theme')||'dark')}catch(e){}</script>

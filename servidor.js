@@ -1,10 +1,14 @@
-// servidor.js — servidor local do Grupo BXB (sem dependências: só Node.js)
-// Serve a pasta do repositório em http://localhost:8080 e guarda os dados dos sistemas
-// numa pasta deste computador (fora do repositório, que é público), com contas de acesso.
-// Em http://localhost:8080 só aceita ligações deste computador (127.0.0.1).
-// Rede de casa (opcional): se existir um certificado em DADOS-SERVIDOR\tls (cert.pem e key.pem),
-// abre também https://<IP deste computador>:8443 para o telemóvel e outros aparelhos.
-// Tem de ser HTTPS: fora do localhost o browser só permite as assinaturas eletrónicas em ligações seguras.
+// servidor.js — site BXB (sem dependências: só Node.js 22.5+, com a base de dados SQLite incorporada)
+// Serve a pasta do repositório em http://localhost:8080 e guarda os dados numa base de dados deste computador
+// (fora do repositório, que é público). Funciona como o site de um banco:
+//   · cada pessoa entra com email e palavra-passe;
+//   · cada cliente (particular ou empresa) tem a sua área e só recebe os dados dessa área;
+//   · numa empresa, os colaboradores convidados pelo responsável entram com o seu email na mesma área;
+//   · as partilhas entre particulares só existem por convite e só têm a folha comum;
+//   · o administrador gere contas (ativar, desativar, repor palavra-passe) mas não tem acesso aos dados de ninguém;
+//   · cada acesso fica no registo (quem, quando, o quê — nunca o conteúdo).
+// Em http://localhost:8080 só aceita ligações deste computador (127.0.0.1); para a internet use um túnel HTTPS (ex.: Cloudflare).
+// Rede de casa (opcional): com um certificado em DADOS-SERVIDOR\tls (cert.pem e key.pem) abre também https://<IP>:8443.
 'use strict';
 const http = require('http');
 const https = require('https');
@@ -14,18 +18,17 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { exec } = require('child_process');
+const { DatabaseSync } = require('node:sqlite');
 
 const PORT = +process.env.PORT || 8080;
 const HOST = '127.0.0.1';
 const RAIZ = __dirname;
-const URL_PORTAL = `http://localhost:${PORT}/SISTEMAS/index.html`;
+const URL_PORTAL = `http://localhost:${PORT}/SISTEMAS/entrar.html`;
 const ASSINATURA = 'grupo-bxb-servidor';
 // dados: por omissão em "BXB INVESTIMENTOS\DADOS-SERVIDOR" (duas pastas acima do repositório)
 const DADOS = path.resolve(process.env.BXB_DADOS || path.join(RAIZ, '..', '..', 'DADOS-SERVIDOR'));
-const PASTA_CHAVES = path.join(DADOS, 'dados');
+const FICH_BD = path.join(DADOS, 'bxb.db');
 const PASTA_COPIAS = path.join(DADOS, 'copias');
-const FICH_CONTAS = path.join(DADOS, 'contas.json');
-const FICH_DONOS = path.join(DADOS, 'donos.json'); // plano pessoal -> id da conta dona (RGPD: só o dono o vê)
 const LIMITE_CORPO = 25 * 1024 * 1024;
 const DURACAO_SESSAO = 12 * 3600 * 1000;
 const PASTA_TLS = path.join(DADOS, 'tls');
@@ -40,95 +43,153 @@ const TIPOS = {
 // pastas que nunca são servidas
 const PRIVADO = /(^|[\\/])(\.git|\.claude|node_modules|backend|DADOS-SERVIDOR)([\\/]|$)/i;
 
-/* ---------------- Armazenamento ---------------- */
-for (const p of [DADOS, PASTA_CHAVES, PASTA_COPIAS]) fs.mkdirSync(p, { recursive: true });
-const ficheiroChave = k => path.join(PASTA_CHAVES, encodeURIComponent(k) + '.json');
-const lerJSON = (f, def) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { return def; } };
-// escrita atómica: grava num temporário e troca, para nunca deixar um ficheiro a meio
-let geracao = 0; // muda a cada escrita (invalida caches)
-function gravarJSON(f, obj) { geracao++; const tmp = f + '.' + process.pid + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(obj)); fs.renameSync(tmp, f); }
-const todasChaves = () => fs.readdirSync(PASTA_CHAVES).filter(n => n.endsWith('.json')).map(n => decodeURIComponent(n.slice(0, -5)));
-// cópia de segurança diária: na primeira escrita de cada dia copia a pasta dos dados (mantém 60 dias)
+/* ================= Base de dados =================
+   contas    — quem entra (email + palavra-passe)
+   areas     — a área de cada cliente: plano pessoal (particular) ou empresa; "config" é a configuração do sistema
+   membros   — que contas pertencem a cada área (dono ou colaborador): é ISTO que decide o acesso
+   convites  — colaboradores convidados por email que ainda não têm conta
+   dados     — os dados de cada área (e de cada partilha), por chave, com versão para controlo de concorrência
+   partilhas — que áreas pertencem a cada partilha entre particulares
+   contactos — pessoas (áreas de outros particulares) que um particular juntou pelo email, para lhes propor partilhas
+   registo   — quem fez o quê e quando (sem conteúdos) */
+fs.mkdirSync(DADOS, { recursive: true }); fs.mkdirSync(PASTA_COPIAS, { recursive: true });
+const bd = new DatabaseSync(FICH_BD);
+bd.exec(`PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS contas (id TEXT PRIMARY KEY, nome TEXT NOT NULL, email TEXT UNIQUE, utilizador TEXT UNIQUE, hash TEXT NOT NULL,
+  admin INTEGER NOT NULL DEFAULT 0, ativo INTEGER NOT NULL DEFAULT 1, criada_em TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS areas (id TEXT PRIMARY KEY, tipo TEXT NOT NULL CHECK (tipo IN ('particular','empresa','arquivo')), nome TEXT NOT NULL, config TEXT NOT NULL, criada_em TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS membros (area TEXT NOT NULL REFERENCES areas(id), conta TEXT NOT NULL REFERENCES contas(id), papel TEXT NOT NULL CHECK (papel IN ('dono','colaborador')),
+  desde TEXT NOT NULL, PRIMARY KEY (area, conta));
+CREATE TABLE IF NOT EXISTS convites (area TEXT NOT NULL REFERENCES areas(id), email TEXT NOT NULL, por TEXT NOT NULL, em TEXT NOT NULL, PRIMARY KEY (area, email));
+CREATE TABLE IF NOT EXISTS dados (chave TEXT PRIMARY KEY, area TEXT NOT NULL, valor TEXT NOT NULL, versao INTEGER NOT NULL, por TEXT, em TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS dados_area ON dados(area);
+CREATE TABLE IF NOT EXISTS partilhas (partilha TEXT NOT NULL, area TEXT NOT NULL, PRIMARY KEY (partilha, area));
+CREATE TABLE IF NOT EXISTS contactos (area TEXT NOT NULL, outra TEXT NOT NULL, PRIMARY KEY (area, outra));
+CREATE TABLE IF NOT EXISTS registo (em TEXT NOT NULL, conta TEXT, acao TEXT NOT NULL, alvo TEXT, ip TEXT);
+CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);`);
+const q = sql => bd.prepare(sql);
+const agoraISO = () => new Date().toISOString();
+function transacao(fn) { bd.exec('BEGIN IMMEDIATE'); try { const r = fn(); bd.exec('COMMIT'); return r; } catch (e) { bd.exec('ROLLBACK'); throw e; } }
+const registar = (conta, acao, alvo, ip) => { try { q('INSERT INTO registo (em, conta, acao, alvo, ip) VALUES (?,?,?,?,?)').run(agoraISO(), conta || null, acao, alvo || null, ip || null); } catch (e) { } };
+
+// cópia de segurança diária da base de dados (mantém 60 dias)
 let ultimoDiaCopia = '';
 function copiaDiaria() {
   const dia = new Date().toISOString().slice(0, 10); if (dia === ultimoDiaCopia) return; ultimoDiaCopia = dia;
-  const destino = path.join(PASTA_COPIAS, dia); if (fs.existsSync(destino)) return;
-  fs.mkdirSync(destino, { recursive: true });
-  for (const n of fs.readdirSync(PASTA_CHAVES)) if (n.endsWith('.json')) fs.copyFileSync(path.join(PASTA_CHAVES, n), path.join(destino, n));
-  if (fs.existsSync(FICH_CONTAS)) fs.copyFileSync(FICH_CONTAS, path.join(destino, '_contas.json'));
+  const destino = path.join(PASTA_COPIAS, dia); if (fs.existsSync(path.join(destino, 'bxb.db'))) return;
+  try { fs.mkdirSync(destino, { recursive: true }); bd.exec(`VACUUM INTO '${path.join(destino, 'bxb.db').replace(/'/g, "''")}'`); } catch (e) { console.error('cópia diária:', e.message); }
   const dias = fs.readdirSync(PASTA_COPIAS).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
   dias.slice(0, Math.max(0, dias.length - 60)).forEach(d => fs.rmSync(path.join(PASTA_COPIAS, d), { recursive: true, force: true }));
 }
 
-/* ---------------- Contas e sessões ---------------- */
-const contas = () => lerJSON(FICH_CONTAS, []);
-const gravarContas = l => gravarJSON(FICH_CONTAS, l);
+/* ================= Migração (uma vez) dos ficheiros antigos para a base de dados =================
+   Os ficheiros antigos (contas.json, dados\*.json) ficam onde estão, intactos. */
+function migrarFicheiros() {
+  if (q("SELECT v FROM meta WHERE k = 'migrado'").get()) return;
+  const lerJSON = (f, def) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { return def; } };
+  const contasAnt = lerJSON(path.join(DADOS, 'contas.json'), []), donosAnt = lerJSON(path.join(DADOS, 'donos.json'), {});
+  const pasta = path.join(DADOS, 'dados'), chaves = fs.existsSync(pasta) ? fs.readdirSync(pasta).filter(n => n.endsWith('.json')).map(n => decodeURIComponent(n.slice(0, -5))) : [];
+  const ler = k => lerJSON(path.join(pasta, encodeURIComponent(k) + '.json'), null);
+  if (!contasAnt.length && !chaves.length) { q("INSERT INTO meta (k, v) VALUES ('migrado', ?)").run(agoraISO()); return; }
+  let grupo = []; try { grupo = JSON.parse((ler('spap:grupo') || {}).valor || '[]') || []; } catch (e) { }
+  const configs = {}; grupo.forEach(s => { if (s && s.key) configs[s.key] = s; });
+  contasAnt.forEach(c => (c.proprios || []).forEach(p => { if (p && p.key) configs[p.key] = p; }));
+  const sis = k => { const m = /^spap:([^:]+)/.exec(k); return m ? m[1] : null; };
+  const areasNec = new Set(chaves.map(sis).filter(s => s && s !== 'grupo' && s !== 'partilha'));
+  grupo.forEach(s => { if (s && s.key && s.ativa !== false) areasNec.add(s.key); });
+  transacao(() => {
+    const em = agoraISO();
+    contasAnt.forEach(c => {
+      const email = c.email || (/@/.test(c.utilizador || '') ? c.utilizador : null);
+      q('INSERT INTO contas (id, nome, email, utilizador, hash, admin, ativo, criada_em) VALUES (?,?,?,?,?,?,?,?)').run(c.id, c.nome, email ? email.toLowerCase() : null, (c.utilizador || '').toLowerCase() || null, c.hash, c.admin ? 1 : 0, c.ativo === false ? 0 : 1, c.criadaEm || em);
+    });
+    for (const k of areasNec) {
+      const cfg = Object.assign({}, configs[k] || { key: k, nome: k, modelo: k === 'bxb' ? 'holding' : 'base' });
+      const tipo = k === 'bxb' || cfg.modelo === 'casa' || !configs[k] ? 'arquivo' : cfg.modelo === 'planeamento' ? 'particular' : 'empresa';
+      cfg.independente = true; cfg.tipo = tipo; delete cfg.utilizadores;
+      q('INSERT INTO areas (id, tipo, nome, config, criada_em) VALUES (?,?,?,?,?)').run(k, tipo, cfg.nome || k, JSON.stringify(Object.assign(cfg, { utilizadores: (configs[k] || {}).utilizadores })), cfg.criadaEm || em);
+      if (tipo === 'arquivo') continue;
+      const explicitos = contasAnt.filter(c => (c.sistemas || []).includes(k) || (c.proprios || []).some(p => p.key === k));
+      if (tipo === 'particular') {
+        const dono = donosAnt[k] || (explicitos.length === 1 ? explicitos[0].id : null);
+        if (dono && contasAnt.some(c => c.id === dono)) q('INSERT INTO membros (area, conta, papel, desde) VALUES (?,?,?,?)').run(k, dono, 'dono', em);
+      } else {
+        const admins = contasAnt.filter(c => c.admin), donos = explicitos.filter(c => (c.proprios || []).some(p => p.key === k));
+        const lista = donos.length ? donos : admins.length ? admins : explicitos.slice(0, 1);
+        lista.forEach(c => q('INSERT OR IGNORE INTO membros (area, conta, papel, desde) VALUES (?,?,?,?)').run(k, c.id, 'dono', em));
+        explicitos.forEach(c => q('INSERT OR IGNORE INTO membros (area, conta, papel, desde) VALUES (?,?,?,?)').run(k, c.id, 'colaborador', em));
+      }
+    }
+    for (const k of chaves) {
+      if (k === 'spap:grupo') continue; const r = ler(k); if (!r || typeof r.valor !== 'string') continue;
+      const s = sis(k), area = s === 'partilha' ? 'partilha:' + k.split(':')[2] : s;
+      if (s !== 'partilha' && !areasNec.has(s)) continue;
+      q('INSERT INTO dados (chave, area, valor, versao, por, em) VALUES (?,?,?,?,?,?)').run(k, area, r.valor, r.versao || 1, r.por || null, r.em || em);
+      if (s === 'partilha') membrosDaPartilha(r.valor).forEach(a => q('INSERT OR IGNORE INTO partilhas (partilha, area) VALUES (?,?)').run(area, a));
+    }
+    q("INSERT INTO meta (k, v) VALUES ('migrado', ?)").run(em);
+  });
+  console.log(`  Dados antigos migrados para ${FICH_BD} (os ficheiros antigos ficam intactos).`);
+}
+function membrosDaPartilha(valor) { try { const v = typeof valor === 'string' ? JSON.parse(valor) : valor; return [...new Set(((v && v.membros) || []).map(m => m && m.sistema).filter(Boolean))]; } catch (e) { return []; } }
+
+/* ================= Contas, sessões e acessos ================= */
 function hashPalavra(palavra, sal = crypto.randomBytes(16).toString('hex')) { return sal + ':' + crypto.scryptSync(String(palavra), sal, 64).toString('hex'); }
 function confere(palavra, guardado) { const [sal, h] = String(guardado || '').split(':'); if (!sal || !h) return false;
   const a = Buffer.from(h, 'hex'), b = crypto.scryptSync(String(palavra), sal, 64); return a.length === b.length && crypto.timingSafeEqual(a, b); }
-const publica = c => ({ id: c.id, nome: c.nome, utilizador: c.utilizador, email: c.email || '', tipo: c.tipo || '', admin: !!c.admin, sistemas: c.sistemas || [], proprios: c.proprios || [],
-  privados: (() => { const d = donos(); return [...pessoais()].filter(s => d[s] !== c.id); })() }); // planos pessoais de outras pessoas: escondidos
-// clientes do site (particulares e empresas que criaram conta): só veem os seus sistemas, não o registo do grupo
-const cliente = c => !!c && !c.admin && (c.tipo === 'particular' || c.tipo === 'empresa');
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const slug = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'conta';
+const slug = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'conta';
 const iniciais = t => String(t || '').trim().split(/\s+/).filter(Boolean).map(x => x[0]).join('').slice(0, 3).toUpperCase() || 'PF';
+const novoId = p => p + crypto.randomBytes(6).toString('hex');
+const conta = id => q('SELECT * FROM contas WHERE id = ?').get(id);
+const contaPorEmail = e => q('SELECT * FROM contas WHERE email = ? OR utilizador = ?').get(e, e);
+// áreas da conta (com o papel); só estas — e as partilhas onde uma delas é membro — são acessíveis
+const areasDe = id => q("SELECT a.id, a.tipo, a.nome, a.config, m.papel FROM membros m JOIN areas a ON a.id = m.area WHERE m.conta = ? AND a.tipo <> 'arquivo' ORDER BY a.criada_em").all(id);
+const papelEm = (contaId, area) => { const r = q('SELECT papel FROM membros WHERE conta = ? AND area = ?').get(contaId, area); return r ? r.papel : null; };
+const temPartilha = (contaId, partilha) => !!q('SELECT 1 FROM partilhas p JOIN membros m ON m.area = p.area WHERE p.partilha = ? AND m.conta = ?').get(partilha, contaId);
+function areaDaChave(k) { const m = /^spap:([^:]+)(?::([^:]+))?/.exec(k); if (!m) return null; return m[1] === 'partilha' ? (m[2] ? 'partilha:' + m[2] : null) : m[1]; }
+const acede = (contaId, area) => !!area && (area.startsWith('partilha:') ? temPartilha(contaId, area) : !!papelEm(contaId, area));
+// pessoas com quem este particular pode partilhar: as das partilhas em que já está e os contactos que juntou pelo email
+function pessoasDe(contaId) {
+  const minhas = areasDe(contaId).filter(a => a.tipo === 'particular').map(a => a.id); if (!minhas.length) return [];
+  const ph = minhas.map(() => '?').join(',');
+  const ids = new Set([...q(`SELECT DISTINCT p2.area AS a FROM partilhas p1 JOIN partilhas p2 ON p2.partilha = p1.partilha WHERE p1.area IN (${ph})`).all(...minhas).map(r => r.a),
+    ...q(`SELECT outra AS a FROM contactos WHERE area IN (${ph})`).all(...minhas).map(r => r.a)].filter(a => !minhas.includes(a)));
+  return [...ids].map(a => q("SELECT id, nome FROM areas WHERE id = ? AND tipo = 'particular'").get(a)).filter(Boolean).map(a => ({ key: a.id, nome: a.nome, modelo: 'planeamento', ativa: true, contacto: true }));
+}
+function publica(c) {
+  const areas = areasDe(c.id).map(a => Object.assign(JSON.parse(a.config), { key: a.id, nome: a.nome, tipo: a.tipo, papel: a.papel, independente: true, ativa: true }));
+  return { id: c.id, nome: c.nome, email: c.email || '', utilizador: c.utilizador || c.email || '', admin: !!c.admin,
+    tipo: areas.some(a => a.tipo === 'particular') ? 'particular' : areas.length ? 'empresa' : '',
+    areas: areas.map(a => ({ key: a.key, nome: a.nome, tipo: a.tipo, papel: a.papel })), sistemas: areas.map(a => a.key), proprios: areas, pessoas: pessoasDe(c.id) };
+}
+const sessoes = new Map(); // token -> { conta, expira }
+const falhas = new Map();  // email -> { n, ate }
 const registos = new Map(); // ip -> { n, desde }: limite de contas novas por hora
 const ipDe = req => String(req.headers['cf-connecting-ip'] || req.socket.remoteAddress || '');
-const sessoes = new Map(); // token -> { conta, expira }
-const falhas = new Map();  // utilizador -> { n, ate }
 function sessaoDe(req) {
   const m = /(?:^|;\s*)bxb_sessao=([a-f0-9]{64})/.exec(req.headers.cookie || ''); if (!m) return null;
   const s = sessoes.get(m[1]); if (!s || s.expira < Date.now()) { sessoes.delete(m[1]); return null; }
-  const c = contas().find(x => x.id === s.conta); if (!c || c.ativo === false) return null;
+  const c = conta(s.conta); if (!c || !c.ativo) return null;
   s.expira = Date.now() + DURACAO_SESSAO; return { token: m[1], conta: c };
 }
-function abrirSessao(res, c) { const t = crypto.randomBytes(32).toString('hex'); sessoes.set(t, { conta: c.id, expira: Date.now() + DURACAO_SESSAO });
-  res.setHeader('Set-Cookie', `bxb_sessao=${t}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${DURACAO_SESSAO / 1000}`); }
-// que chaves cada conta pode ler e gravar: "spap:<sistema>" e "spap:<sistema>:..." dos sistemas da conta; o registo do grupo é de leitura para todos
-const sistemaDaChave = k => { const m = /^spap:([^:]+)/.exec(k); return m ? m[1] : null; };
-// partilhas entre planos pessoais ("spap:partilha:<id>:conta"): acessíveis a quem tem acesso a um dos planos que são membros
-const membroDaPartilha = (c, valor) => { try { const v = typeof valor === 'string' ? JSON.parse(valor) : valor; return ((v && v.membros) || []).some(m => m && m.sistema && temSistema(c, m.sistema)); } catch (e) { return false; } };
-const partilhaGuardada = k => { const r = lerJSON(ficheiroChave(k), null); return r ? r.valor : null; };
-/* RGPD: um plano pessoal (modelo "planeamento") pertence a UMA conta e só essa conta o recebe — nem o administrador.
-   O dono fica fixo: atribui-se uma vez (registo no site, Acessos ou a conta que já o tinha assinalado) e não muda pela API. */
-const donos = () => lerJSON(FICH_DONOS, {});
-let cachePessoais = { g: -1, s: null };
-function pessoais() {
-  if (cachePessoais.s && cachePessoais.g === geracao) return cachePessoais.s;
-  const s = new Set(Object.keys(donos()));
-  try { (JSON.parse(partilhaGuardada('spap:grupo') || '[]') || []).forEach(x => { if (x && x.modelo === 'planeamento') s.add(x.key); }); } catch (e) { }
-  contas().forEach(c => (c.proprios || []).forEach(p => { if (p && p.modelo === 'planeamento') s.add(p.key); }));
-  cachePessoais = { g: geracao, s }; return s;
+function abrirSessao(req, res, c) { const t = crypto.randomBytes(32).toString('hex'); sessoes.set(t, { conta: c.id, expira: Date.now() + DURACAO_SESSAO });
+  const seguro = req.headers['x-forwarded-proto'] === 'https' || req.socket.encrypted ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `bxb_sessao=${t}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${DURACAO_SESSAO / 1000}${seguro}`); }
+// convites pendentes para este email (colaboradores de empresas): passam a membro quando a conta existe
+function aceitarConvites(c) { if (!c.email) return; q('SELECT area FROM convites WHERE email = ?').all(c.email).forEach(r => {
+  q("INSERT OR IGNORE INTO membros (area, conta, papel, desde) VALUES (?,?, 'colaborador', ?)").run(r.area, c.id, agoraISO()); q('DELETE FROM convites WHERE area = ? AND email = ?').run(r.area, c.email); registar(c.id, 'CONVITE_ACEITE', r.area); }); }
+function novaArea(c, tipo, nome, extra = {}) {
+  const id = (tipo === 'empresa' ? 'e-' : 'p-') + slug(nome) + '-' + crypto.randomBytes(3).toString('hex');
+  const cfg = Object.assign({ key: id, nome: tipo === 'empresa' ? nome : nome + ' (pessoal)', sigla: iniciais(nome), nif: '', setor: '', modelo: tipo === 'empresa' ? 'servicos' : 'planeamento',
+    cor1: tipo === 'empresa' ? '#0ea5e9' : '#8b5cf6', cor2: tipo === 'empresa' ? '#22d3ee' : '#ec4899', participacao: 0, ativa: true, criadaEm: agoraISO().slice(0, 10),
+    contaCaixa: 'CAIXA', contaOperacional: 'OPERACIONAL', contaHolding: 'HOLDING', independente: true, tipo,
+    utilizadores: [{ id: 'u_' + crypto.randomBytes(4).toString('hex'), nome: c.nome, username: String(c.email || 'eu').split('@')[0].slice(0, 30), email: c.email, contaId: c.id, role: 'ADMIN', limite: 0 }] }, extra);
+  q('INSERT INTO areas (id, tipo, nome, config, criada_em) VALUES (?,?,?,?,?)').run(id, tipo, cfg.nome, JSON.stringify(cfg), agoraISO());
+  q("INSERT INTO membros (area, conta, papel, desde) VALUES (?,?, 'dono', ?)").run(id, c.id, agoraISO());
+  return id;
 }
-const ePessoal = sis => !!sis && pessoais().has(sis);
-const dono = (c, sis) => !!c && donos()[sis] === c.id;
-// acesso a um sistema de um membro de partilha: plano pessoal só pelo dono; outro sistema pelas regras normais
-const temSistema = (c, sis) => ePessoal(sis) ? dono(c, sis) : (c.admin || (c.sistemas || []).includes('*') || (c.sistemas || []).includes(sis));
-function atribuirDonos() { // contas que já tinham o plano assinalado explicitamente (sem contar o "*" do administrador)
-  const d = donos(), l = contas(); let mudou = false;
-  for (const sis of pessoais()) { if (d[sis]) continue; const q = l.filter(c => (c.sistemas || []).includes(sis)); if (q.length === 1) { d[sis] = q[0].id; mudou = true; } }
-  // planos sem dono: se o nome da conta é o de um utilizador do plano, e a correspondência é única nos dois sentidos
-  // (essa conta só aparece nesse plano e esse plano só tem essa conta), o plano passa a ser dessa conta
-  const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
-  const livres = [...pessoais()].filter(s => !d[s]), nomes = {};
-  livres.forEach(s => { try { const v = JSON.parse((lerJSON(ficheiroChave('spap:' + s), null) || {}).valor || 'null'); nomes[s] = new Set(((v && v.users) || []).map(u => norm(u.nome)).filter(Boolean)); } catch (e) { nomes[s] = new Set(); } });
-  const semPlano = l.filter(c => !Object.values(d).includes(c.id) && norm(c.nome));
-  livres.forEach(s => { const q = semPlano.filter(c => nomes[s].has(norm(c.nome)));
-    if (q.length === 1 && livres.filter(o => nomes[o].has(norm(q[0].nome))).length === 1 && !Object.values(d).includes(q[0].id)) { d[s] = q[0].id; mudou = true; } });
-  if (mudou) { gravarJSON(FICH_DONOS, d); }
-}
-const ve0 = (c, k) => !!c && (c.admin || (c.sistemas || []).includes('*') || (k === 'spap:grupo' && !cliente(c)) || (c.sistemas || []).includes(sistemaDaChave(k)) || (sistemaDaChave(k) === 'partilha' && membroDaPartilha(c, partilhaGuardada(k))));
-// numa partilha nova, quem a cria tem de ser membro; numa existente, tem de já ser membro (não se entra numa partilha alheia)
-const grava0 = (c, k, novo) => !!c && (c.admin || (c.sistemas || []).includes('*') || (k !== 'spap:grupo' && (c.sistemas || []).includes(sistemaDaChave(k))) || (k === 'spap:grupo' && (c.sistemas || []).includes('bxb'))
-  || (sistemaDaChave(k) === 'partilha' && (() => { const g = partilhaGuardada(k); return g != null ? membroDaPartilha(c, g) : membroDaPartilha(c, novo); })()));
-// planos pessoais e partilhas entre eles: só o dono / os membros, sem exceção para administradores
-const ve = (c, k) => { const s = sistemaDaChave(k); if (!c) return false; if (s === 'partilha') return membroDaPartilha(c, partilhaGuardada(k)); if (ePessoal(s)) return dono(c, s); return ve0(c, k); };
-const grava = (c, k, novo) => { const s = sistemaDaChave(k); if (!c) return false;
-  if (s === 'partilha') { const g = partilhaGuardada(k); return g != null ? membroDaPartilha(c, g) : membroDaPartilha(c, novo); }
-  if (ePessoal(s)) return dono(c, s);
-  // (um plano com dono continua pessoal mesmo que alguém mude o modelo no registo do grupo: os donos contam sempre como pessoais)
-  return grava0(c, k, novo); };
+const destinoDe = area => '/SISTEMAS/subsidiaria/index.html?s=' + encodeURIComponent(area);
 
 /* ---------------- Servidor ---------------- */
 function abrirBrowser(url) {
@@ -150,30 +211,31 @@ async function api(req, res, caminho) {
   const json = (codigo, obj) => { res.writeHead(codigo, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Servidor': ASSINATURA }); res.end(JSON.stringify(obj)); };
   // proteção CSRF: pedidos que alteram dados têm de vir desta mesma origem
   if (req.method !== 'GET' && req.headers['x-bxb'] !== '1') return json(403, { erro: 'Pedido recusado' });
-  const s = sessaoDe(req), c = s && s.conta, lista = contas();
+  const s = sessaoDe(req), c = s && s.conta, ip = ipDe(req);
+  const configurado = !!q('SELECT 1 FROM contas LIMIT 1').get();
 
-  if (caminho === '/api/estado' && req.method === 'GET') return json(200, { configurado: lista.length > 0, sessao: c ? publica(c) : null });
+  if (caminho === '/api/estado' && req.method === 'GET') return json(200, { configurado, sessao: c ? publica(c) : null });
 
+  // primeira utilização: cria a conta de administrador (gere contas; os dados de cada um continuam só de cada um)
   if (caminho === '/api/configurar' && req.method === 'POST') {
-    if (lista.length) return json(409, { erro: 'O servidor já está configurado' });
-    const b = await lerCorpo(req);
-    if (!b.nome || !b.utilizador || String(b.palavra || '').length < 8) return json(400, { erro: 'Indique o nome, o utilizador e uma palavra-passe com pelo menos 8 caracteres' });
-    const nova = { id: 'c' + crypto.randomBytes(6).toString('hex'), nome: String(b.nome).trim(), utilizador: String(b.utilizador).trim().toLowerCase(), email: EMAIL.test(String(b.utilizador).trim().toLowerCase()) ? String(b.utilizador).trim().toLowerCase() : '', hash: hashPalavra(b.palavra), admin: true, sistemas: ['*'], criadaEm: new Date().toISOString() };
-    gravarContas([nova]); abrirSessao(res, nova); return json(200, { sessao: publica(nova) });
+    if (configurado) return json(409, { erro: 'O servidor já está configurado' });
+    const b = await lerCorpo(req), email = String(b.email || b.utilizador || '').trim().toLowerCase();
+    if (!b.nome || !EMAIL.test(email) || String(b.palavra || '').length < 8) return json(400, { erro: 'Indique o nome, um email válido e uma palavra-passe com pelo menos 8 caracteres' });
+    const nova = { id: novoId('c'), nome: String(b.nome).trim(), email };
+    q('INSERT INTO contas (id, nome, email, utilizador, hash, admin, ativo, criada_em) VALUES (?,?,?,?,?,1,1,?)').run(nova.id, nova.nome, email, email, hashPalavra(b.palavra), agoraISO());
+    registar(nova.id, 'CONFIGURADO', null, ip); abrirSessao(req, res, nova); return json(200, { sessao: publica(conta(nova.id)) });
   }
   if (caminho === '/api/entrar' && req.method === 'POST') {
     const b = await lerCorpo(req), u = String(b.email || b.utilizador || '').trim().toLowerCase(), f = falhas.get(u);
     if (f && f.ate > Date.now()) return json(429, { erro: 'Demasiadas tentativas. Tente de novo dentro de alguns minutos.' });
-    const conta = lista.find(x => x.ativo !== false && ((x.email && x.email === u) || x.utilizador === u));
-    if (!conta || !confere(b.palavra, conta.hash)) { const n = (f && f.ate && f.ate <= Date.now() ? 0 : (f ? f.n : 0)) + 1; falhas.set(u, { n, ate: n >= 5 ? Date.now() + 5 * 60000 : 0 }); return json(401, { erro: 'Email ou palavra-passe incorretos' }); }
-    if (cliente(conta) && b.tipo && b.tipo !== conta.tipo) return json(401, { erro: conta.tipo === 'empresa' ? 'Esta conta é de empresa: entre no separador Empresas.' : 'Esta conta é de particular: entre no separador Particulares.' });
-    falhas.delete(u); try { atribuirDonos(); } catch (e) { } abrirSessao(res, conta); return json(200, { sessao: publica(conta) });
+    const x = u && contaPorEmail(u);
+    if (!x || !x.ativo || !confere(b.palavra, x.hash)) { const n = (f && f.ate && f.ate <= Date.now() ? 0 : (f ? f.n : 0)) + 1; falhas.set(u, { n, ate: n >= 5 ? Date.now() + 5 * 60000 : 0 }); registar(x && x.id, 'ENTRADA_FALHADA', u, ip); return json(401, { erro: 'Email ou palavra-passe incorretos' }); }
+    falhas.delete(u); aceitarConvites(x); registar(x.id, 'ENTRADA', b.tipo || null, ip); abrirSessao(req, res, x); return json(200, { sessao: publica(x) });
   }
-  // criar conta no site: um particular recebe um plano pessoal novo; uma empresa recebe um sistema de empresa novo.
-  // Cada conta só vê os seus dados. Dentro do sistema, o PIN (para assinar) define-se no primeiro acesso.
+  // criar conta: um particular recebe a sua área pessoal; uma empresa recebe a área da empresa (e fica responsável por ela)
   if (caminho === '/api/registar' && req.method === 'POST') {
-    if (!lista.length) return json(409, { erro: 'O servidor ainda não está configurado' });
-    const ip = ipDe(req), r0 = registos.get(ip), agora = Date.now();
+    if (!configurado) return json(409, { erro: 'O servidor ainda não está configurado' });
+    const r0 = registos.get(ip), agora = Date.now();
     if (r0 && agora - r0.desde < 3600000 && r0.n >= 5) return json(429, { erro: 'Demasiadas contas criadas a partir deste endereço. Tente mais tarde.' });
     const b = await lerCorpo(req), tipo = b.tipo === 'empresa' ? 'empresa' : 'particular';
     const nome = String(b.nome || '').trim().slice(0, 80), email = String(b.email || '').trim().toLowerCase(), empresa = String(b.empresa || '').trim().slice(0, 80), nif = String(b.nif || '').replace(/\s+/g, '').slice(0, 12);
@@ -182,120 +244,118 @@ async function api(req, res, caminho) {
     if (String(b.palavra || '').length < 8) return json(400, { erro: 'A palavra-passe tem de ter pelo menos 8 caracteres' });
     if (tipo === 'empresa' && !empresa) return json(400, { erro: 'Indique o nome da empresa' });
     if (nif && !/^\d{9}$/.test(nif)) return json(400, { erro: 'O NIF tem 9 dígitos' });
-    if (lista.some(x => x.email === email || x.utilizador === email)) return json(409, { erro: 'Já existe uma conta com esse email' });
-    const rnd = crypto.randomBytes(3).toString('hex'), nomeSis = tipo === 'empresa' ? empresa : nome;
-    const sub = { key: (tipo === 'empresa' ? 'e-' : 'p-') + slug(nomeSis) + '-' + rnd, nome: tipo === 'empresa' ? empresa : nome + ' (pessoal)', sigla: iniciais(nomeSis), nif, setor: '',
-      modelo: tipo === 'empresa' ? 'servicos' : 'planeamento', cor1: tipo === 'empresa' ? '#0ea5e9' : '#8b5cf6', cor2: tipo === 'empresa' ? '#22d3ee' : '#ec4899', participacao: 0, ativa: true,
-      criadaEm: new Date().toISOString().slice(0, 10), contaCaixa: 'CAIXA', contaOperacional: 'OPERACIONAL', contaHolding: 'HOLDING', independente: true, tipo,
-      utilizadores: [{ id: 'u_' + crypto.randomBytes(4).toString('hex'), nome, username: email.split('@')[0].slice(0, 30), role: 'ADMIN', limite: 0 }] };
-    const nova = { id: 'c' + crypto.randomBytes(6).toString('hex'), nome, email, utilizador: email, hash: hashPalavra(b.palavra), admin: false, tipo, sistemas: [sub.key], proprios: [sub], criadaEm: new Date().toISOString() };
-    const l = contas(); if (l.some(x => x.email === email || x.utilizador === email)) return json(409, { erro: 'Já existe uma conta com esse email' });
-    l.push(nova); gravarContas(l);
-    if (tipo === 'particular') { const d = donos(); d[sub.key] = nova.id; gravarJSON(FICH_DONOS, d); }
+    if (contaPorEmail(email)) return json(409, { erro: 'Já existe uma conta com esse email' });
+    const nova = { id: novoId('c'), nome, email };
+    const area = transacao(() => {
+      q('INSERT INTO contas (id, nome, email, utilizador, hash, admin, ativo, criada_em) VALUES (?,?,?,?,?,0,1,?)').run(nova.id, nome, email, email, hashPalavra(b.palavra), agoraISO());
+      return novaArea(nova, tipo, tipo === 'empresa' ? empresa : nome, tipo === 'empresa' ? { nif } : {});
+    });
+    aceitarConvites(nova);
     registos.set(ip, r0 && agora - r0.desde < 3600000 ? { n: r0.n + 1, desde: r0.desde } : { n: 1, desde: agora });
-    abrirSessao(res, nova); return json(200, { sessao: publica(nova), destino: '/SISTEMAS/subsidiaria/index.html?s=' + encodeURIComponent(sub.key) });
+    registar(nova.id, 'CONTA_CRIADA', area, ip); abrirSessao(req, res, nova); return json(200, { sessao: publica(conta(nova.id)), destino: destinoDe(area) });
   }
-  if (caminho === '/api/sair' && req.method === 'POST') { if (s) sessoes.delete(s.token); res.setHeader('Set-Cookie', 'bxb_sessao=; Path=/; Max-Age=0'); return json(200, { ok: true }); }
+  if (caminho === '/api/sair' && req.method === 'POST') { if (s) { sessoes.delete(s.token); registar(c.id, 'SAIDA', null, ip); } res.setHeader('Set-Cookie', 'bxb_sessao=; Path=/; Max-Age=0'); return json(200, { ok: true }); }
 
   if (!c) return json(401, { erro: 'Sessão expirada' });
 
   if (caminho === '/api/palavra' && req.method === 'POST') {
     const b = await lerCorpo(req); if (!confere(b.atual, c.hash)) return json(400, { erro: 'Palavra-passe atual incorreta' });
     if (String(b.nova || '').length < 8) return json(400, { erro: 'A nova palavra-passe tem de ter pelo menos 8 caracteres' });
-    const l = contas(); const x = l.find(y => y.id === c.id); x.hash = hashPalavra(b.nova); gravarContas(l); return json(200, { ok: true });
+    q('UPDATE contas SET hash = ? WHERE id = ?').run(hashPalavra(b.nova), c.id); registar(c.id, 'PALAVRA_ALTERADA', null, ip); return json(200, { ok: true });
   }
-  // todas as chaves que a conta pode ver (com a versão de cada uma)
+  // criar a área que falta (ex.: quem tem só a área pessoal e abre a empresa, ou o contrário). Um particular tem uma só área pessoal.
+  if (caminho === '/api/criar-area' && req.method === 'POST') {
+    const b = await lerCorpo(req), tipo = b.tipo === 'empresa' ? 'empresa' : 'particular';
+    if (tipo === 'particular') { const ja = areasDe(c.id).find(a => a.tipo === 'particular' && a.papel === 'dono'); if (ja) return json(200, { destino: destinoDe(ja.id) }); }
+    const nome = tipo === 'empresa' ? String(b.empresa || '').trim().slice(0, 80) : c.nome, nif = String(b.nif || '').replace(/\s+/g, '').slice(0, 12);
+    if (!nome) return json(400, { erro: 'Indique o nome da empresa' });
+    if (nif && !/^\d{9}$/.test(nif)) return json(400, { erro: 'O NIF tem 9 dígitos' });
+    const area = novaArea(c, tipo, nome, tipo === 'empresa' ? { nif } : {}); registar(c.id, 'AREA_CRIADA', area, ip);
+    return json(200, { sessao: publica(c), destino: destinoDe(area) });
+  }
+  // dados: só os das áreas da conta e das partilhas em que essas áreas estão
   if (caminho === '/api/dados' && req.method === 'GET') {
-    const out = {}; for (const k of todasChaves()) if (ve(c, k)) { const r = lerJSON(ficheiroChave(k), null); if (r) out[k] = { valor: r.valor, versao: r.versao }; }
-    return json(200, out);
+    const out = {}; for (const r of q('SELECT chave, area, valor, versao FROM dados').iterate()) if (acede(c.id, r.area)) out[r.chave] = { valor: r.valor, versao: r.versao };
+    registar(c.id, 'LEITURA', Object.keys(out).length + ' chaves', ip); return json(200, out);
   }
   if (caminho === '/api/versoes' && req.method === 'GET') {
-    const out = {}; for (const k of todasChaves()) if (ve(c, k)) { const r = lerJSON(ficheiroChave(k), null); if (r) out[k] = r.versao; }
+    const out = {}; for (const r of q('SELECT chave, area, versao FROM dados').iterate()) if (acede(c.id, r.area)) out[r.chave] = r.versao;
     return json(200, out);
   }
   if (caminho.startsWith('/api/dados/')) {
-    const k = decodeURIComponent(caminho.slice('/api/dados/'.length));
-    if (!/^spap:/.test(k) || k.length > 300) return json(400, { erro: 'Chave inválida' });
-    const atual = lerJSON(ficheiroChave(k), null), b = await lerCorpo(req), vAtual = atual ? atual.versao : 0;
-    if (!grava(c, k, b.valor)) return json(403, { erro: 'Sem acesso a este sistema' });
-    // controlo de concorrência: só grava se a versão de base for a do servidor (senão outro utilizador gravou entretanto)
+    const k = decodeURIComponent(caminho.slice('/api/dados/'.length)), area = areaDaChave(k);
+    if (!/^spap:/.test(k) || k.length > 300 || !area) return json(400, { erro: 'Chave inválida' });
+    const b = await lerCorpo(req), atual = q('SELECT versao, valor FROM dados WHERE chave = ?').get(k), vAtual = atual ? atual.versao : 0;
+    // partilha nova: quem a cria tem de ser membro; existente: só os membros. Área: só quem lhe pertence.
+    let pode;
+    if (area.startsWith('partilha:')) pode = atual ? temPartilha(c.id, area) : membrosDaPartilha(b.valor).some(a => !!papelEm(c.id, a));
+    else pode = !!papelEm(c.id, area);
+    if (!pode) { registar(c.id, 'ACESSO_RECUSADO', k, ip); return json(403, { erro: 'Sem acesso a estes dados' }); }
     if ((+b.versao || 0) !== vAtual) return json(409, { erro: 'Alterado por outro utilizador', versao: vAtual, valor: atual ? atual.valor : null });
     copiaDiaria();
-    if (req.method === 'PUT') { if (typeof b.valor !== 'string') return json(400, { erro: 'Valor inválido' });
-      gravarJSON(ficheiroChave(k), { valor: b.valor, versao: vAtual + 1, por: c.utilizador, em: new Date().toISOString() }); return json(200, { versao: vAtual + 1 }); }
-    if (req.method === 'DELETE') { try { fs.unlinkSync(ficheiroChave(k)); } catch (e) { } return json(200, { versao: 0 }); }
+    if (req.method === 'PUT') {
+      if (typeof b.valor !== 'string') return json(400, { erro: 'Valor inválido' });
+      transacao(() => {
+        q('INSERT INTO dados (chave, area, valor, versao, por, em) VALUES (?,?,?,?,?,?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, versao = excluded.versao, por = excluded.por, em = excluded.em')
+          .run(k, area, b.valor, vAtual + 1, c.id, agoraISO());
+        if (area.startsWith('partilha:')) { // os membros da partilha são as áreas pessoais indicadas no registo comum (convite → membro)
+          const ms = membrosDaPartilha(b.valor).filter(a => q("SELECT 1 FROM areas WHERE id = ? AND tipo = 'particular'").get(a));
+          q('DELETE FROM partilhas WHERE partilha = ?').run(area); ms.forEach(a => q('INSERT INTO partilhas (partilha, area) VALUES (?,?)').run(area, a));
+        }
+      });
+      registar(c.id, 'GRAVACAO', k, ip); return json(200, { versao: vAtual + 1 });
+    }
+    if (req.method === 'DELETE') { q('DELETE FROM dados WHERE chave = ?').run(k); registar(c.id, 'APAGADO', k, ip); return json(200, { versao: 0 }); }
     return json(405, { erro: 'Método não permitido' });
   }
-  // redefinir o PIN de um utilizador dentro de um sistema (ex.: o administrador esqueceu-se do PIN e é o único com PIN)
-  // usa o mesmo mecanismo do sistema: PIN temporário, troca obrigatória no próximo acesso e novo certificado de assinatura
-  if (caminho === '/api/redefinir-pin' && req.method === 'POST') {
-    if (!c.admin) return json(403, { erro: 'Só administradores do servidor' });
-    const b = await lerCorpo(req);
-    if (!confere(b.palavra, c.hash)) return json(401, { erro: 'Palavra-passe do servidor incorreta' });
-    if (!/^\d{4,8}$/.test(String(b.pin || ''))) return json(400, { erro: 'O PIN temporário deve ter 4 a 8 dígitos' });
-    const k = 'spap:' + String(b.sistema || ''), atual = lerJSON(ficheiroChave(k), null);
-    if (ePessoal(String(b.sistema || '')) && !dono(c, String(b.sistema || ''))) return json(403, { erro: 'Plano pessoal de outra pessoa: só o dono lhe pode aceder' });
-    if (!atual) return json(404, { erro: 'Sistema não encontrado no servidor' });
-    let d; try { d = JSON.parse(atual.valor); } catch (e) { return json(400, { erro: 'Dados do sistema ilegíveis' }); }
-    const u = (d.users || []).find(x => x.id === b.userId); if (!u) return json(404, { erro: 'Utilizador não encontrado nesse sistema' });
-    const sha = t => crypto.createHash('sha256').update(String(t), 'utf8').digest('hex');
-    const salt = Date.now().toString(36) + crypto.randomBytes(8).toString('hex');
-    let h = salt + ':' + b.pin; for (let i = 0; i < 1500; i++) h = sha(h + salt); // igual ao hashPin do sistema
-    const agora = new Date().toISOString();
-    Object.assign(u, { salt, pinHash: h, mustChange: true, avisoPin: { por: `${c.nome} (administrador do servidor)`, em: agora } });
-    d.meta = d.meta || {}; d.meta.locks = d.meta.locks || {}; d.meta.locks[u.id] = { n: 0, until: 0 };
-    // entrada no registo de auditoria, encadeada como as do sistema
-    d.audit = d.audit || []; const prev = d.audit.length ? d.audit[d.audit.length - 1].hash : 'GENESIS';
-    const e = { ts: agora, user: 'servidor:' + c.utilizador, acao: 'PIN_REDEFINIDO_SERVIDOR', detalhe: `${u.username} · PIN temporário definido pelo administrador do servidor ${c.nome}; troca obrigatória no próximo acesso`, ref: null, prev };
-    e.hash = sha([prev, e.ts, e.user, e.acao, e.detalhe, ''].join('|')); d.audit.push(e);
-    copiaDiaria();
-    gravarJSON(ficheiroChave(k), { valor: JSON.stringify(d), versao: atual.versao + 1, por: c.utilizador, em: agora });
-    return json(200, { ok: true, utilizador: u.nome });
+  // juntar uma pessoa (particular) pelo email, para lhe poder propor partilhas — como adicionar um contacto no MB WAY
+  if (caminho === '/api/pessoas' && req.method === 'POST') {
+    const b = await lerCorpo(req), email = String(b.email || '').trim().toLowerCase();
+    const minha = areasDe(c.id).find(a => a.tipo === 'particular' && a.papel === 'dono'); if (!minha) return json(400, { erro: 'Só uma área pessoal pode partilhar' });
+    const outra = EMAIL.test(email) && contaPorEmail(email), area = outra && areasDe(outra.id).find(a => a.tipo === 'particular' && a.papel === 'dono');
+    if (!area || outra.id === c.id) return json(404, { erro: 'Não há nenhum particular com esse email' });
+    q('INSERT OR IGNORE INTO contactos (area, outra) VALUES (?,?)').run(minha.id, area.id); registar(c.id, 'CONTACTO_ADICIONADO', area.id, ip);
+    return json(200, { pessoa: { key: area.id, nome: area.nome, modelo: 'planeamento', ativa: true, contacto: true } });
   }
-  // gestão de contas (só administradores)
+  // colaboradores de uma empresa (só o responsável): convidar por email, ver, retirar
+  if (caminho === '/api/colaboradores') {
+    const b = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://x').searchParams) : await lerCorpo(req), area = String(b.area || '');
+    if (papelEm(c.id, area) !== 'dono' || !q("SELECT 1 FROM areas WHERE id = ? AND tipo = 'empresa'").get(area)) return json(403, { erro: 'Só o responsável da empresa' });
+    const lista = () => ({ membros: q('SELECT c.id, c.nome, c.email, m.papel, m.desde FROM membros m JOIN contas c ON c.id = m.conta WHERE m.area = ? ORDER BY m.papel DESC, c.nome').all(area),
+      convites: q('SELECT email, em FROM convites WHERE area = ?').all(area) });
+    if (req.method === 'GET') return json(200, lista());
+    if (req.method === 'POST') {
+      const email = String(b.email || '').trim().toLowerCase(); if (!EMAIL.test(email)) return json(400, { erro: 'Indique um email válido' });
+      const x = contaPorEmail(email);
+      if (x) q("INSERT OR IGNORE INTO membros (area, conta, papel, desde) VALUES (?,?, 'colaborador', ?)").run(area, x.id, agoraISO());
+      else q('INSERT OR REPLACE INTO convites (area, email, por, em) VALUES (?,?,?,?)').run(area, email, c.id, agoraISO());
+      registar(c.id, 'COLABORADOR_CONVIDADO', area + ' ' + email, ip); return json(200, lista());
+    }
+    if (req.method === 'DELETE') {
+      if (b.conta) { if (b.conta === c.id) return json(400, { erro: 'Não se pode retirar a si próprio' }); q("DELETE FROM membros WHERE area = ? AND conta = ? AND papel = 'colaborador'").run(area, String(b.conta)); }
+      if (b.email) q('DELETE FROM convites WHERE area = ? AND email = ?').run(area, String(b.email).toLowerCase());
+      registar(c.id, 'COLABORADOR_RETIRADO', area, ip); return json(200, lista());
+    }
+    return json(405, { erro: 'Método não permitido' });
+  }
+  // administração: só contas (nunca dados). Ativar/desativar, email, repor palavra-passe.
   if (caminho === '/api/contas') {
     if (!c.admin) return json(403, { erro: 'Só administradores' });
-    if (req.method === 'GET') return json(200, contas().map(publica));
-    if (req.method === 'PUT') return json(405, { erro: 'Método não permitido' });
+    if (req.method === 'GET') return json(200, q('SELECT id, nome, email, utilizador, admin, ativo, criada_em FROM contas ORDER BY criada_em').all().map(x => Object.assign(x, {
+      admin: !!x.admin, ativo: !!x.ativo, areas: q("SELECT a.tipo, m.papel FROM membros m JOIN areas a ON a.id = m.area WHERE m.conta = ? AND a.tipo <> 'arquivo'").all(x.id) })));
     if (req.method === 'POST') {
-      const b = await lerCorpo(req), l = contas(), u = String(b.utilizador || '').trim().toLowerCase(), em = String(b.email || '').trim().toLowerCase();
-      if (!b.nome || !u) return json(400, { erro: 'Indique o nome e o utilizador' });
-      if (l.some(x => x.utilizador === u && x.id !== b.id)) return json(409, { erro: 'Esse utilizador já existe' });
-      if (em && !EMAIL.test(em)) return json(400, { erro: 'Email inválido' });
-      if (em && l.some(x => x.id !== b.id && (x.email === em || x.utilizador === em))) return json(409, { erro: 'Esse email já está noutra conta' });
-      let x = b.id ? l.find(y => y.id === b.id) : null;
-      if (!x) { if (String(b.palavra || '').length < 8) return json(400, { erro: 'A palavra-passe tem de ter pelo menos 8 caracteres' }); x = { id: 'c' + crypto.randomBytes(6).toString('hex'), criadaEm: new Date().toISOString() }; l.push(x); }
-      Object.assign(x, { nome: String(b.nome).trim(), utilizador: u, email: em, admin: !!b.admin, sistemas: Array.isArray(b.sistemas) ? b.sistemas.map(String) : [] });
-      // os sistemas próprios de um cliente continuam acessíveis a ele
-      (x.proprios || []).forEach(p => { if (!x.sistemas.includes(p.key)) x.sistemas.push(p.key); });
-      // planos pessoais: um plano sem dono passa a ser desta conta; um plano com outro dono não se pode dar a ninguém
-      const d = donos(); let mudouD = false;
-      for (const sis of x.sistemas.slice()) if (ePessoal(sis)) { if (!d[sis]) { d[sis] = x.id; mudouD = true; } else if (d[sis] !== x.id) return json(403, { erro: 'Esse plano pessoal já pertence a outra conta' }); }
-      if (b.palavra) { if (String(b.palavra).length < 8) return json(400, { erro: 'A palavra-passe tem de ter pelo menos 8 caracteres' }); x.hash = hashPalavra(b.palavra); }
-      if (!l.some(y => y.admin)) return json(400, { erro: 'Tem de existir pelo menos um administrador' });
-      gravarContas(l); if (mudouD) { gravarJSON(FICH_DONOS, d); } return json(200, publica(x));
+      const b = await lerCorpo(req), x = b.id && conta(String(b.id)); if (!x) return json(404, { erro: 'Conta não encontrada' });
+      if (b.email !== undefined) { const em = String(b.email || '').trim().toLowerCase(); if (!EMAIL.test(em)) return json(400, { erro: 'Email inválido' });
+        const outra = contaPorEmail(em); if (outra && outra.id !== x.id) return json(409, { erro: 'Esse email já está noutra conta' }); q('UPDATE contas SET email = ? WHERE id = ?').run(em, x.id); }
+      if (b.nome) q('UPDATE contas SET nome = ? WHERE id = ?').run(String(b.nome).trim().slice(0, 80), x.id);
+      if (b.ativo !== undefined) { if (x.id === c.id && !b.ativo) return json(400, { erro: 'Não pode desativar a sua própria conta' }); q('UPDATE contas SET ativo = ? WHERE id = ?').run(b.ativo ? 1 : 0, x.id);
+        if (!b.ativo) for (const [t, ss] of sessoes) if (ss.conta === x.id) sessoes.delete(t); }
+      if (b.admin !== undefined && x.id !== c.id) q('UPDATE contas SET admin = ? WHERE id = ?').run(b.admin ? 1 : 0, x.id);
+      if (b.palavra) { if (String(b.palavra).length < 8) return json(400, { erro: 'A palavra-passe tem de ter pelo menos 8 caracteres' }); q('UPDATE contas SET hash = ? WHERE id = ?').run(hashPalavra(b.palavra), x.id);
+        for (const [t, ss] of sessoes) if (ss.conta === x.id && x.id !== c.id) sessoes.delete(t); }
+      registar(c.id, 'ADMIN_CONTA_ALTERADA', x.id, ip); return json(200, { ok: true });
     }
-  }
-  if (caminho === '/api/meu-plano' && req.method === 'POST') {
-    const d = donos(), ja = Object.keys(d).find(s => d[s] === c.id);
-    if (ja) return json(200, { destino: '/SISTEMAS/subsidiaria/index.html?s=' + encodeURIComponent(ja) });
-    const l = contas(), x = l.find(y => y.id === c.id); if (!x) return json(404, { erro: 'Conta não encontrada' });
-    const sub = { key: 'p-' + slug(x.nome) + '-' + crypto.randomBytes(3).toString('hex'), nome: x.nome + ' (pessoal)', sigla: iniciais(x.nome), nif: '', setor: '', modelo: 'planeamento', cor1: '#8b5cf6', cor2: '#ec4899',
-      participacao: 0, ativa: true, criadaEm: new Date().toISOString().slice(0, 10), contaCaixa: 'CAIXA', contaOperacional: 'OPERACIONAL', contaHolding: 'HOLDING', independente: true, tipo: 'particular',
-      utilizadores: [{ id: 'u_' + crypto.randomBytes(4).toString('hex'), nome: x.nome, username: String(x.email || x.utilizador || 'eu').split('@')[0].slice(0, 30), role: 'ADMIN', limite: 0 }] };
-    x.proprios = (x.proprios || []).concat([sub]); x.sistemas = (x.sistemas || []).concat([sub.key]); gravarContas(l);
-    d[sub.key] = x.id; gravarJSON(FICH_DONOS, d);
-    return json(200, { sessao: publica(x), destino: '/SISTEMAS/subsidiaria/index.html?s=' + encodeURIComponent(sub.key) });
-  }
-  if (caminho === '/api/donos' && req.method === 'GET') { // só quem é dono de cada plano pessoal (nome da conta), nunca os dados
-    if (!c.admin) return json(403, { erro: 'Só administradores' });
-    const d = donos(), l = contas(), out = {}; for (const sis of pessoais()) { const x = d[sis] ? l.find(y => y.id === d[sis]) : null; const pr = x && (x.proprios || []).find(p => p.key === sis); out[sis] = d[sis] ? { id: d[sis], nome: x ? x.nome : '(conta removida)', plano: pr ? pr.nome : '' } : null; }
-    return json(200, out);
-  }
-  if (caminho.startsWith('/api/contas/') && req.method === 'DELETE') {
-    if (!c.admin) return json(403, { erro: 'Só administradores' });
-    const id = caminho.slice('/api/contas/'.length); if (id === c.id) return json(400, { erro: 'Não pode remover a sua própria conta' });
-    gravarContas(contas().filter(x => x.id !== id)); for (const [t, ss] of sessoes) if (ss.conta === id) sessoes.delete(t); return json(200, { ok: true });
+    return json(405, { erro: 'Método não permitido' });
   }
   return json(404, { erro: 'Não encontrado' });
 }
@@ -310,7 +370,7 @@ function atender(req, res) {
   catch (e) { return enviar(400, 'Pedido inválido'); }
   if (caminho.startsWith('/api/')) return api(req, res, caminho).catch(e => { try { enviar(400, JSON.stringify({ erro: e.message }), 'application/json; charset=utf-8'); } catch (e2) { } });
   if (req.method !== 'GET' && req.method !== 'HEAD') return enviar(405, 'Método não permitido');
-  if (caminho === '/') { res.writeHead(302, { Location: '/SISTEMAS/index.html', 'X-Servidor': ASSINATURA }); return res.end(); }
+  if (caminho === '/' || caminho === '/entrar') { res.writeHead(302, { Location: '/SISTEMAS/entrar.html', 'X-Servidor': ASSINATURA }); return res.end(); }
 
   const ficheiro = path.normalize(path.join(RAIZ, caminho));
   // impede sair da pasta do repositório (../) e servir pastas privadas
@@ -376,10 +436,10 @@ servidor.on('error', erro => {
   });
 });
 
-try { atribuirDonos(); } catch (e) { console.error('donos:', e.message); }
+migrarFicheiros();
 servidor.listen(PORT, HOST, () => {
   console.log('');
-  console.log('  Grupo BXB - servidor local a correr');
+  console.log('  BXB - site a correr');
   console.log(`  Abra: ${URL_PORTAL}`);
   console.log(`  Dados guardados em: ${DADOS}`);
   console.log('');

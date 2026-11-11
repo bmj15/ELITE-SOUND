@@ -757,9 +757,16 @@ SPAP.createApp = function (cfg) {
   function utilizadorDoSite() {
     const s = contaSite(); if (!s) return null;
     const ativos = db.users.filter(u => u.ativo !== false), igual = (a, b) => !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+    // só pela conta, pelo email ou pelo nome; nunca "por ser o único" (numa empresa isso daria a um colaborador o utilizador do responsável)
+    const papel = ((s.areas || []).find(a => a.key === cfg.key) || {}).papel;
     let u = ativos.find(x => x.contaId === s.id);
     if (!u) u = ativos.find(x => !x.contaId && (igual(x.email, s.email) || igual(x.nome, s.nome)));
-    if (!u) { const livres = ativos.filter(x => !x.contaId); if (ativos.length === 1 && livres.length === 1) u = livres[0]; }
+    // o responsável da área que ainda não está ligado: o administrador interno sem conta associada (se for só um)
+    if (!u && papel === 'dono') { const adm = ativos.filter(x => !x.contaId && x.role === 'ADMIN'); if (adm.length === 1) u = adm[0]; }
+    // colaborador convidado pelo responsável que entra pela primeira vez: fica como Operador (o responsável ajusta o papel e a alçada)
+    if (!u && papel === 'colaborador') {
+      u = { id: 'u_' + uid(), nome: s.nome, username: String(s.email || s.nome).split('@')[0].slice(0, 30), email: s.email, contaId: s.id, role: 'OPERADOR', limite: 0, ativo: true, pinHash: null };
+      db.users.push(u); log('UTILIZADOR_NOVO', `${u.username} · colaborador convidado (entrou pelo site)`); save(); }
     if (u && u.contaId !== s.id) { u.contaId = s.id; if (s.email && !u.email) u.email = s.email; save(); }
     return u || null;
   }

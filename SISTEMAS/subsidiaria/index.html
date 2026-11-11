@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Subsidiária · Gestão</title>
-<script src="../shared/servidor-dados.js?v=6"></script>
+<script src="../shared/servidor-dados.js?v=7"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../shared/spap.css?v=45">
@@ -20,17 +20,19 @@
 <div id="app"></div>
 <script src="../shared/vendor/qrcode.min.js"></script>
 <script src="../shared/vendor/jsQR.min.js"></script>
-<script src="../shared/spap.js?v=43"></script>
-<script src="../shared/grupo.js?v=6"></script>
-<script src="../shared/modelos.js?v=3"></script>
+<script src="../shared/spap.js?v=45"></script>
+<script src="../shared/grupo.js?v=7"></script>
+<script src="../shared/modelos.js?v=4"></script>
 <script src="../shared/conta-casa.js?v=9"></script>
-<script src="../shared/modelo-planeamento.js?v=149"></script>
+<script src="../shared/modelo-planeamento.js?v=151"></script>
 <script src="../shared/leitor-recibos.js?v=3"></script>
 <script src="../shared/leitor-extratos.js?v=3"></script>
 <script>
 (function () {
   'use strict';
-  const key = new URLSearchParams(location.search).get('s') || 'elite';
+  const ses = window.BXBServidor && BXBServidor.sessao;
+  const key = new URLSearchParams(location.search).get('s') || (ses ? (ses.sistemas || [])[0] : 'elite');
+  if (ses && !key) { location.replace('/SISTEMAS/index.html'); return; }
   const sub = Grupo.get(key);
   if (!sub || !SPAP.modelos[sub.modelo]) {
     document.getElementById('app').innerHTML = `<div class="nf"><div><h1 style="margin:0 0 8px">Subsidiária não encontrada</h1>

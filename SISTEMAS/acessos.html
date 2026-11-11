@@ -3,107 +3,62 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Acessos ao servidor · Grupo BXB</title>
-<script src="shared/servidor-dados.js?v=6"></script>
+<title>Administração · BXB</title>
+<script src="shared/servidor-dados.js?v=7"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="shared/spap.css?v=29">
-<style>body{padding:24px;background:var(--bg)} .wrap{width:min(960px,100%);margin:0 auto} h1{font-size:30px;letter-spacing:-1px;margin:0 0 6px}</style>
+<link rel="stylesheet" href="shared/spap.css?v=45">
+<style>
+  body{min-height:100vh;margin:0;background:var(--bg)}
+  .wrap{max-width:1000px;margin:0 auto;padding:22px 16px 60px}
+  .topo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+  .topo a{color:#a78bfa;text-decoration:none;font-weight:600}
+  h1{font-size:30px;letter-spacing:-1px;margin:0 0 4px}
+</style>
 </head>
 <body>
 <div class="wrap">
-  <div class="row between" style="margin-bottom:12px"><a href="index.html" class="muted">← Portal</a><span class="muted" id="quem"></span></div>
-  <h1>Acessos ao servidor</h1>
-  <p class="muted" style="margin:0 0 16px">Cada pessoa entra no servidor com a sua conta e só recebe os dados dos sistemas assinalados. Dentro de cada sistema continua a entrar com o seu utilizador e PIN.</p>
+  <div class="topo"><a href="/SISTEMAS/index.html">‹ Voltar</a></div>
+  <h1>Administração</h1>
+  <p class="muted" style="margin:0 0 18px">Gestão de contas: ativar, desativar, corrigir o email e repor a palavra-passe. O administrador não tem acesso aos dados de nenhum cliente.</p>
   <div id="c"></div>
 </div>
 <script>
 (function () {
   'use strict';
   var S = window.BXBServidor || {}, c = document.getElementById('c');
+  if (!S.sessao) { location.replace('/SISTEMAS/entrar.html?voltar=' + encodeURIComponent('/SISTEMAS/acessos.html')); return; }
+  if (!S.sessao.admin) { c.innerHTML = '<div class="alert bad"><div>Só administradores.</div></div>'; return; }
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (x) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x]; }); };
-  if (!S.sessao) { location.replace('entrar.html?voltar=' + encodeURIComponent('/SISTEMAS/acessos.html')); return; }
-  document.getElementById('quem').textContent = S.sessao.nome;
-  var H = { 'Content-Type': 'application/json', 'X-BXB': '1' };
-  var api = function (m, url, corpo) { return fetch(url, { method: m, headers: H, body: corpo ? JSON.stringify(corpo) : undefined }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }); };
-  var sistemas = [{ key: 'bxb', nome: 'BXB Investimentos (holding)' }];
-  function senha() {
-    c.insertAdjacentHTML('beforeend', '<div class="card" style="margin-top:16px"><div class="card-h"><h3>A minha palavra-passe</h3></div><form class="form" id="fp"><div class="fld"><label>Atual</label><input class="inp" type="password" name="atual" autocomplete="current-password"></div><div class="fld"><label>Nova (mín. 8)</label><input class="inp" type="password" name="nova" autocomplete="new-password"></div><div class="fld full"><button class="btn" type="submit">Mudar</button> <span id="mp"></span></div></form></div>');
-    document.getElementById('fp').onsubmit = function (e) { e.preventDefault(); var f = Object.fromEntries(new FormData(e.target)); api('POST', '/api/palavra', f).then(function (r) { document.getElementById('mp').textContent = r.ok ? 'Palavra-passe mudada.' : r.j.erro; if (r.ok) e.target.reset(); }); };
-  }
-  if (!S.sessao.admin) { c.innerHTML = '<div class="alert info"><div>Só administradores gerem as contas.</div></div>'; senha(); return; }
-  // dados que ainda só existem neste navegador (antes do servidor): enviar sem apagar o que já está no servidor
-  var locais = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('spap:') === 0 && k !== 'spap:theme') locais.push(k); }
-  var migracao = document.createElement('div'); c.parentNode.insertBefore(migracao, c);
-  function verMigracao() {
-    api('GET', '/api/versoes').then(function (r) { var srv = r.j || {}, faltam = locais.filter(function (k) { return !(k in srv); });
-      if (!faltam.length) { migracao.innerHTML = new URLSearchParams(location.search).get('migrar') ? '<div class="alert ok" style="margin-bottom:16px"><div>Os dados deste navegador já estão no servidor. <a href="index.html">Abrir o portal</a></div></div>' : ''; return; }
-      migracao.innerHTML = '<div class="card" style="margin-bottom:16px;border-color:var(--warn)"><div class="card-h"><h3>Dados deste navegador</h3></div><p class="muted" style="margin:0 0 12px">Este navegador tem <b>' + faltam.length + '</b> registos dos sistemas (holding, subsidiárias, planos, casa…) que ainda não estão no servidor. ' + (Object.keys(srv).length ? 'Só são enviados os que faltam: nada do que já está no servidor é substituído.' : 'Envie-os agora: até lá os sistemas não abrem, para não começarem vazios.') + ' Os dados ficam também neste navegador, como cópia.</p>' +
-        '<button class="btn primary" id="mig">Enviar os dados deste navegador para o servidor</button> <span id="migr" class="muted"></span></div>';
-      document.getElementById('mig').onclick = function () { var b = this; b.disabled = true; var ok = 0, erros = 0;
-        faltam.reduce(function (p, k) { return p.then(function () { return api('PUT', '/api/dados/' + encodeURIComponent(k), { valor: localStorage.getItem(k), versao: 0 }).then(function (r) { if (r.ok) ok++; else erros++; document.getElementById('migr').textContent = ok + ' enviados' + (erros ? ', ' + erros + ' com erro' : ''); }); }); }, Promise.resolve())
-          .then(function () { if (!erros) migracao.innerHTML = '<div class="alert ok" style="margin-bottom:16px"><div>' + ok + ' registos enviados para o servidor. <a href="index.html">Abrir o portal</a></div></div>'; else b.disabled = false; }); };
-    });
-  }
-  if (locais.length) verMigracao();
-  var donos = {};
-  api('GET', '/api/dados').then(function (r) {
-    try { (JSON.parse(((r.j || {})['spap:grupo'] || {}).valor || '[]') || []).forEach(function (s) { sistemas.push({ key: s.key, nome: s.nome }); }); } catch (e) { }
-    if (sistemas.length === 1) sistemas.push({ key: 'elite', nome: 'Elite Sound' });
-    api('GET', '/api/donos').then(function (rd) { donos = (rd.ok && rd.j) || {};
-      // planos pessoais criados no site também entram na lista (só o nome)
-      Object.keys(donos).forEach(function (k) { if (!sistemas.some(function (s) { return s.key === k; })) sistemas.push({ key: k, nome: (donos[k] && donos[k].plano) || k }); });
-      carregar(); });
-  });
+  var api = function (m, url, corpo) { return fetch(url, { method: m, headers: { 'Content-Type': 'application/json', 'X-BXB': '1' }, body: corpo ? JSON.stringify(corpo) : undefined }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); }); };
+  var tipos = function (ar) { var p = ar.filter(function (a) { return a.tipo === 'particular'; }).length, e = ar.filter(function (a) { return a.tipo === 'empresa'; }).length;
+    return [p ? 'Particular' : '', e ? e + ' empresa' + (e > 1 ? 's' : '') : ''].filter(Boolean).map(function (t) { return '<span class="badge plain" style="margin:2px">' + t + '</span>'; }).join('') || '<span class="faint">sem área</span>'; };
   function carregar() {
     api('GET', '/api/contas').then(function (r) {
       if (!r.ok) { c.innerHTML = '<div class="alert bad"><div>' + esc(r.j.erro) + '</div></div>'; return; }
-      var nomeSis = function (k) { var s = sistemas.find(function (x) { return x.key === k; }); return s ? s.nome : k; };
-      c.innerHTML = '<div class="card flush"><div class="card-h"><h3>Contas</h3><button class="btn sm primary" id="nova">+ Nova conta</button></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Email · utilizador</th><th>Acesso</th><th></th></tr></thead><tbody>' +
-        r.j.map(function (x) { return '<tr><td><b>' + esc(x.nome) + '</b>' + (x.tipo ? ' <span class="badge plain">' + (x.tipo === 'empresa' ? 'Empresa' : 'Particular') + '</span>' : '') + '</td><td class="mono">' + esc(x.email || '—') + (x.utilizador && x.utilizador !== x.email ? '<div class="faint">' + esc(x.utilizador) + '</div>' : '') + '</td><td>' + (x.admin || x.sistemas.indexOf('*') >= 0 ? '<span class="badge acc">administrador · empresas</span>' : x.sistemas.map(function (k) { return '<span class="badge plain" style="margin:2px">' + esc(nomeSis(k)) + '</span>'; }).join('') || '<span class="faint">nenhum</span>') + '</td><td class="r"><button class="btn sm" data-ed="' + x.id + '">Editar</button>' + (x.id !== S.sessao.id ? ' <button class="btn sm ghost" data-rm="' + x.id + '">Remover</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div></div><div id="form"></div>';
-      document.getElementById('nova').onclick = function () { form(null); };
+      c.innerHTML = '<div class="card flush"><div class="card-h"><h3>Contas</h3><span class="faint">' + r.j.length + '</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Email</th><th>Áreas</th><th>Estado</th><th></th></tr></thead><tbody>' +
+        r.j.map(function (x) { return '<tr><td><b>' + esc(x.nome) + '</b>' + (x.admin ? ' <span class="badge acc">admin</span>' : '') + '<div class="faint">desde ' + esc(String(x.criada_em).slice(0, 10)) + '</div></td>' +
+          '<td class="mono">' + esc(x.email || x.utilizador || '—') + '</td><td>' + tipos(x.areas) + '</td><td>' + (x.ativo ? '<span class="badge ok">ativa</span>' : '<span class="badge bad">desativada</span>') + '</td>' +
+          '<td class="r" style="white-space:nowrap"><button class="btn sm" data-ed="' + x.id + '">Editar</button></td></tr>'; }).join('') + '</tbody></table></div></div><div id="form"></div>';
       c.querySelectorAll('[data-ed]').forEach(function (b) { b.onclick = function () { form(r.j.find(function (x) { return x.id === b.dataset.ed; })); }; });
-      c.querySelectorAll('[data-rm]').forEach(function (b) { b.onclick = function () { if (confirm('Remover esta conta? Deixa de conseguir entrar no servidor.')) api('DELETE', '/api/contas/' + b.dataset.rm).then(carregar); }; });
-      senha(); pinSistema();
-    });
-  }
-  // PIN esquecido dentro de um sistema: o administrador do servidor define um PIN temporário
-  function pinSistema() {
-    api('GET', '/api/dados').then(function (r) {
-      var lista = [];
-      Object.keys(r.j || {}).forEach(function (k) { var m = /^spap:([^:]+)$/.exec(k); if (!m || k === 'spap:grupo') return; try { var d = JSON.parse(r.j[k].valor); if (d && Array.isArray(d.users)) lista.push({ key: m[1], nome: (sistemas.find(function (s) { return s.key === m[1]; }) || {}).nome || m[1], users: d.users.filter(function (u) { return u.ativo !== false; }), locks: (d.meta || {}).locks || {} }); } catch (e) { } });
-      if (!lista.length) return;
-      c.insertAdjacentHTML('beforeend', '<div class="card" style="margin-top:16px"><div class="card-h"><h3>PIN esquecido num sistema</h3></div><p class="muted" style="margin:0 0 12px">Define um PIN temporário para um utilizador de um sistema (por exemplo, quando é o único com PIN e se esqueceu). No próximo acesso o sistema obriga-o a escolher um PIN novo e emite um novo certificado de assinatura; as assinaturas antigas continuam verificáveis. Fica registado na auditoria do sistema.</p>' +
-        '<form class="form" id="fpin"><div class="fld"><label>Sistema</label><select class="inp" name="sistema">' + lista.map(function (s) { return '<option value="' + esc(s.key) + '">' + esc(s.nome) + '</option>'; }).join('') + '</select></div><div class="fld"><label>Utilizador</label><select class="inp" name="userId"></select></div>' +
-        '<div class="fld"><label>PIN temporário (4 a 8 dígitos)</label><input class="inp mono" name="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></div><div class="fld"><label>Confirmar PIN temporário</label><input class="inp mono" name="pin2" type="password" inputmode="numeric" maxlength="8" autocomplete="off"></div>' +
-        '<div class="fld full"><label>A sua palavra-passe do servidor</label><input class="inp" name="palavra" type="password" autocomplete="current-password"></div><div class="fld full"><button class="btn primary" type="submit">Definir PIN temporário</button> <span id="rpin"></span></div></form></div>');
-      var f = document.getElementById('fpin');
-      var users = function () { var s = lista.find(function (x) { return x.key === f.sistema.value; }); f.userId.innerHTML = s.users.map(function (u) { var l = s.locks[u.id], bloq = l && l.until > Date.now(); return '<option value="' + esc(u.id) + '">' + esc(u.nome) + (u.pinHash ? '' : ' (sem PIN)') + (bloq ? ' · bloqueado' : '') + '</option>'; }).join(''); };
-      f.sistema.onchange = users; users();
-      f.onsubmit = function (e) { e.preventDefault(); var d = Object.fromEntries(new FormData(f)), out = document.getElementById('rpin');
-        if (!/^\d{4,8}$/.test(d.pin)) { out.textContent = 'O PIN deve ter 4 a 8 dígitos'; return; } if (d.pin !== d.pin2) { out.textContent = 'Os PIN não coincidem'; return; }
-        api('POST', '/api/redefinir-pin', { sistema: d.sistema, userId: d.userId, pin: d.pin, palavra: d.palavra }).then(function (r) {
-          if (!r.ok) { out.textContent = r.j.erro; return; } f.reset(); users(); out.textContent = 'PIN temporário definido para ' + r.j.utilizador + '. Feche e volte a abrir esse sistema e entre com ele: vai ser pedido um PIN novo.'; }); };
     });
   }
   function form(x) {
-    var novo = !x; x = x || { nome: '', utilizador: '', email: '', admin: false, sistemas: [] };
-    var f = document.getElementById('form');
-    f.innerHTML = '<div class="card" style="margin-top:16px"><div class="card-h"><h3>' + (novo ? 'Nova conta' : 'Editar ' + esc(x.nome)) + '</h3></div><form class="form" id="fc">' +
-      '<div class="fld"><label>Nome</label><input class="inp" name="nome" value="' + esc(x.nome) + '"></div><div class="fld"><label>Utilizador</label><input class="inp mono" name="utilizador" value="' + esc(x.utilizador) + '"></div>' +
-      '<div class="fld"><label>Email (para entrar no site)</label><input class="inp mono" type="email" name="email" value="' + esc(x.email || '') + '"></div>' +
-      '<div class="fld"><label>Palavra-passe' + (novo ? ' (mín. 8)' : ' (deixe vazio para manter)') + '</label><input class="inp" type="password" name="palavra" autocomplete="new-password"></div>' +
-      '<div class="fld"><label>&nbsp;</label><label class="check"><input type="checkbox" name="admin" ' + (x.admin ? 'checked' : '') + '> Administrador (sistemas de empresa e gestão de contas; os planos pessoais são só do dono)</label></div>' +
-      '<div class="fld full"><label>Sistemas a que tem acesso</label><div class="stack" style="gap:6px">' + sistemas.map(function (s) { var pes = Object.prototype.hasOwnProperty.call(donos, s.key), d = donos[s.key];
-        if (pes && d && d.id !== x.id) return '<label class="check" style="opacity:.55"><input type="checkbox" disabled> ' + esc(s.nome) + ' <span class="faint">· plano pessoal de ' + esc(d.nome) + '</span></label>';
-        if (pes && d) return '<label class="check"><input type="checkbox" data-sis="' + esc(s.key) + '" checked disabled> ' + esc(s.nome) + ' <span class="faint">· plano pessoal (dono)</span></label>';
-        return '<label class="check"><input type="checkbox" data-sis="' + esc(s.key) + '" ' + (x.sistemas.indexOf(s.key) >= 0 ? 'checked' : '') + '> ' + esc(s.nome) + (pes ? ' <span class="faint">· plano pessoal sem dono: quem o receber fica dono para sempre</span>' : '') + '</label>'; }).join('') + '</div><span class="hint">Cada plano pessoal tem um só dono e só ele o vê, nem o administrador (RGPD). O dono não se muda depois de atribuído.</span></div>' +
+    var f = document.getElementById('form'), eu = x.id === S.sessao.id;
+    f.innerHTML = '<div class="card" style="margin-top:16px"><div class="card-h"><h3>' + esc(x.nome) + '</h3></div><form class="form" id="fc">' +
+      '<div class="fld"><label>Nome</label><input class="inp" name="nome" value="' + esc(x.nome) + '"></div>' +
+      '<div class="fld"><label>Email (entrada no site)</label><input class="inp mono" type="email" name="email" value="' + esc(x.email || '') + '"></div>' +
+      '<div class="fld"><label>Nova palavra-passe (deixe vazio para manter)</label><input class="inp" type="password" name="palavra" autocomplete="new-password"><span class="hint">Para quem se esqueceu: diga-lhe a palavra-passe temporária e peça-lhe para a mudar em A minha conta.</span></div>' +
+      '<div class="fld"><label>&nbsp;</label><label class="check"><input type="checkbox" name="ativo" ' + (x.ativo ? 'checked' : '') + (eu ? ' disabled' : '') + '> Conta ativa</label>' +
+      '<label class="check"><input type="checkbox" name="admin" ' + (x.admin ? 'checked' : '') + (eu ? ' disabled' : '') + '> Administrador (gestão de contas)</label></div>' +
       '<div class="fld full"><button class="btn primary" type="submit">Guardar</button> <button class="btn ghost" type="button" id="cx">Cancelar</button> <span id="em"></span></div></form></div>';
     document.getElementById('cx').onclick = function () { f.innerHTML = ''; };
     document.getElementById('fc').onsubmit = function (e) { e.preventDefault(); var d = Object.fromEntries(new FormData(e.target));
-      var corpo = { id: x.id, nome: d.nome, utilizador: d.utilizador, email: d.email, palavra: d.palavra || undefined, admin: !!e.target.admin.checked, sistemas: Array.prototype.map.call(e.target.querySelectorAll('[data-sis]:checked'), function (i) { return i.dataset.sis; }) };
+      var corpo = { id: x.id, nome: d.nome, email: d.email, palavra: d.palavra || undefined };
+      if (!eu) { corpo.ativo = !!e.target.ativo.checked; corpo.admin = !!e.target.admin.checked; }
       api('POST', '/api/contas', corpo).then(function (r) { if (!r.ok) { document.getElementById('em').textContent = r.j.erro; return; } carregar(); }); };
   }
+  carregar();
 })();
 </script>
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('spap:theme')||'dark')}catch(e){}</script>
