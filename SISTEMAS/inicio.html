@@ -7,7 +7,7 @@
 <meta name="description" content="Planeamento financeiro pessoal e gestão de tesouraria para empresas, com autorizações assinadas.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=5">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=6">
 <script>if (/^\/empresas/.test(location.pathname)) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
@@ -20,6 +20,7 @@
 (function () {
   'use strict';
   var esc = Site.esc, ic = Site.ic, emp = Site.seg === 'empresa';
+  var embutido = window.top !== window.self; if (embutido) document.documentElement.classList.add('embutido');
   var ENT = '/SISTEMAS/entrar.html', ABRIR = ENT + '?criar=1&tipo=' + (emp ? 'empresa' : 'particular');
   var eur0 = function (v) { return Math.round(v).toLocaleString('pt-PT') + ' €'; };
   var meses = function (n) { n = Math.ceil(n); var a = Math.floor(n / 12), m = n % 12; return (a ? a + (a > 1 ? ' anos' : ' ano') : '') + (a && m ? ' e ' : '') + (m ? m + (m > 1 ? ' meses' : ' mês') : ''); };
@@ -47,6 +48,9 @@
       { tag: 'Poupança', h: 'Um fundo para os imprevistos.', p: 'Saiba quanto deve ter de parte e em quantos meses lá chega, ao ritmo que consegue poupar.', c1: ['Calcular o meu fundo', '/simuladores#emergencia'], arte: 'objetivo' },
       { tag: 'Impostos', h: 'O IRS sem surpresas.', p: 'Recibos, deduções do e-Fatura e uma estimativa do reembolso muito antes da entrega da declaração.', c1: ['Ler o guia', '/artigos/deducoes-irs-e-fatura'], arte: 'irs' }
     ],
+    movel: { sob: 'No telemóvel', h: 'O seu plano, <b>sempre à mão</b>', p: 'O site adapta-se ao ecrã do telemóvel. Veja quanto sobra, registe uma despesa ou acompanhe um objetivo onde estiver, sem instalar nada.',
+      pts: ['O mês inteiro num relance', 'Despesas registadas em segundos', 'Simuladores sem registo'], c1: ['Abrir conta', ABRIR], c2: ['Ver simuladores', '/simuladores'],
+      cards: [['i-carteira', 'Sobra este mês', '412,30 €', '▲ 18% face à média'], ['i-alvo', 'Objetivo · Férias', '68%', 'Faltam 4 meses']] },
     quero: [
       { id: 'dividas', t: 'Quero sair das dívidas', ico: 'i-cartao', tg: 'Simulação rápida', lb: 'Plano para sair das dívidas', h: 'Quanto deve?', pts: ['Compare várias estratégias de pagamento', 'Veja a data em que fica sem dívidas', 'Saiba quanto poupa com cada reforço'],
         vals: [1000, 2500, 5000, 10000, 20000], def: 5000, un: '€', res: function (v) { var r = 0.10 / 12, P = Math.max(30, v * 0.03), n = -Math.log(1 - r * v / P) / Math.log(1 + r), n2 = -Math.log(1 - r * v / (P + 50)) / Math.log(1 + r);
@@ -81,6 +85,9 @@
       { tag: 'Equipa', h: 'Toda a equipa, cada um no seu papel.', p: 'Convide os colaboradores pelo email e defina o papel e a alçada de cada um.', c1: ['Abrir conta de empresa', ABRIR], arte: 'equipa' },
       { tag: 'Guia', h: 'A tesouraria a 13 semanas.', p: 'Antecipe faltas de liquidez com uma previsão semanal simples de entradas e saídas.', c1: ['Ler o guia', '/artigos/tesouraria-pme-13-semanas'], arte: 'tesouraria' }
     ],
+    movel: { sob: 'No telemóvel', h: 'A empresa, <b>na palma da mão</b>', p: 'O site adapta-se ao ecrã do telemóvel. Aprove um pagamento, consulte a tesouraria ou veja as vendas da semana onde estiver.',
+      pts: ['Pagamentos aprovados onde estiver', 'Saldo e previsão de tesouraria', 'Avisos de pagamentos pendentes'], c1: ['Abrir conta de empresa', ABRIR], c2: ['Ver simuladores', '/simuladores#pmr'],
+      cards: [['i-chave', 'Pagamento autorizado', '2 de 2', 'Fornecedor · 1 240,00 €'], ['i-graf', 'Saldo previsto · 30 dias', '18 420 €', '▲ dentro do plano']] },
     quero: [
       { id: 'pagamentos', t: 'Quero controlar pagamentos', ico: 'i-chave', tg: 'Autorização de pagamentos', lb: 'Pagamentos', h: 'Cada pagamento com quem o pode aprovar', pts: ['Alçadas por valor e por pessoa', 'Dupla aprovação acima do limite', 'Assinatura com PIN e rubrica'],
         lado: [['Porque é que a dupla aprovação protege a tesouraria', '/artigos/dupla-aprovacao-pagamentos'], ['O que é a regra das duas pessoas', '/ajuda?p=duas-pessoas'], ['Abrir conta de empresa', ABRIR]] },
@@ -117,6 +124,11 @@
   h += '<section class="hp-sec tela" id="quero"><div class="wrap"><p class="sobre-t">Passe das ideias à ação</p><h2 class="tit" style="margin-bottom:24px">Como podemos <b>ajudar hoje?</b></h2><div class="quero-t" id="queroT" role="tablist">' + D.quero.map(function (q, i) { return '<button type="button" role="tab" data-q="' + i + '"' + (i ? '' : ' class="on"') + '>' + ic(q.ico, 16) + q.t + '</button>'; }).join('') + '</div><div id="queroC"></div></div></section>';
   h += '<section class="hp-sec alt tela" id="destaques"><div class="wrap"><div class="cab-s"><div><p class="sobre-t">Em destaque</p><h2 class="tit">Os destaques <b>que importam</b></h2></div><div class="setas"><button type="button" data-d="-1" aria-label="Anterior">‹</button><button type="button" data-d="1" aria-label="Seguinte">›</button></div></div><div class="dest-c" id="destC">' +
     D.dest.map(function (d) { return '<a class="dc" id="' + d.id + '" href="' + d.l[1] + '">' + capa(d.cat, d.ico) + '<div class="tx"><h3>' + d.h + '</h3><p>' + d.p + '</p><span class="lk-s">' + d.l[0] + '</span></div></a>'; }).join('') + '</div></div></section>';
+  if (!embutido) { var M = D.movel;
+    h += '<section class="hp-sec tela movel" id="movel"><div class="wrap"><div class="mv"><div class="mv-txt"><p class="sobre-t">' + M.sob + '</p><h2 class="tit mv-h">' + M.h + '</h2><p class="mv-p">' + M.p + '</p><ul class="mv-pts">' + M.pts.map(function (t) { return '<li>' + ok + t + '</li>'; }).join('') + '</ul>' +
+      '<div class="ctas"><a class="btn btn-p" href="' + M.c1[1] + '">' + M.c1[0] + ' ' + ic('i-seta', 16) + '</a><a class="btn btn-s" href="' + M.c2[1] + '">' + M.c2[0] + '</a></div></div>' +
+      '<div class="mv-cena" aria-hidden="true"><div class="mv-brilho"></div><div class="tel"><div class="tel-ecra"><iframe title="BXB no telemóvel" tabindex="-1" data-src="' + (emp ? '/empresas' : '/') + '"></iframe><span class="dedo"></span></div><i class="tel-ilha"></i></div>' +
+      M.cards.map(function (k, n) { return '<div class="mv-c c' + (n + 1) + '"><i>' + ic(k[0], 18) + '</i><div><span>' + k[1] + '</span><b>' + k[2] + '</b><small>' + k[3] + '</small></div></div>'; }).join('') + '</div></div></div></section>'; }
   h += '<section class="hp-sec tela" id="simuladores"><div class="wrap"><div class="cab-s"><div><p class="sobre-t">Simuladores</p><h2 class="tit">Faça as contas <b>antes de decidir</b></h2></div><a class="lk-s" href="/simuladores">Ver todos</a></div><div class="sim4">' +
     D.sims.map(function (s) { var href = s[0] === 'guia' ? '/artigos/tesouraria-pme-13-semanas' : '/simuladores' + (s[0] ? '#' + s[0] : '');
       return '<a class="s4" href="' + href + '"><div class="rodela"><span>' + ic(s[1], 40) + '</span></div><h3>' + s[2] + '</h3><p>' + s[3] + '</p><span class="lk-s">' + (s[0] === 'guia' ? 'Ler guia' : s[0] ? 'Simular' : 'Ver simuladores') + '</span></a>'; }).join('') + '</div></div></section>';
@@ -138,7 +150,7 @@
   if (rod) secs.push(rod);
   secs.forEach(function (s, i) { s.classList.add('seg-x');
     var k = 0; [].forEach.call(s.querySelectorAll('.tela > .wrap > *'), function (f) {
-      var filhos = f.matches('.cab-s, .sim4, .faq6, .aj3, .dicas, .bloco-z, .dest-c') ? [].slice.call(f.children) : [f];
+      var filhos = f.matches('.cab-s, .sim4, .faq6, .aj3, .dicas, .bloco-z, .dest-c, .mv') ? [].slice.call(f.children) : [f];
       filhos.forEach(function (el) { el.classList.add('anim'); el.style.setProperty('--k', Math.min(k++, 9)); }); });
     if (s.classList.contains('tela') && !s.id) { var a = s.querySelector('[id]'); if (a) s.dataset.alvo = a.id; } });
   var nomes = secs.map(function (s, i) { if (!i) return 'Início'; if (s === rod) return 'Mapa do site'; var t = s.querySelector('.sobre-t'); return t ? t.textContent : ''; });
@@ -243,6 +255,53 @@
   // ---------- destaques: setas ----------
   var dc = document.getElementById('destC');
   document.querySelectorAll('[data-d]').forEach(function (b) { b.onclick = function () { var w = dc.querySelector('.dc').offsetWidth + 20; dc.scrollBy({ left: +b.dataset.d * w, behavior: 'smooth' }); }; });
+
+
+  // ---------- telemóvel a flutuar: o site real, navegado por um dedo ----------
+  (function () {
+    var sec = document.getElementById('movel'); if (!sec) return;
+    var fr = sec.querySelector('iframe'), ecra = sec.querySelector('.tel-ecra'), dedo = sec.querySelector('.dedo'), W = 390, H = 844;
+    var corre = false, gen = 0, visto = false;
+    function escala() { var s = ecra.clientWidth / W; fr.style.transform = 'scale(' + s + ')'; }
+    escala(); addEventListener('resize', escala);
+    var esp = function (ms, g) { return new Promise(function (r, f) { setTimeout(function () { g === gen ? r() : f('parou'); }, ms); }); };
+    function janela() { try { return fr.contentWindow; } catch (e) { return null; } }
+    function rolar(w, para, dur, g) { return new Promise(function (r, f) { var de = w.scrollY, t0 = performance.now();
+      (function passo(t) { if (g !== gen) return f('parou'); var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 4); w.scrollTo({ top: de + (para - de) * e, behavior: 'instant' }); if (p < 1) requestAnimationFrame(passo); else r(); })(t0); }); }
+    function poe(x, y, dur) { dedo.style.transition = 'left ' + dur + 'ms cubic-bezier(.3,.7,.2,1), top ' + dur + 'ms cubic-bezier(.3,.7,.2,1), opacity .3s, scale .18s'; dedo.style.left = x + '%'; dedo.style.top = y + '%'; }
+    async function deslizar(w, delta, g) { poe(58, 74, 0); dedo.classList.add('ve'); await esp(260, g); dedo.classList.add('carrega');
+      var max = w.document.documentElement.scrollHeight - H, para = Math.max(0, Math.min(max, w.scrollY + delta));
+      poe(58, delta > 0 ? 36 : 86, 520); var r = rolar(w, para, 1300, g); await esp(420, g); dedo.classList.remove('carrega', 've'); await r; }
+    async function irA(w, sel, g, folga) { var el = w.document.querySelector(sel); if (!el) return; var y = el.getBoundingClientRect().top + w.scrollY - (folga || 90); await deslizar(w, y - w.scrollY, g); }
+    async function tocar(w, sel, g) { var el = w.document.querySelector(sel); if (!el) return; var b = el.getBoundingClientRect();
+      if (b.top < 60 || b.bottom > H - 40) return; poe(Math.min(92, (b.left + b.width / 2) / W * 100), (b.top + b.height / 2) / H * 100, 0);
+      await esp(30, g); dedo.classList.add('ve'); await esp(380, g); dedo.classList.add('carrega'); await esp(160, g); el.click(); dedo.classList.remove('carrega'); await esp(320, g); dedo.classList.remove('ve'); }
+    async function lateral(w, sel, g) { var el = w.document.querySelector(sel); if (!el) return; var b = el.getBoundingClientRect(); var y = (b.top + Math.min(b.height, 260) / 2) / H * 100;
+      poe(80, y, 0); dedo.classList.add('ve'); await esp(260, g); dedo.classList.add('carrega'); poe(24, y, 520); el.scrollBy({ left: el.clientWidth * .88, behavior: 'smooth' }); await esp(560, g); dedo.classList.remove('carrega', 've'); await esp(500, g);
+      poe(24, y, 0); dedo.classList.add('ve'); await esp(200, g); dedo.classList.add('carrega'); poe(80, y, 520); el.scrollBy({ left: -el.clientWidth * 2, behavior: 'smooth' }); await esp(560, g); dedo.classList.remove('carrega', 've'); }
+    async function ciclo(g) { var w = janela(); if (!w || !w.document.body) return;
+      w.scrollTo({ top: 0, behavior: 'instant' }); await esp(1400, g);
+      await deslizar(w, 360, g); await esp(900, g);
+      await irA(w, '#queroT', g, 120); await esp(700, g);
+      await tocar(w, '#queroT button:nth-child(2)', g); await esp(1500, g);
+      await tocar(w, '#queroC .vals button:nth-child(3)', g); await esp(1600, g);
+      await irA(w, '#destaques', g, 20); await esp(700, g);
+      await lateral(w, '#destC', g); await esp(900, g);
+      await irA(w, '#movel, #simuladores', g, 20); await esp(1200, g);
+      await deslizar(w, 520, g); await esp(1200, g);
+      await tocar(w, '#queroT button:nth-child(1)', g).catch(function () { });
+      dedo.classList.remove('ve'); await rolar(w, 0, 1600, g); await esp(1600, g); }
+    async function correr() { var g = gen; try { while (g === gen) await ciclo(g); } catch (e) { } }
+    function ligar(on) { if (on === corre) return; corre = on; gen++; dedo.classList.remove('ve', 'carrega'); if (on && !reduz) { if (fr.dataset.ok) correr(); } }
+    fr.addEventListener('load', function () { fr.dataset.ok = 1; var w = janela(); try { w.document.documentElement.classList.add('embutido'); } catch (e) { } if (corre && !reduz) { gen++; correr(); } });
+    function avaliar() { var r = sec.getBoundingClientRect(), on = !document.hidden && getComputedStyle(sec).display !== 'none' && r.top < innerHeight * .65 && r.bottom > innerHeight * .35;
+      if (on && !visto) { visto = true; fr.src = fr.dataset.src; } ligar(on); }
+    if ('IntersectionObserver' in window) new IntersectionObserver(avaliar, { threshold: [0, .35, .6] }).observe(sec);
+    new MutationObserver(avaliar).observe(sec, { attributes: true, attributeFilter: ['class'] });
+    var tAv = null; addEventListener('scroll', function () { clearTimeout(tAv); tAv = setTimeout(avaliar, 120); }, { passive: true });
+    document.addEventListener('visibilitychange', avaliar);
+    avaliar();
+  })();
 
   if (location.hash) { var dest = document.getElementById(location.hash.slice(1)), kd = dest ? secDe(dest) : -1; if (kd >= 0) setTimeout(function () { if (ativo()) irSeg(kd, true); else dest.scrollIntoView(); }, 80); }
 })();
