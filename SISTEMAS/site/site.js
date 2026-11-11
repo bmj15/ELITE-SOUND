@@ -76,7 +76,7 @@ var avisoFechado = false; try { avisoFechado = localStorage.getItem('bxb:aviso')
 var aviso = avisoFechado ? '' : '<div class="aviso" id="aviso"><div class="wrap"><span class="et">Novidade</span><p>' + T('Já pode simular o prazo de uma dívida, o fundo de emergência e a tesouraria da empresa, sem registo.', 'Agora você pode simular o prazo de uma dívida, a reserva de emergência e o fluxo de caixa da empresa, sem cadastro.') + ' <a href="/simuladores">Experimentar</a></p><button type="button" id="avisoF" aria-label="Fechar aviso">×</button></div></div>';
 var cab = aviso + '<header class="nav" id="nav"><div class="wrap barra"><a class="marca" href="' + casa + '"><b>BXB</b>BXB</a><nav class="segs">' + segs + '</nav>' +
   '<button type="button" class="eu-quero" id="bPesq" aria-label="Pesquisar">' + ic('i-lupa', 17) + '<span>Eu quero…</span></button>' + acoes +
-  paisB + '<button class="ic-m pq" id="bPesqM" aria-label="Pesquisar">' + ic('i-lupa', 19) + '</button><button class="ic-m" id="hamb" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>' +
+  '<a class="ent-m" id="entM" href="' + ENT + '?tipo=' + seg + '" data-ent>' + ic('i-cad', 15) + '<span>Entrar</span></a>' + paisB + '<button class="ic-m pq" id="bPesqM" aria-label="Pesquisar">' + ic('i-lupa', 19) + '</button><button class="ic-m" id="hamb" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>' +
   subM + menuM + '</header>';
 
 var col = function (t, l) { return '<div><h4>' + t + '</h4><ul>' + l.map(function (x) { return '<li><a href="' + x[0] + '">' + x[1] + '</a></li>'; }).join('') + '</ul></div>'; };
@@ -150,6 +150,10 @@ function fecharPesq() { P.classList.remove('on'); }
 document.getElementById('bPesq').onclick = abrirPesq; document.getElementById('bPesqM').onclick = abrirPesq;
 var avF = document.getElementById('avisoF'); if (avF) avF.onclick = function () { document.getElementById('aviso').remove(); try { localStorage.setItem('bxb:aviso', 'simuladores-1'); } catch (e) { } };
 document.getElementById('subir').onclick = function () { scrollTo({ top: 0, behavior: 'smooth' }); };
+// rodapé no telemóvel: cada grupo de ligações abre e fecha
+document.querySelectorAll('footer .g h4').forEach(function (h) { h.setAttribute('role', 'button'); h.tabIndex = 0; h.setAttribute('aria-expanded', 'false');
+  var t = function () { var ab = h.parentElement.classList.toggle('ab'); h.setAttribute('aria-expanded', ab ? 'true' : 'false'); };
+  h.onclick = t; h.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t(); } }; });
 document.getElementById('pesqF').onclick = fecharPesq;
 P.onclick = function (e) { if (e.target === P) fecharPesq(); };
 PI.oninput = pesquisar;
@@ -167,6 +171,7 @@ document.querySelectorAll('[data-ent]').forEach(function (a) { if (!/tipo=/.test
 fetch('/api/estado', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
   if (!j || !j.sessao) return; var nome = esc(String(j.sessao.nome || '').split(' ')[0]);
   document.getElementById('acoes').innerHTML = '<a class="btn btn-g" href="/SISTEMAS/conta.html">' + ic('i-user', 16) + nome + '</a><a class="btn btn-p" href="/SISTEMAS/index.html">A minha área</a>';
+  var em = document.getElementById('entM'); if (em) { em.href = '/SISTEMAS/index.html'; em.innerHTML = ic('i-user', 15) + '<span>' + nome + '</span>'; em.removeAttribute('data-ent'); }
   document.getElementById('btsM').innerHTML = '<a class="btn btn-s" href="/SISTEMAS/conta.html">' + nome + '</a><a class="btn btn-p" href="/SISTEMAS/index.html">A minha área</a>';
   document.querySelectorAll('main [data-ent]').forEach(function (a) { a.href = '/SISTEMAS/index.html'; a.textContent = 'A minha área'; });
 }).catch(function () { });

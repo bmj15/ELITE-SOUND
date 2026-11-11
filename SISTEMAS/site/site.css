@@ -829,3 +829,22 @@ a:hover .capa.foto-a img{transform:scale(1.07)}
   .s4 p{grid-column:2;font-size:14px}
   .s4 .lk-s{grid-column:2;font-size:14px}
 }
+/* botão Entrar no topo do telemóvel (no computador está nas ações do cabeçalho) */
+.ent-m{display:none}
+@media (max-width:980px){
+  .ent-m{display:inline-flex;align-items:center;gap:6px;margin-left:auto;height:38px;padding:0 14px;border-radius:999px;border:1px solid var(--line2);font-weight:600;font-size:14px;color:var(--text);white-space:nowrap;flex:none}
+  .ent-m svg{flex:none}
+  .ent-m+.pais-w{margin-left:0}
+}
+@media (max-width:360px){.ent-m{padding:0 11px}.ent-m svg{display:none}}
+/* rodapé no telemóvel: grupos em acordeão */
+@media (max-width:620px){
+  footer .g{grid-template-columns:1fr;gap:0}
+  footer .g>div{border-bottom:1px solid var(--line)}
+  footer .g>div:first-child{border-top:1px solid var(--line)}
+  footer .g h4{display:flex;align-items:center;justify-content:space-between;margin:0;padding:16px 0;cursor:pointer;font-size:15px;user-select:none}
+  footer .g h4::after{content:"";width:8px;height:8px;margin-right:4px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg) translateY(-3px);transition:transform .2s}
+  footer .g>div.ab h4::after{transform:rotate(-135deg) translateY(-2px)}
+  footer .g ul{display:none;padding:0 0 14px}
+  footer .g>div.ab ul{display:block}
+}
