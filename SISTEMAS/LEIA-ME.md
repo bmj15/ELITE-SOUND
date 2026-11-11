@@ -3,7 +3,7 @@
 Dê **duplo clique em `ABRIR SISTEMA.bat`**, na pasta do repositório. O sistema abre no Chrome em **http://localhost:8080** (servidor local). Não feche a janela preta enquanto usa o sistema; para parar, feche-a.
 
 ## Servidor local e código no repositório (fonte única)
-O código vem do repositório **github.com/bmj15/ELITE-SOUND** (ramo `master`). O `ABRIR SISTEMA.bat`:
+O código vem do repositório **github.com/bmj15/SISTEMA-GESTAO-FINANCEIRA** (ramo `master`). O `ABRIR SISTEMA.bat`:
 1. vai buscar ao GitHub a versão mais recente do código (sem internet, usa a que já está no computador);
 2. arranca o **servidor local** (`servidor.js`, precisa do **Node.js**; se faltar, o ficheiro abre a página de download);
 3. abre **http://localhost:8080** no Chrome.

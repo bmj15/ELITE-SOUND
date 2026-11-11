@@ -67,7 +67,7 @@ O novo back-office não a usa. O Claude retira-a quando:
 
 ## Git
 
-- O Claude trabalha em `GIT\ELITE-SOUND`. É também a pasta onde o sistema corre a sério.
+- O Claude trabalha em `GIT\SISTEMA-GESTAO-FINANCEIRA`. É também a pasta onde o sistema corre a sério.
 - O Codex trabalha na sua própria cópia, `GIT\BXB-BACKOFFICE`. É um clone do mesmo repositório GitHub.
 - Os dois trabalham no ramo `master`. Antes de cada commit, faz `git pull --rebase origin master`.
 - Junta ao commit **só os teus ficheiros**, por exemplo `git add backoffice gestor`. Nunca uses `git add -A`, `git add .` nem `git commit -a`.
