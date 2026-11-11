@@ -1032,6 +1032,16 @@ function rendimentos(v) {
   bindTabs(v); ligarFita(v, 'pfa', y => { setTab('pf-ano', y); if (+y > anoAtual && T.t === 'rec') setTab('pf-rend', 'proj'); app.refresh(); });
 }
 
+/* ---------- Telemóvel: capa de um cartão fechado (.m-colapso) ----------
+   números grandes, um aviso, uma lista curta e "Ver todas"; no computador não aparece */
+function capaMovel({ nums = [], alerta = '', titulo = '', itens = [], ver = 'Ver todas' }) {
+  return `<div class="m-capa"><div class="m-capa-n">${nums.map(([l, x]) => `<div><span>${l}</span><b>${x}</b></div>`).join('')}</div>
+    ${alerta ? `<div class="m-capa-at">${icon('alert')} ${alerta}</div>` : ''}
+    ${itens.length ? `<div class="m-capa-l">${titulo ? `<span class="m-capa-t">${titulo}</span>` : ''}${itens.map(([n, sub, x]) => `<div><span>${n}${sub ? `<small>${sub}</small>` : ''}</span><b>${x}</b></div>`).join('')}</div>` : ''}
+    <div class="m-capa-ver">${ver} ›</div></div>`;
+}
+const resumoMovel = t => `<span class="m-resumo">${t}</span>`;
+
 /* ---------- Despesas fixas ---------- */
 const optsContas = () => tesouraria().map(c => [c.id, c.nome]);
 const COLS_DESP = () => [{ k: 'nome', label: 'Designação', ph: 'ex.: Renda, Eletricidade' }, { k: 'categoria', label: 'Categoria', type: 'select', opts: CATS_DESP.map(c => [c, c]) },
@@ -1061,15 +1071,13 @@ function despesas(v) {
     <div class="grid g3">${kpi(`${icon('list')} ${kn('pf_desp', 'Despesas fixas / mês')}`, eur(tot), (() => { const c = casaParte(); return `${at.length} ${at.length === 1 ? 'própria' : 'próprias'}${c && !c.semDados ? ` + ${eur(c.valor)} parte nas partilhadas` : ''}`; })(), '', true, ed ? 'desp' : '')}${kpi('Por ano', eur(tot * 12))}${kpi('Peso no rendimento', rendimentoMensal() > 0 ? pct(tot / rendimentoMensal()) : '—', 'face ao rendimento líquido mensal')}</div>
     <div class="grid g2" style="margin-top:16px;grid-template-columns:2fr 1fr">
       <div class="card flush m-colapso" data-m="despesas"><div class="card-h"><h3>Despesas</h3><span class="sub">cada pagamento fica registado com a sua assinatura</span><span class="m-resumo"></span></div>${(() => {
-        // telemóvel, cartão fechado: resumo que ocupa o ecrã (n.º de despesas, total por mês, próximos pagamentos)
+        // telemóvel, cartão fechado: n.º de despesas, total por mês, vencidas e próximos pagamentos
         const prop = m.despesas.filter(e => e.ativo !== false && vigente(e) && !partilhaAceite(e, ymHoje())), n = prop.length + SH.length;
         const prox = [...prop.map(e => ({ e, d: proxima(e, e.periodicidade), v: +e.valor || 0 })),
           ...SH.filter(e => e.periodicidade !== 'compras' && (!e.inicio || e.inicio <= ymHoje())).map(e => ({ e, d: proxima(e, e.periodicidade), v: r2(CC().valorMes(e, ymHoje()).valor * +e.partes[LP.eu]), sh: true }))]
           .filter(x => x.d).sort((a, b) => a.d < b.d ? -1 : 1).slice(0, 4);
-        return `<div class="m-capa"><div class="m-capa-n"><div><span>Despesas</span><b>${n}</b></div><div><span>Por mês</span><b>${eur(tot)}</b></div></div>
-          ${AT.length ? `<div class="m-capa-at">${icon('alert')} ${AT.length === 1 ? '1 cobrança vencida' : AT.length + ' cobranças vencidas'} · ${eur(AT.reduce((t, x) => t + (+x.e.valor || 0), 0))}</div>` : ''}
-          ${prox.length ? `<div class="m-capa-l"><span class="m-capa-t">Próximos pagamentos</span>${prox.map(x => `<div><span>${esc(x.e.nome)}<small>${date(x.d)}${x.sh ? ' · a sua parte' : ''}</small></span><b>${eur(x.v)}</b></div>`).join('')}</div>` : ''}
-          <div class="m-capa-ver">Ver ${n === 1 ? 'a despesa' : 'todas as despesas'} ›</div></div>`; })()}<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th>Periodicidade</th><th class="r">Valor</th><th class="r">Mensal</th><th>Próxima</th><th>Pedido</th></tr></thead><tbody>
+        return capaMovel({ nums: [['Despesas', n], ['Por mês', eur(tot)]], alerta: AT.length ? `${AT.length === 1 ? '1 cobrança vencida' : AT.length + ' cobranças vencidas'} · ${eur(AT.reduce((t, x) => t + (+x.e.valor || 0), 0))}` : '',
+          titulo: 'Próximos pagamentos', itens: prox.map(x => [esc(x.e.nome), date(x.d) + (x.sh ? ' · a sua parte' : ''), eur(x.v)]), ver: n === 1 ? 'Ver a despesa' : 'Ver todas as despesas' }); })()}<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th>Periodicidade</th><th class="r">Valor</th><th class="r">Mensal</th><th>Próxima</th><th>Pedido</th></tr></thead><tbody>
       ${SH.length ? `<tr class="tbl-sec"><td colspan="6">Partilhadas <span>${SH.length}</span></td></tr>${SH.map(linhaSH).join('')}<tr class="tbl-sec"><td colspan="6">Próprias <span>${m.despesas.filter(e => !partilhaAceite(e, ymHoje())).length}</span></td></tr>` : ''}
       ${m.despesas.filter(e => !(SH.length && partilhaAceite(e, ymHoje()))).map(e => { const d = proxima(e, e.periodicidade), ps = estadoPed(chaveDesp(e, d)), cv = convDe(e), part = partilhaAceite(e, ymHoje()), on = e.ativo !== false && vigente(e) && !part; return `<tr class="${ed ? 'click' : ''}" data-d="${e.id}" style="${on ? '' : 'opacity:.5'}"><td><b>${esc(e.nome)}</b> ${badgePartilha(cv)}<div class="faint" style="font-size:12px">${esc(e.categoria || '')}${e.entidade ? ' · ' + esc(e.entidade) : ''}${e.variavel ? ' · variável' : ''}${e.inicio || e.fim ? ` · ${e.inicio ? 'desde ' + fmtMes(e.inicio) : ''}${e.inicio && e.fim ? ' ' : ''}${e.fim ? 'até ' + fmtMes(e.fim) : ''}` : ''}</div></td>
         <td>${esc((PERIODOS.find(p => p[0] === e.periodicidade) || [0, e.periodicidade])[1])}</td><td class="r num">${eur(e.valor)}</td><td class="r num${Math.abs(mensalDesp(e) - (+e.valor || 0)) < 0.005 ? ' m-oculto' : ''}">${eur(mensalDesp(e))}</td><td>${date(d)}</td>
@@ -1111,14 +1119,19 @@ function dividas(v) {
   v.innerHTML = `${ed ? escondidos(['nv']) : ''}
     <div class="grid g4">${kpi(`${icon('credit')} Capital em dívida`, eur(tot), `${ds.length} dívidas ativas`, '', true, ed ? 'div' : '')}${kpi(kn('pf_prest', 'Prestações / mês'), eur(prestacoesMensais()))}
       ${kpi('Juros deste mês', eur(jurosMes), 'sobre o capital atual')}${kpi(kn('pf_custo', 'Taxa média ponderada'), pct(tan))}</div>
-    <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Dívidas</h3><span class="sub">clique numa linha para editar</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Dívida</th><th class="r">Capital</th><th class="r">${kn('pf_tan', 'Taxa')}</th><th class="r">Prestação</th><th class="r">Juro / mês</th><th>Fim só com prestações</th><th>Prestação seguinte</th><th></th></tr></thead><tbody>
+    <div class="card flush m-colapso" data-m="dividas" style="margin-top:16px"><div class="card-h"><h3>Dívidas</h3><span class="sub">clique numa linha para editar</span><span class="m-resumo"></span></div>${(() => {
+      // telemóvel, cartão fechado: n.º de dívidas, capital, prestações, incumprimentos e próximas prestações
+      const inc = ds.filter(d => d.incumprimento && !incumprimentoRegularizado(d));
+      const prox = ds.filter(d => !(cartaoComExtratos(d) && d.cartaoDe) && +d.prestacao > 0).map(d => ({ d, p: proxima(d) })).sort((a, b) => a.p < b.p ? -1 : 1).slice(0, 4);
+      return capaMovel({ nums: [['Dívidas', ds.length], ['Prestações / mês', eur(prestacoesMensais())]], alerta: inc.length ? `${inc.length === 1 ? '1 dívida' : inc.length + ' dívidas'} em incumprimento` : '',
+        titulo: 'Próximas prestações', itens: prox.map(x => [esc(x.d.nome), date(x.p), eur(x.d.prestacao)]), ver: 'Ver todas as dívidas' }); })()}<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Dívida</th><th class="r">Capital</th><th class="r">${kn('pf_tan', 'Taxa')}</th><th class="r">Prestação</th><th class="r">Juro / mês</th><th>Fim só com prestações</th><th>Prestação seguinte</th><th></th></tr></thead><tbody>
     ${ordenarDividas(m.dividas).map(d => { const n = mesesParaLiquidar(d), pr = proxima(d), ps = estadoPed(chaveDiv(d, pr)), on = d.ativo !== false && d.capital > 0.005, cart = d.cartaoDe ? m.dividas.find(y => y.id === d.cartaoDe) : null;
       return `<tr class="${ed ? 'click' : ''}" data-v="${d.id}" style="${on ? '' : 'opacity:.5'}"><td style="${cart ? 'padding-left:28px' : ''}"><b>${esc(d.nome)}</b><div class="faint" style="font-size:12px">${cart ? `plano PagaSimples · ${esc(cart.nome)}${d.prazo ? ` · ${d.prazo} prestações` : ''}` : `${esc(nomeTipo(d.tipo))}${d.credor ? ' · ' + esc(d.credor) : ''}${d.limite ? ` · limite ${eur(d.limite)}` : ''}${d.ultimoExtrato ? ` · extrato n.º ${d.ultimoExtrato.numero} de ${date(d.ultimoExtrato.data)}` : ''}${d.tipo === 'cartao' && !d.cartaoDe ? (pc => pc.pct ? ` · paga ${pct(pc.pct)} do saldo${pc.provisorio ? ` <span class="badge info" data-tip="${esc(`Alterado em ${date(d.opcaoPctDesde)}; o extrato indica ${pc.extrato ? pct(pc.extrato) : '—'}. Confirma-se no extrato seguinte.`)}">por confirmar</span>` : ''}` : '')(pctCartao(d)) : ''}`}</div></td>
       <td class="r num">${eur(d.capital)}</td><td class="r num">${pct(d.taxa)} <span class="faint" style="font-size:11px">${esc((d.tipoTaxa || '').replace('-', ' '))}</span></td><td class="r num">${eur(d.prestacao)}</td><td class="r num">${eur(d.capital * taxaMensal(d))}</td>
       <td>${!on ? (d.canceladoEm ? `<span class="badge warn" data-tip="O banco cancelou o plano em ${date(d.canceladoEm)} e o valor em dívida passou para o saldo do cartão.">cancelado · passou para o cartão</span>` : '<span class="badge ok">liquidada</span>') : incumprimentoRegularizado(d) ? '<span class="badge info" data-tip="Pagou o montante do último extrato; a regularização confirma-se no extrato seguinte.">incumprimento regularizado · por confirmar</span>' : d.incumprimento ? `<span class="badge bad">em incumprimento${d.incumprimento.montante ? ' · ' + eur(d.incumprimento.montante) + ' em atraso' : ''}</span>${d.incumprimento.bloqueado ? ' <span class="badge bad">bloqueado</span>' : ''}` : n === Infinity ? '<span class="badge bad">nunca (juro > prestação)</span>' : `${n} meses`}</td>
       <td>${!on ? '—' : cartaoComExtratos(d) ? (d.cartaoDe ? '<span class="faint" style="font-size:12px">paga-se no cartão</span>' : (() => { const ux = M().extratos.filter(e => e.conta === d.contaCartao).sort((a, b) => String(b.data).localeCompare(String(a.data)))[0]; const sx = ux && estadoExtrato(ux); return ux ? badgeExtrato(sx) + (podeDeclarar(sx) ? ` <button class="btn sm" data-dx="${ux.id}">${icon('check')} Marcar pago</button>` : '') : ''; })()) : ps || (app.can('criar') ? `<button class="btn sm" data-p="${d.id}">Pagar ${eur(d.prestacao)}</button>` : date(pr))}</td>
       <td class="r">${on && app.can('criar') && !(cartaoComExtratos(d) && d.cartaoDe) ? `<button class="btn sm ghost" data-a="${d.id}">Amortizar</button>` : on && d.cartaoDe ? '<span class="faint" style="font-size:11px" data-tip="No Santander, o que se paga a mais vai para o saldo do cartão, não para os planos PagaSimples. Para liquidar um plano antes do fim é preciso pedi-lo ao banco.">só pelo banco</span>' : ''}</td></tr>`; }).join('') || '<tr><td colspan="8" class="empty">Sem dívidas registadas.</td></tr>'}</tbody></table></div></div>
-    ${m.extratos.length ? `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Extratos de cartão</h3><span class="sub">${m.extratos.length} extratos · o pagamento confirma-se no extrato seguinte · clique para ver os movimentos</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Cartão</th><th>N.º</th><th class="r">Saldo em dívida</th><th class="r">A pagar</th><th>Data limite</th><th>Pagamento</th><th class="r">Movimentos</th></tr></thead><tbody>
+    ${m.extratos.length ? `<div class="card flush m-colapso" data-m="extratos" style="margin-top:16px"><div class="card-h"><h3>Extratos de cartão</h3><span class="sub">${m.extratos.length} extratos · o pagamento confirma-se no extrato seguinte · clique para ver os movimentos</span>${resumoMovel(`${m.extratos.length} ${m.extratos.length === 1 ? 'extrato' : 'extratos'}`)}</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Cartão</th><th>N.º</th><th class="r">Saldo em dívida</th><th class="r">A pagar</th><th>Data limite</th><th>Pagamento</th><th class="r">Movimentos</th></tr></thead><tbody>
       ${m.extratos.slice().sort((a, b) => String(b.data).localeCompare(String(a.data))).slice(0, 36).map(x => { const c = m.dividas.find(y => y.id === x.divida); return `<tr class="click" data-x="${x.id}"><td>${date(x.data)}</td><td>${esc(c ? c.nome : x.conta)}</td><td class="mono">${esc(String(x.numero ?? '—'))}</td><td class="r num">${eur(x.saldo)}</td><td class="r num">${eur(x.pagar)}</td><td>${x.dataLimite ? date(x.dataLimite) : '—'}</td><td>${badgeExtrato(estadoExtrato(x))}</td><td class="r">${(x.movimentos || []).length}</td></tr>`; }).join('')}</tbody></table></div></div>` : ''}`;
   v.querySelectorAll('[data-x]').forEach(tr => tr.onclick = () => verExtrato(m.extratos.find(x => x.id === tr.dataset.x)));
   v.querySelectorAll('[data-dx]').forEach(b => b.onclick = ev => { ev.stopPropagation(); declararPagamento(m.extratos.find(x => x.id === b.dataset.dx)); });
@@ -1767,7 +1780,11 @@ function cartaoPartilhas(L, ex) {
   const ds = CC().todasDespesas(L.casa).filter(e => e.ativo !== false && +((e.partes || {})[eu]) > 0 && e.periodicidade !== 'pontual' && (!e.fim || e.fim >= ymHoje()))
     .sort((a, b) => String(a.nome).localeCompare(String(b.nome)));
   const pend = (R.convites || []).filter(c => c.estado === 'pendente');
-  return `<div class="card flush"><div class="card-h"><h3>Despesas partilhadas</h3><span class="sub">${ed ? 'clique numa linha para alterar' : ''}</span></div>
+  const parte = e => r2(CC().valorMes(e, ymHoje()).valor * +e.partes[eu]), vig = ds.filter(e => !e.inicio || e.inicio <= ymHoje());
+  const prox = vig.filter(e => e.periodicidade !== 'compras').map(e => ({ e, d: proxima(e, e.periodicidade) })).sort((a, b) => a.d < b.d ? -1 : 1).slice(0, 4), porResp = pend.filter(c => paraMim(c)).length;
+  return `<div class="card flush m-colapso" data-m="partilhadas"><div class="card-h"><h3>Despesas partilhadas</h3><span class="sub">${ed ? 'clique numa linha para alterar' : ''}</span><span class="m-resumo"></span></div>
+    ${capaMovel({ nums: [['Despesas', ds.length], ['A minha parte / mês', eur(vig.reduce((t, e) => t + parte(e), 0))]], alerta: porResp ? `${porResp === 1 ? '1 pedido' : porResp + ' pedidos'} à espera da sua resposta` : '',
+      titulo: 'Próximos pagamentos', itens: prox.map(x => [esc(x.e.nome), `${date(x.d)} · paga ${x.e.pagaPor === eu ? 'eu' : esc(nm(x.e.pagaPor))}`, eur(parte(x.e))]), ver: 'Ver todas as partilhadas' })}
     ${pend.length ? `<div style="padding:0 16px 8px">${pend.map(c => `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${c.deSistema === sub.key && ehAlt(c) ? `Alteração proposta a <b>${esc(c.nome)}</b>: ${descMudancas(L.casa, c)}` : c.deSistema === sub.key ? `Pedido enviado a <b>${esc(semPessoal(c.paraNome))}</b>: ${ehObj(c) ? 'objetivo ' : ''}${esc(nomeConv(c))} · ${eur(valorConv(c))}` : resumoConvite(L.casa, c)}</span>
       <span>${c.deSistema === sub.key ? `<span class="badge info">aguarda resposta</span> ${ed ? `<button class="btn sm ghost" data-cc="${c.id}">Cancelar</button>` : ''}` : paraMim(c) && ed ? `<button class="btn sm primary" data-rc="${c.id}">${icon('key')} Responder</button>` : ''}</span></div>`).join('')}</div>` : ''}
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Despesa</th><th>Periodicidade</th><th class="r">Valor do mês</th><th>Quem paga</th><th class="r">A minha parte</th><th>Período</th><th></th></tr></thead><tbody>
@@ -1828,7 +1845,10 @@ function casaPessoal(v) {
     ${T.t === 'contas' && CP && CP.linhas.length ? (() => {
       const res = CP.outros.map(o => { const a = CP.acerto[o.id];
         return `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>Acerto de ${esc(nm(o.id))} · ${fmtMes(ymC)}: <b class="num">${eur(a.deve)}</b></span><span>${a.deve <= 0.004 ? '<span class="badge plain">sem acerto a receber</span>' : a.liquidado ? `<span class="badge ok">pago${a.recebido < a.deve - 0.004 ? ' (com crédito anterior)' : ''}</span>` : `${a.recebido ? `<span class="badge ok">${eur(a.recebido)} confirmado</span> ` : ''}${a.porConfirmar ? `<span class="badge info">${eur(a.porConfirmar)} enviado · por confirmar</span> ` : ''}<span class="badge warn">falta receber ${eur(a.pendente)}</span>`}</span></div>`; }).join('');
-      return `<div class="card flush"><div class="card-h"><h3>Contas que paga · ${fmtMes(ymC)}</h3><span class="sub">em seu nome · pagam-se com o acerto confirmado de quem divide</span></div>
+      const porPagar = CP.linhas.filter(x => !x.paga);
+      return `<div class="card flush m-colapso" data-m="contas"><div class="card-h"><h3>Contas que paga · ${fmtMes(ymC)}</h3><span class="sub">em seu nome · pagam-se com o acerto confirmado de quem divide</span><span class="m-resumo"></span></div>
+        ${capaMovel({ nums: [['Contas', CP.linhas.length], ['Total', eur(sum(CP.linhas, 'valor'))]], alerta: CP.linhas.some(x => x.falta > 0.004) ? 'Há acertos em falta' : '',
+          titulo: porPagar.length ? 'Por pagar' : '', itens: porPagar.slice(0, 4).map(x => [esc(x.e.nome), 'dia ' + (x.e.dia || 1), eur(x.valor)]), ver: 'Ver todas as contas' })}
         <div style="padding:0 16px 8px">${res}</div>
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Conta</th><th>Dia</th><th class="r">Valor total</th><th class="r">Parte dos outros</th><th>Estado</th><th></th></tr></thead><tbody>
         ${CP.linhas.map((x, i) => `<tr><td><b>${esc(x.e.nome)}</b></td><td>${x.e.dia || 1}</td><td class="r num">${eur(x.valor)}</td><td class="r num">${eur(x.deOutros)}</td>
@@ -1836,7 +1856,7 @@ function casaPessoal(v) {
           <td class="r">${!x.paga && x.falta <= 0.004 && ed && (!x.cartao || podeDeclarar(x.st)) ? `<button class="btn sm primary" data-cp="${i}">${icon('key')} Paga</button>` : ''}</td></tr>`).join('')}</tbody>
         <tfoot><tr><td>TOTAL</td><td></td><td class="r num">${eur(sum(CP.linhas, 'valor'))}</td><td class="r num">${eur(sum(CP.linhas, 'deOutros'))}</td><td colspan="2"></td></tr></tfoot></table></div></div>`; })() : ''}
     ${T.t !== 'compras' ? '' : COMP.map((k, ki) => { const eu0 = k.por.find(x => x.id === eu);
-      return `<div class="card flush" style="${ki ? 'margin-top:16px' : ''}"><div class="card-h"><h3>${esc(k.e.nome)} · ${fmtMes(ymC)}</h3><span class="sub">cada um regista as compras que fez · paga-se a parte do total</span>
+      return `<div class="card flush m-colapso" data-m="compras${ki}" style="${ki ? 'margin-top:16px' : ''}"><div class="card-h"><h3>${esc(k.e.nome)} · ${fmtMes(ymC)}</h3><span class="sub">cada um regista as compras que fez · paga-se a parte do total</span>${resumoMovel(`${k.cs.length} ${k.cs.length === 1 ? 'compra' : 'compras'} · <b>${eur(k.total)}</b>`)}
         ${ed ? `<span style="margin-left:auto"><button class="btn sm" data-nc="${ki}" title="Registar compra" style="${MAIS_CSS};width:34px;height:34px;font-size:19px">+</button></span>` : ''}</div>
         <div style="padding:0 16px 8px">${k.por.map(x => `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${x.id === eu ? '<b>Eu</b>' : esc(nm(x.id))}: comprou <b class="num">${eur(x.comprou)}</b> · parte ${eur(x.parte)}</span>
           <span>${Math.abs(x.saldo) <= 0.004 ? '<span class="badge plain">certo</span>' : x.saldo > 0 ? `<span class="badge ok">adiantou ${eur(x.saldo)}</span>` : `<span class="badge warn">falta ${eur(-x.saldo)}</span>`}</span></div>`).join('')}
@@ -1845,7 +1865,7 @@ function casaPessoal(v) {
         ${k.cs.slice().reverse().map(c => `<tr><td>${date(c.data)}</td><td>${c.membro === eu ? 'eu' : esc(nm(c.membro))}</td><td>${esc(c.descricao || '—')}</td><td class="r num">${eur(c.valor)}</td>
           <td class="r">${c.membro === eu && ed ? `<button class="btn sm ghost" data-ac="${c.id}" title="Anular">${icon('trash')}</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Sem compras registadas neste mês.</td></tr>'}</tbody>
         <tfoot><tr><td colspan="3">TOTAL</td><td class="r num">${eur(k.total)}</td><td></td></tr></tfoot></table></div></div>`; }).join('')}
-    ${T.t !== 'ext' ? '' : `<div class="card flush"><div class="card-h"><h3>Extrato</h3><span class="sub">acertos, dívidas e pagamentos</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Movimento</th><th>Tipo</th><th class="r">Deve</th><th class="r">Pago</th><th>Estado</th><th></th></tr></thead><tbody>
+    ${T.t !== 'ext' ? '' : `<div class="card flush m-colapso" data-m="cext"><div class="card-h"><h3>Extrato</h3><span class="sub">acertos, dívidas e pagamentos</span>${resumoMovel(`${meus.length} ${meus.length === 1 ? 'movimento' : 'movimentos'}`)}</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Movimento</th><th>Tipo</th><th class="r">Deve</th><th class="r">Pago</th><th>Estado</th><th></th></tr></thead><tbody>
     ${meus.slice().reverse().map(l => { const sentido = l.de === eu ? `eu → ${esc(nm(l.para))}` : `${esc(nm(l.de))} → eu`;
       if (l.tipo === 'pagamento') return `<tr><td>${date(l.data)}</td><td>${esc(l.descricao || 'Pagamento')}<div class="faint" style="font-size:12px">${sentido}${l.registo ? ' · registado por ' + esc(l.registo.nome.split(' ')[0]) : ''}${l.confirmacao && (!l.registo || l.confirmacao.nome !== l.registo.nome) ? ' · confirmado por ' + esc(l.confirmacao.nome.split(' ')[0]) : ''}</div></td><td><span class="badge plain">pagamento</span></td><td></td><td class="r num">${eur(l.valor)}</td><td>${estadoPag(l)}</td>
         <td class="r">${l.estado === 'registado' && l.para === eu ? `<button class="btn sm primary" data-cf="${l.id}">${icon('key')} Confirmar</button>` : ''}</td></tr>`;
@@ -2081,12 +2101,12 @@ function poupancas(v) {
   const alvo = r2(desp * (+pl.emergMeses || 0)), saldoF = fundoAtual(), fr = alvo > 0 ? Math.min(1, saldoF / alvo) : 0, cobertos = desp > 0 ? saldoF / desp : 0;
   const completo = alvo > 0 ? (saldoF >= alvo ? 'já' : (P.find(x => x.fundo >= x.alvo - 0.5) || {}).ym) : null, extra = +pl.extraFixo || 0;
   const mes = r2(p0.poup + p0.fundoMes + extra), taxa = rend > 0 ? mes / rend : 0, em12 = P[11] || P[P.length - 1] || { acc: 0, fundo: saldoF };
-  const ops = [['Fundo de emergência', null, () => ajustarPoupanca('fundo'), null, 'shield', 'Reserva e prazo'], ['Poupança mensal', null, () => ajustarPoupanca('poup'), null, 'target', 'Quanto pôr de parte'], ['Amortização extra', null, () => ajustarPoupanca('extra'), null, 'credit', 'Valor a mais para as dívidas']];
   const taxaCls = taxa >= BENCH.poupBoa ? 'pos' : taxa < BENCH.poupMin ? 'neg' : '';
   const regra = pl.poupancaTipo === 'fixed' ? eur(pl.poupancaFixa) + ' por mês' : pl.poupancaTipo && pl.poupancaTipo !== 'none' ? `${pct(+pl.poupancaPct || 0)} ${NOME_POUP[pl.poupancaTipo].replace('% ', '')}` : 'nenhuma';
-  const ajustar = q => ed ? `<button class="btn sm ghost" data-aj="${q}" style="margin-left:auto">${icon('edit')} Ajustar</button>` : '';
+  // cada cartão tem o seu botão de alterar (como o [+]); não há outro menu para o mesmo
+  const ajustar = q => ed ? `<button class="btn sm" data-aj="${q}" title="Alterar" aria-label="Alterar" style="${MAIS_CSS};margin-left:auto">${icon('edit')}</button>` : '';
   v.innerHTML = `<div class="grid g4">
-      ${kpi(`${icon('target')} Poupa este mês`, eur(mes), `poupança ${eur(p0.poup)} · fundo ${eur(p0.fundoMes)} · extra ${eur(extra)}`, '', true, ed ? 'poup' : '')}
+      ${kpi(`${icon('target')} Poupa este mês`, eur(mes), `poupança ${eur(p0.poup)} · fundo ${eur(p0.fundoMes)} · extra ${eur(extra)}`, '', true)}
       ${kpi('Taxa de poupança', pct(taxa), `do rendimento · recomendado ≥ ${pct(BENCH.poupMin)}, bom ≥ ${pct(BENCH.poupBoa)}`, taxaCls)}
       ${kpi('Fundo de emergência', eur(saldoF), alvo ? `${pct(fr)} de ${eur(alvo)} · ${String(r2(cobertos)).replace('.', ',')} meses cobertos` : +pl.emergMeses && !desp ? 'sem despesas fixas para calcular o alvo' : 'sem alvo definido', fr >= 1 ? 'pos' : '')}
       ${kpi('Daqui a 12 meses', eur(em12.acc + em12.fundo), `poupança ${eur(em12.acc)} + fundo ${eur(em12.fundo)}`)}</div>
@@ -2094,28 +2114,27 @@ function poupancas(v) {
       <div class="card"><div class="card-h"><h3>${icon('shield')} Fundo de emergência</h3>${ajustar('fundo')}</div>
         ${alvo ? `<div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(saldoF)}</span><span class="muted">de ${eur(alvo)}</span></div>
         <div class="progress" style="height:10px"><i style="width:${r2(fr * 100)}%"></i></div>
-        <div class="grid g3" style="margin-top:16px;gap:12px">
+        <div class="grid g3 pp-trio" style="margin-top:16px;gap:12px">
           <div><div class="faint" style="font-size:12px">Alvo</div><b>${+pl.emergMeses} ${+pl.emergMeses === 1 ? 'mês' : 'meses'}</b><div class="faint" style="font-size:12px">de despesas fixas</div></div>
           <div><div class="faint" style="font-size:12px">Cobre hoje</div><b>${String(r2(cobertos)).replace('.', ',')} meses</b><div class="faint" style="font-size:12px">sem nenhum rendimento</div></div>
           <div><div class="faint" style="font-size:12px">Completo</div><b>${completo === 'já' ? 'já está' : completo ? fmtMes(completo) : 'não em 24 meses'}</b><div class="faint" style="font-size:12px">${+pl.emergProgressivo ? `prazo de ${pl.emergProgressivo} meses` : 'sem prazo definido'}</div></div></div>
         <div class="faint" style="font-size:12px;margin-top:12px">${pl.fundoOrigem === 'manual' ? 'Valor guardado indicado por si.' : 'Conta o saldo das suas contas de tesouraria.'}</div>`
-        : `<div class="empty">${+pl.emergMeses && !desp ? `O alvo é de ${pl.emergMeses} meses de despesas fixas, mas ainda não há <a href="#/despesas">despesas fixas</a> registadas.` : `Sem fundo de emergência definido.${ed ? ' Use Ajustar para escolher quantos meses de despesas quer ter de reserva.' : ''}`}</div>`}</div>
+        : `<div class="empty">${+pl.emergMeses && !desp ? `O alvo é de ${pl.emergMeses} meses de despesas fixas, mas ainda não há <a href="#/despesas">despesas fixas</a> registadas.` : `Sem fundo de emergência definido.${ed ? ' Use o lápis para escolher quantos meses de despesas quer ter de reserva.' : ''}`}</div>`}</div>
       <div class="card"><div class="card-h"><h3>${icon('target')} Poupança mensal</h3>${ajustar('poup')}</div>
         ${pl.poupancaTipo && pl.poupancaTipo !== 'none' ? `<div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(p0.poup)}</span><span class="muted">este mês</span></div>
-        <div class="grid g3" style="margin-top:8px;gap:12px">
+        <div class="grid g3 pp-trio" style="margin-top:8px;gap:12px">
           <div><div class="faint" style="font-size:12px">Regra</div><b>${esc(NOME_POUP[pl.poupancaTipo])}</b><div class="faint" style="font-size:12px">${regra}</div></div>
           <div><div class="faint" style="font-size:12px">Em 12 meses</div><b>${eur(em12.acc)}</b><div class="faint" style="font-size:12px">acumulado</div></div>
           <div><div class="faint" style="font-size:12px">Em 24 meses</div><b>${eur((P[P.length - 1] || { acc: 0 }).acc)}</b><div class="faint" style="font-size:12px">acumulado</div></div></div>
         <div class="faint" style="font-size:12px;margin-top:12px">Sai primeiro, antes dos <a href="#/objetivos">objetivos</a> e da amortização extra.</div>`
-        : `<div class="empty">Não separa poupança todos os meses.${ed ? ' Use Ajustar para pôr de parte um valor fixo ou uma percentagem.' : ''}</div>`}</div></div>
+        : `<div class="empty">Não separa poupança todos os meses.${ed ? ' Use o lápis para pôr de parte um valor fixo ou uma percentagem.' : ''}</div>`}</div></div>
     <div class="grid g2" style="margin-top:16px;grid-template-columns:2fr 1fr;align-items:stretch">
-      <div class="card"><div class="card-h"><h3>Evolução</h3><span class="sub">próximos 24 meses</span></div><div id="chp"></div></div>
+      <div class="card pp-evol"><div class="card-h"><h3>Evolução</h3><span class="sub">próximos 24 meses</span></div><div id="chp"></div></div>
       <div class="card"><div class="card-h"><h3>${icon('credit')} Dívidas</h3>${ajustar('extra')}</div>
         <div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(extra)}</span><span class="muted">extra por mês</span></div>
         <div class="faint" style="font-size:12.5px">Além do que sobrar em cada mês. Prestações atuais: ${eur(prestacoesMensais())}/mês.</div>
         <div style="margin-top:14px"><a href="#/simulador">Ver no Simulador de estratégias</a></div></div></div>`;
   if (P.length) chart.linha(v.querySelector('#chp'), { labels: P.map(x => `${MES3[+x.ym.slice(5) - 1]} ${x.ym.slice(2, 4)}`), series: [{ name: 'Fundo de emergência', values: P.map(x => x.fundo) }, { name: 'Poupança acumulada', values: P.map(x => x.acc) }] });
-  v.querySelectorAll('[data-add="poup"]').forEach(b => b.onclick = () => escolherAcao(ops, 'Ajustar poupanças'));
   v.querySelectorAll('[data-aj]').forEach(b => b.onclick = () => ajustarPoupanca(b.dataset.aj));
 }
 function simulador(v) {

@@ -363,7 +363,9 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .m-colapso:not(.aberto):has(>.m-capa){cursor:pointer}
   .m-colapso:not(.aberto)>.m-capa{display:flex;flex-direction:column;gap:12px;padding:4px 14px 14px}
   .m-capa-n{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .m-capa-n>div{background:var(--panel2);border-radius:12px;padding:10px 12px}
+  .m-capa-n>div{background:var(--panel2);border-radius:12px;padding:10px 12px;min-width:0}
+  .m-capa-n>div:nth-child(3):last-child{grid-column:1/-1}
+  .m-capa-n>div:nth-child(3):last-child b{font-size:20px}
   .m-capa-n span,.m-capa-t{display:block;font-size:12px;color:var(--muted)}
   .m-capa-n b{display:block;font-size:24px;font-weight:750;letter-spacing:-.6px;margin-top:4px;font-variant-numeric:tabular-nums}
   .m-capa-at{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad);font-size:13.5px;font-weight:600}
@@ -384,4 +386,14 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .tbl tr.tbl-sec td{text-align:left;padding:14px 4px 0;border:0}
   .tbl tbody tr:has(>td.empty:only-child){background:none;border:0}
   .m-colapso.aberto:not(.tudo)>.m-mais{display:block;width:calc(100% - 28px);margin:4px 14px 14px}
+}
+@media (max-width:640px){
+  /* quadros: com o destaque em cima e um n.º par de quadros, o último ocupa a linha toda (sem buraco) */
+  .grid:has(>.kpi.hero:first-child)>.kpi:not(.hero):last-child:nth-child(even){grid-column:1/-1}
+  /* Poupanças: os três números de cada cartão passam a lista (rótulo à esquerda, valor à direita) */
+  .pp-trio{grid-template-columns:minmax(0,1fr)!important;gap:0!important;margin-top:12px!important}
+  .pp-trio>div{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:0 12px;padding:9px 0;border-top:1px solid var(--line)}
+  .pp-trio>div>div:first-child{font-size:13px!important;color:var(--muted)}
+  .pp-trio>div>b{grid-column:2;grid-row:1;text-align:right;font-variant-numeric:tabular-nums}
+  .pp-trio>div>div:last-child{grid-column:1/-1;font-size:11.5px!important}
 }

@@ -202,10 +202,12 @@ document.addEventListener('mousemove', e => {
 
 const PALETTE = ['var(--accent)', 'var(--accent2)', 'var(--info)', 'var(--ok)', 'var(--warn)', 'var(--bad)'];
 const niceStep = x => { if (x <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(x))); const f = x / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; };
+// telemóvel: o gráfico é desenhado à largura real (texto legível); no computador mantém 760 de largura
+const largura = el => matchMedia('(max-width:640px)').matches && el.clientWidth > 200 ? Math.min(760, el.clientWidth) : 760;
 const kfmt = v => Math.abs(v) >= 1000 ? (v / 1000).toLocaleString('pt-PT', { maximumFractionDigits: 1 }) + 'k' : v.toLocaleString('pt-PT', { maximumFractionDigits: 0 });
 SPAP.chart = {
   bars(el, { labels, series, height = 240, stacked = false, fmt = eur }) {
-    const W = 760, H = height, pl = 48, pr = 8, pt = 10, pb = 24;
+    const W = largura(el), H = height, pl = 48, pr = 8, pt = 10, pb = 24;
     series.forEach((s, i) => s.color = s.color || PALETTE[i % PALETTE.length]);
     let vals = stacked ? labels.flatMap((_, i) => [series.reduce((a, s) => a + Math.max(0, s.values[i] || 0), 0), series.reduce((a, s) => a + Math.min(0, s.values[i] || 0), 0)]) : series.flatMap(s => s.values.map(v => +v || 0));
     let max = Math.max(0, ...vals), min = Math.min(0, ...vals);
@@ -217,7 +219,7 @@ SPAP.chart = {
     for (let v = min; v <= max + 1e-9; v += step) g += `<line class="gridl" x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${pl - 8}" y="${y(v) + 3.5}" text-anchor="end">${kfmt(v)}</text>`;
     labels.forEach((l, i) => {
       const x0 = pl + gw * i;
-      g += `<text class="axis" x="${x0 + gw / 2}" y="${H - 6}" text-anchor="middle">${esc(l)}</text>`;
+      if (gw >= 26 || i % Math.ceil(26 / gw) === 0) g += `<text class="axis" x="${x0 + gw / 2}" y="${H - 6}" text-anchor="middle">${esc(l)}</text>`;
       if (stacked) {
         let up = 0, dn = 0; const bw = Math.min(34, gw * .56), bx = x0 + (gw - bw) / 2;
         series.forEach(s => {
@@ -240,14 +242,15 @@ SPAP.chart = {
       (series.length > 1 ? `<div class="legend">${series.map(s => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')}</div>` : '');
   },
   linha(el, { labels, series, height = 230, fmt = eur }) {
-    const W = 760, H = height, pl = 52, pr = 12, pt = 12, pb = 26;
+    const W = largura(el), H = height, pl = 52, pr = 12, pt = 12, pb = 26;
     series.forEach((s, i) => s.color = s.color || PALETTE[i % PALETTE.length]);
     const vals = series.flatMap(s => s.values.map(v => +v || 0)); let max = Math.max(0, ...vals), min = Math.min(0, ...vals); if (max === min) max = 4;
     const step = niceStep((max - min) / 4); max = Math.ceil(max / step) * step; min = Math.floor(min / step) * step;
     const y = v => pt + (max - v) / (max - min) * (H - pt - pb), n = labels.length, x = i => pl + (n === 1 ? (W - pl - pr) / 2 : i * (W - pl - pr) / (n - 1));
     let g = '';
     for (let v = min; v <= max + 1e-9; v += step) g += `<line class="gridl" x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${pl - 8}" y="${y(v) + 3.5}" text-anchor="end">${kfmt(v)}</text>`;
-    labels.forEach((l, i) => { if (n <= 14 || i % Math.ceil(n / 12) === 0) g += `<text class="axis" x="${x(i)}" y="${H - 7}" text-anchor="middle">${esc(l)}</text>`; });
+    const maxL = W < 760 ? Math.max(3, Math.floor((W - pl - pr) / 52)) : 12;
+    labels.forEach((l, i) => { if (n <= Math.min(14, maxL) || i % Math.ceil(n / maxL) === 0) g += `<text class="axis" x="${x(i)}" y="${H - 7}" text-anchor="middle">${esc(l)}</text>`; });
     g += `<line x1="${pl}" x2="${W - pr}" y1="${y(0)}" y2="${y(0)}" style="stroke:var(--line2)"/>`;
     series.forEach(s => {
       const pts = s.values.map((v, i) => `${x(i)},${y(+v || 0)}`).join(' ');
