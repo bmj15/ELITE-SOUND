@@ -825,6 +825,7 @@ async function apiGestao(req, res, caminho) {
     if(!nome || !Array.isArray(b.acessos) || b.acessos.some(x=>!ACESSOS_GESTAO.includes(x))) return json(400,{erro:'Indique o nome e acessos válidos'});
     const id=b.id ? String(b.id) : novoId('perfil'), antigo=p.perfis.find(x=>x.id===id);
     if(b.id && !antigo) return json(404,{erro:'Perfil não encontrado'});
+    if(nome.toLowerCase()==='administrador') return json(409,{erro:'O perfil Administrador é do sistema e já existe'});
     if(p.perfis.some(x=>x.id!==id && x.nome.toLowerCase()===nome.toLowerCase())) return json(409,{erro:'Já existe um perfil com esse nome'});
     const novo={id,nome,acessos:[...new Set(b.acessos)]};
     if(antigo) p.perfis[p.perfis.indexOf(antigo)]=novo; else p.perfis.push(novo);
@@ -835,13 +836,15 @@ async function apiGestao(req, res, caminho) {
     if(req.method==='GET') return json(200,{perfis:p.perfis,operadores:contasLista().map(c=>({id:c.id,nome:c.nome,email:c.email,admin:c.admin,ativo:c.ativo,perfil:p.operadores[c.id]||''}))});
     if(req.method!=='POST') return json(405,{erro:'Método não permitido'});
     const b=await corpo(), perfil=String(b.perfil||'');
-    if(perfil && !p.perfis.some(x=>x.id===perfil)) return json(400,{erro:'Perfil não encontrado'});
+    if(perfil && perfil!=='admin' && !p.perfis.some(x=>x.id===perfil)) return json(400,{erro:'Perfil não encontrado'});
     let id=b.id && String(b.id);
     if(!id) {
       const nome=String(b.nome||'').trim().slice(0,80), email=String(b.email||'').trim().toLowerCase();
       if(!nome || !EMAIL.test(email) || String(b.palavra||'').length<8 || !perfil) return json(400,{erro:'Indique nome, email, perfil e palavra-passe com pelo menos 8 caracteres'});
       if(contaPorEmail(email)) return json(409,{erro:'Esse email já tem conta. Atribua-lhe um perfil na lista.'});
-      id=novoId('c');q('INSERT INTO contas (id,nome,email,utilizador,hash,admin,ativo,criada_em) VALUES (?,?,?,?,?,0,1,?)').run(id,nome,email,email,hashPalavra(b.palavra),agoraISO());
+      id=novoId('c');q('INSERT INTO contas (id,nome,email,utilizador,hash,admin,ativo,criada_em) VALUES (?,?,?,?,?,?,1,?)').run(id,nome,email,email,hashPalavra(b.palavra),perfil==='admin'?1:0,agoraISO());
+      if(perfil!=='admin') p.operadores[id]=perfil;
+      gravarCfg('gestao:perfis',p,por);reg('GESTAO_OPERADOR_CRIADO',id);return json(200,{ok:true,id});
     }
     const x=conta(id);if(!x) return json(404,{erro:'Conta não encontrada'});
     if(x.admin) return json(400,{erro:'Os administradores mantêm acesso completo'});
@@ -852,10 +855,24 @@ async function apiGestao(req, res, caminho) {
   if (caminho === '/api/gestao/contas') return json(200, contasLista());
   if (caminho === '/api/gestao/conta') {
     const b = await corpo(), x = b.id && conta(String(b.id)); if (!x) return json(404, { erro: 'Conta não encontrada' });
-    if (req.method === 'POST') { if (!superAdmin && (x.admin || acessosGestao(x).length || b.admin !== undefined)) return json(403,{erro:'Só um administrador pode alterar contas com acesso à consola'}); const erro = alterarConta(x, b, { id: por, hash: null }); if (erro) return json(400, { erro });
-      reg('ADMIN_CONTA_ALTERADA', x.id + (b.palavra ? ' palavra-passe' : '') + (b.ativo !== undefined ? (b.ativo ? ' ativada' : ' desativada') : '')); }
-    const y = contasLista().find(r => r.id === x.id);
-    return json(200, { conta: y, sessoes: q('SELECT rowid AS id, criada, visto, ip, agente, expira FROM sessoes WHERE conta = ? AND expira > ? ORDER BY visto DESC').all(x.id, Date.now()),
+    if (req.method === 'POST') {
+      // perfil na consola: '' sem acesso, 'admin' Administrador (perfil do sistema, todos os acessos) ou o id de um perfil criado
+      const pg = perfisGestao(), perfil = b.perfil !== undefined ? String(b.perfil || '') : undefined;
+      if (!superAdmin && (x.admin || acessosGestao(x).length || b.admin !== undefined || perfil !== undefined)) return json(403,{erro:'Só um administrador pode alterar contas com acesso à consola'});
+      if (perfil !== undefined) {
+        if (perfil && perfil !== 'admin' && !pg.perfis.some(f => f.id === perfil)) return json(400, { erro: 'Perfil não encontrado' });
+        if (por && por === x.id && (perfil === 'admin') !== !!x.admin) return json(400, { erro: 'Não pode mudar o perfil da sua própria conta' });
+        if (perfil && !(b.email !== undefined ? String(b.email).trim() : x.email)) return json(400, { erro: 'Indique o email: é com ele que se entra na consola' });
+        b.admin = perfil === 'admin';
+      }
+      const erro = alterarConta(x, b, { id: por, hash: null }); if (erro) return json(400, { erro });
+      if (perfil !== undefined && (pg.operadores[x.id] || '') !== (perfil === 'admin' ? '' : perfil)) {
+        if (perfil && perfil !== 'admin') pg.operadores[x.id] = perfil; else delete pg.operadores[x.id];
+        gravarCfg('gestao:perfis', pg, por);
+      }
+      reg('ADMIN_CONTA_ALTERADA', x.id + (b.palavra ? ' palavra-passe' : '') + (b.ativo !== undefined ? (b.ativo ? ' ativada' : ' desativada') : '') + (perfil !== undefined ? ' perfil ' + (perfil === 'admin' ? 'Administrador' : ((pg.perfis.find(f => f.id === perfil) || {}).nome || 'sem acesso')) : '')); }
+    const y = contasLista().find(r => r.id === x.id), pg = perfisGestao();
+    return json(200, { conta: y, perfil: y.admin ? 'admin' : (pg.operadores[y.id] || ''), perfis: pg.perfis.map(f => ({ id: f.id, nome: f.nome })), sessoes: q('SELECT rowid AS id, criada, visto, ip, agente, expira FROM sessoes WHERE conta = ? AND expira > ? ORDER BY visto DESC').all(x.id, Date.now()),
       registo: registoLista({ conta: x.id, limite: 40 }) });
   }
   if (caminho === '/api/gestao/conta/sessoes' && req.method === 'POST') {
