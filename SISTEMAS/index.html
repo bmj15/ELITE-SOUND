@@ -42,7 +42,20 @@
   tipo = ses.tipo || tipo || 'particular';
   var eTipo = function (s) { return (s.tipo || (s.modelo === 'planeamento' ? 'particular' : 'empresa')) === tipo; };
   var meus = Grupo.lista().filter(function (s) { return s.ativa !== false && pode(s.key) && eTipo(s); });
+  // particulares: um só plano pessoal, entra sempre direto; esta página de escolha é só para empresas
+  if (tipo === 'particular' && meus.length) { location.replace(Grupo.href(meus[0], '')); return; }
   if (meus.length === 1) { location.replace(Grupo.href(meus[0], '')); return; }
+  if (tipo === 'particular') {
+    document.getElementById('sup').textContent = 'Particulares';
+    document.getElementById('tit').textContent = 'Olá' + (ses.nome ? ', ' + String(ses.nome).split(' ')[0] : '');
+    document.getElementById('sys').outerHTML = '<div class="card" style="margin-top:24px;max-width:560px"><h3 style="margin:0 0 8px">Ainda não tem um plano pessoal nesta conta</h3>' +
+      '<p class="muted" style="margin:0 0 16px">Crie o seu plano pessoal: só esta conta o vê.' + (ses.admin ? ' Se já tinha um plano no servidor, atribua-o à sua conta em <a href="acessos.html">Acessos</a>.' : '') + '</p>' +
+      '<button class="btn primary" id="criarPlano">Criar o meu plano pessoal</button> <span class="muted" id="cpErro"></span></div>';
+    document.getElementById('criarPlano').onclick = function () { this.disabled = true;
+      fetch('/api/meu-plano', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-BXB': '1' }, body: '{}' }).then(function (r) { return r.json(); })
+        .then(function (j) { if (j.destino) location.replace(j.destino); else document.getElementById('cpErro').textContent = j.erro || 'Erro'; }); };
+    return;
+  }
   document.getElementById('sup').textContent = tipo === 'empresa' ? 'Empresas' : 'Particulares';
   document.getElementById('tit').textContent = 'Olá' + (ses.nome ? ', ' + String(ses.nome).split(' ')[0] : '');
   if (!meus.length) document.getElementById('vazio').style.display = '';

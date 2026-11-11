@@ -108,6 +108,14 @@ const temSistema = (c, sis) => ePessoal(sis) ? dono(c, sis) : (c.admin || (c.sis
 function atribuirDonos() { // contas que já tinham o plano assinalado explicitamente (sem contar o "*" do administrador)
   const d = donos(), l = contas(); let mudou = false;
   for (const sis of pessoais()) { if (d[sis]) continue; const q = l.filter(c => (c.sistemas || []).includes(sis)); if (q.length === 1) { d[sis] = q[0].id; mudou = true; } }
+  // planos sem dono: se o nome da conta é o de um utilizador do plano, e a correspondência é única nos dois sentidos
+  // (essa conta só aparece nesse plano e esse plano só tem essa conta), o plano passa a ser dessa conta
+  const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const livres = [...pessoais()].filter(s => !d[s]), nomes = {};
+  livres.forEach(s => { try { const v = JSON.parse((lerJSON(ficheiroChave('spap:' + s), null) || {}).valor || 'null'); nomes[s] = new Set(((v && v.users) || []).map(u => norm(u.nome)).filter(Boolean)); } catch (e) { nomes[s] = new Set(); } });
+  const semPlano = l.filter(c => !Object.values(d).includes(c.id) && norm(c.nome));
+  livres.forEach(s => { const q = semPlano.filter(c => nomes[s].has(norm(c.nome)));
+    if (q.length === 1 && livres.filter(o => nomes[o].has(norm(q[0].nome))).length === 1 && !Object.values(d).includes(q[0].id)) { d[s] = q[0].id; mudou = true; } });
   if (mudou) { gravarJSON(FICH_DONOS, d); }
 }
 const ve0 = (c, k) => !!c && (c.admin || (c.sistemas || []).includes('*') || (k === 'spap:grupo' && !cliente(c)) || (c.sistemas || []).includes(sistemaDaChave(k)) || (sistemaDaChave(k) === 'partilha' && membroDaPartilha(c, partilhaGuardada(k))));
@@ -159,7 +167,7 @@ async function api(req, res, caminho) {
     const conta = lista.find(x => x.ativo !== false && ((x.email && x.email === u) || x.utilizador === u));
     if (!conta || !confere(b.palavra, conta.hash)) { const n = (f && f.ate && f.ate <= Date.now() ? 0 : (f ? f.n : 0)) + 1; falhas.set(u, { n, ate: n >= 5 ? Date.now() + 5 * 60000 : 0 }); return json(401, { erro: 'Email ou palavra-passe incorretos' }); }
     if (cliente(conta) && b.tipo && b.tipo !== conta.tipo) return json(401, { erro: conta.tipo === 'empresa' ? 'Esta conta é de empresa: entre no separador Empresas.' : 'Esta conta é de particular: entre no separador Particulares.' });
-    falhas.delete(u); abrirSessao(res, conta); return json(200, { sessao: publica(conta) });
+    falhas.delete(u); try { atribuirDonos(); } catch (e) { } abrirSessao(res, conta); return json(200, { sessao: publica(conta) });
   }
   // criar conta no site: um particular recebe um plano pessoal novo; uma empresa recebe um sistema de empresa novo.
   // Cada conta só vê os seus dados. Dentro do sistema, o PIN (para assinar) define-se no primeiro acesso.
@@ -267,6 +275,17 @@ async function api(req, res, caminho) {
       if (!l.some(y => y.admin)) return json(400, { erro: 'Tem de existir pelo menos um administrador' });
       gravarContas(l); if (mudouD) { gravarJSON(FICH_DONOS, d); } return json(200, publica(x));
     }
+  }
+  if (caminho === '/api/meu-plano' && req.method === 'POST') {
+    const d = donos(), ja = Object.keys(d).find(s => d[s] === c.id);
+    if (ja) return json(200, { destino: '/SISTEMAS/subsidiaria/index.html?s=' + encodeURIComponent(ja) });
+    const l = contas(), x = l.find(y => y.id === c.id); if (!x) return json(404, { erro: 'Conta não encontrada' });
+    const sub = { key: 'p-' + slug(x.nome) + '-' + crypto.randomBytes(3).toString('hex'), nome: x.nome + ' (pessoal)', sigla: iniciais(x.nome), nif: '', setor: '', modelo: 'planeamento', cor1: '#8b5cf6', cor2: '#ec4899',
+      participacao: 0, ativa: true, criadaEm: new Date().toISOString().slice(0, 10), contaCaixa: 'CAIXA', contaOperacional: 'OPERACIONAL', contaHolding: 'HOLDING', independente: true, tipo: 'particular',
+      utilizadores: [{ id: 'u_' + crypto.randomBytes(4).toString('hex'), nome: x.nome, username: String(x.email || x.utilizador || 'eu').split('@')[0].slice(0, 30), role: 'ADMIN', limite: 0 }] };
+    x.proprios = (x.proprios || []).concat([sub]); x.sistemas = (x.sistemas || []).concat([sub.key]); gravarContas(l);
+    d[sub.key] = x.id; gravarJSON(FICH_DONOS, d);
+    return json(200, { sessao: publica(x), destino: '/SISTEMAS/subsidiaria/index.html?s=' + encodeURIComponent(sub.key) });
   }
   if (caminho === '/api/donos' && req.method === 'GET') { // só quem é dono de cada plano pessoal (nome da conta), nunca os dados
     if (!c.admin) return json(403, { erro: 'Só administradores' });
