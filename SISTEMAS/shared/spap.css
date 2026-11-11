@@ -443,5 +443,6 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
 .kpi.tem-lado .kpi-lado{position:absolute;right:18px;bottom:16px;text-align:right;z-index:1}
 .kpi.tem-lado .kpi-lado .lbl{justify-content:flex-end}
 .kpi.tem-lado .kpi-lado .val{font-size:20px;margin-top:2px}
+.kpi.tem-lado .kpi-lado .foot{margin-top:2px}
 .kpi.tem-lado>.foot{max-width:58%}
-@media (max-width:640px){.kpi.tem-lado .kpi-lado{right:14px;bottom:12px}.kpi.tem-lado .kpi-lado .val{font-size:17px}}
+@media (max-width:640px){.kpi.tem-lado .kpi-lado{right:14px;bottom:12px}.kpi.tem-lado .kpi-lado .val{font-size:17px}.kpi.tem-lado .kpi-lado .foot{display:none}}
