@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const chip = document.createElement('div');
   chip.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:9998;padding:6px 10px;border-radius:999px;background:rgba(20,24,34,.88);color:#cfd6e4;font:500 12px/1 Inter,system-ui,sans-serif;display:flex;gap:10px;align-items:center;box-shadow:0 4px 18px rgba(0,0,0,.3)';
-  chip.innerHTML = `<span title="Dados no servidor do Grupo BXB">● ${sessao.nome.replace(/</g, '&lt;')}</span><a href="/SISTEMAS/index.html" style="color:#c3a6ff;text-decoration:none">Sistemas</a>${sessao.admin ? '<a href="/SISTEMAS/acessos.html" style="color:#c3a6ff;text-decoration:none">Acessos</a>' : ''}<a href="#" id="bxb-sair" style="color:#c3a6ff;text-decoration:none">Sair</a>`;
+  chip.innerHTML = `<span title="Dados no servidor do Grupo BXB">● ${sessao.nome.replace(/</g, '&lt;')}</span>${sessao.admin ? '<a href="/SISTEMAS/acessos.html" style="color:#c3a6ff;text-decoration:none">Acessos</a>' : ''}<a href="#" id="bxb-sair" style="color:#c3a6ff;text-decoration:none">Sair</a>`;
   document.body.appendChild(chip);
   chip.querySelector('#bxb-sair').onclick = e => { e.preventDefault(); pedido('POST', '/api/sair', {}); location.replace(ENTRAR); };
 });

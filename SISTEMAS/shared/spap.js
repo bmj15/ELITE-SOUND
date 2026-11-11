@@ -630,6 +630,7 @@ SPAP.createApp = function (cfg) {
   /* Modal de assinatura: PIN + rubrica → devolve um "signatário" capaz de assinar pedidos */
   app.assinar = (titulo, resumo) => new Promise(res => {
     const u = app.user; let pad = null, trocar = !u.rubrica;
+    if (!u.pinHash) { definirPinAssinatura().then(ok => ok ? app.assinar(titulo, resumo).then(res) : res(null)); return; }
     const rubricaHtml = () => trocar ? padHtml() : `<div class="sigpad has"><img src="${u.rubrica}" alt="Rubrica"><button type="button" class="btn ghost sm" id="trocar">Desenhar nova</button></div>`;
     ui.modal({
       title: titulo, sub: 'Assinatura eletrónica — confirme com o seu PIN e a sua rubrica.',
@@ -749,9 +750,43 @@ SPAP.createApp = function (cfg) {
     return `<div class="brand"><div class="brand-logo">${cfg.logo || esc(cfg.sigla)}</div><div><div class="brand-name">${esc(cfg.nome)}</div><div class="brand-sub">${esc(cfg.tagline || 'Sistema de gestão')}</div></div></div>`;
   }
 
+  /* ---------- Entrada pelo site ----------
+     Com sessão no site (email e palavra-passe), não há segundo ecrã de entrada: o utilizador interno é o da conta.
+     O PIN serve só para assinar; quem ainda não tem PIN define-o na primeira assinatura. */
+  const contaSite = () => (window.BXBServidor && window.BXBServidor.sessao) || null;
+  function utilizadorDoSite() {
+    const s = contaSite(); if (!s) return null;
+    const ativos = db.users.filter(u => u.ativo !== false), igual = (a, b) => !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+    let u = ativos.find(x => x.contaId === s.id);
+    if (!u) u = ativos.find(x => !x.contaId && (igual(x.email, s.email) || igual(x.nome, s.nome)));
+    if (!u) { const livres = ativos.filter(x => !x.contaId); if (ativos.length === 1 && livres.length === 1) u = livres[0]; }
+    if (u && u.contaId !== s.id) { u.contaId = s.id; if (s.email && !u.email) u.email = s.email; save(); }
+    return u || null;
+  }
+  function sairDoSite() { try { const x = new XMLHttpRequest(); x.open('POST', '/api/sair', false); x.setRequestHeader('X-BXB', '1'); x.send('{}'); } catch (e) { } location.replace('/SISTEMAS/entrar.html'); }
+  function definirPinAssinatura() {
+    return new Promise(res => ui.modal({ title: 'Defina o seu PIN de assinatura', sub: 'É pedido só para assinar operações (com a sua rubrica). Para entrar usa o email e a palavra-passe.',
+      body: `<form class="stack"><div class="fld"><label>PIN (4 a 8 dígitos)</label><input class="inp mono" name="p1" type="password" inputmode="numeric" maxlength="8" style="font-size:20px;letter-spacing:.4em;text-align:center"></div>
+        <div class="fld"><label>Confirmar PIN</label><input class="inp mono" name="p2" type="password" inputmode="numeric" maxlength="8" style="font-size:20px;letter-spacing:.4em;text-align:center"></div></form>`,
+      actions: [{ label: 'Cancelar', kind: 'ghost', onClick: () => res(false) }, { label: 'Guardar PIN', kind: 'primary', onClick: async el => { const f = ui.formData(el);
+        if (!/^\d{4,8}$/.test(f.p1)) { ui.toast('O PIN deve ter 4 a 8 dígitos', 'bad'); return false; }
+        if (f.p1 !== f.p2) { ui.toast('Os PIN não coincidem', 'bad'); return false; }
+        app.setPin(app.user, f.p1); app.user.mustChange = false; log('PIN_DEFINIDO', app.user.username + ' · PIN de assinatura');
+        try { await app.gerarChaves(app.user, f.p1); } catch (err) { ui.toast(esc(err.message), 'warn'); }
+        save(); setTimeout(() => res(true), 0); } }] }));
+  }
+
   /* ---------- Login ---------- */
   function renderLogin(msg) {
     app.user = null;
+    if (contaSite()) { // entrou pelo site: sem ecrã de PIN
+      const u = utilizadorDoSite();
+      if (u) { startSession(u); return; }
+      root.innerHTML = `<div class="nf" style="min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center"><div><h1 style="margin:0 0 8px">Sem utilizador nesta área</h1>
+        <p class="muted">A conta <b>${esc(contaSite().email || contaSite().nome)}</b> ainda não está associada a um utilizador desta empresa. Peça ao responsável para o adicionar com este email.</p>
+        <button class="btn" id="b-sair-site">Sair</button></div></div>`;
+      document.getElementById('b-sair-site').onclick = sairDoSite; return;
+    }
     const setup = !db.users.some(u => u.ativo !== false && u.pinHash);
     root.innerHTML = `<div class="login">
       <div class="login-art">${brandHtml()}
@@ -826,6 +861,7 @@ SPAP.createApp = function (cfg) {
     if (u.mustChange) changePin(true);
   }
   function logout(reason) {
+    if (contaSite()) { if (app.user) { log(reason ? 'SESSAO_BLOQUEADA' : 'SESSAO_TERMINADA', app.user.username + (reason ? ' · ' + reason : '')); save(); } try { sessionStorage.removeItem(SESSION); } catch (e) { } sairDoSite(); return; }
     if (app.user) { log(reason ? 'SESSAO_BLOQUEADA' : 'SESSAO_TERMINADA', app.user.username + (reason ? ' · ' + reason : '')); save(); }
     try { sessionStorage.removeItem(SESSION); } catch (e) { }
     renderLogin(reason ? 'Sessão bloqueada por inatividade.' : '');
@@ -892,7 +928,7 @@ SPAP.createApp = function (cfg) {
             ${cfg.perfil ? `<button class="btn ghost sm" id="b-perfil" title="O meu perfil">${icon('user')}</button>` : ''}
             <button class="btn ghost sm" id="b-sig" title="A minha assinatura eletrónica">${icon('pen')}</button>
             <button class="btn ghost sm" id="b-pin" title="Alterar PIN">${icon('key')}</button>
-            <button class="btn ghost sm" id="b-lock" title="Bloquear">${icon('lock')}</button>
+            ${contaSite() ? '' : `<button class="btn ghost sm" id="b-lock" title="Bloquear">${icon('lock')}</button>`}
             <button class="btn ghost sm" id="b-out" title="Terminar sessão">${icon('logout')}</button>
           </div>
           ${cfg.outroSistema ? `<a class="btn ghost sm" style="margin-top:8px;width:100%" href="${cfg.outroSistema.href}">${icon('swap')} ${esc(cfg.outroSistema.label)}</a>` : ''}
@@ -905,10 +941,10 @@ SPAP.createApp = function (cfg) {
       </header><section id="view"></section></main></div>`;
     const $ = s => root.querySelector(s);
     $('#b-theme').onclick = toggleTheme;
-    $('#b-pin').onclick = () => changePin(false);
+    $('#b-pin').onclick = () => app.user.pinHash ? changePin(false) : definirPinAssinatura();
     $('#b-sig').onclick = () => perfilAssinatura();
     if (cfg.perfil) { $('#b-perfil').onclick = () => cfg.perfil(app); const uc = root.querySelector('.user-chip'); if (uc) { uc.style.cursor = 'pointer'; uc.title = 'O meu perfil'; uc.onclick = () => cfg.perfil(app); } }
-    $('#b-lock').onclick = () => logout('bloqueio manual');
+    if ($('#b-lock')) $('#b-lock').onclick = () => logout('bloqueio manual');
     $('#b-out').onclick = () => logout();
     // ecrã estreito: o menu abre por cima e fecha ao tocar fora; ecrã largo: esconde/mostra a coluna (fica memorizado)
     const menuMovel = abrir => { $('#side').classList.toggle('open', abrir); document.body.classList.toggle('menu-aberto', abrir); };
@@ -2524,8 +2560,8 @@ SPAP.createApp = function (cfg) {
     applyTheme(); load();
     document.title = cfg.nome + ' · Gestão';
     let sid = null; try { sid = sessionStorage.getItem(SESSION); } catch (e) { }
-    const u = sid && userById(sid);
-    if (u && u.ativo !== false && u.pinHash) app.user = u;
+    const u = contaSite() ? utilizadorDoSite() : sid && userById(sid);
+    if (u && u.ativo !== false && (u.pinHash || contaSite())) app.user = u;
     window.addEventListener('hashchange', render);
     ['mousemove', 'keydown', 'click', 'touchstart'].forEach(ev => document.addEventListener(ev, () => lastActive = Date.now(), { passive: true }));
     setInterval(() => { if (app.user && Date.now() - lastActive > (db.settings.autoLockMin || 10) * 60000) logout('inatividade'); }, 20000);
