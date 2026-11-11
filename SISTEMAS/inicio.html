@@ -7,7 +7,7 @@
 <meta name="description" content="Planeamento financeiro pessoal e gestão de tesouraria para empresas, com autorizações assinadas.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=3">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=5">
 <script>if (/^\/empresas/.test(location.pathname)) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
@@ -47,12 +47,6 @@
       { tag: 'Poupança', h: 'Um fundo para os imprevistos.', p: 'Saiba quanto deve ter de parte e em quantos meses lá chega, ao ritmo que consegue poupar.', c1: ['Calcular o meu fundo', '/simuladores#emergencia'], arte: 'objetivo' },
       { tag: 'Impostos', h: 'O IRS sem surpresas.', p: 'Recibos, deduções do e-Fatura e uma estimativa do reembolso muito antes da entrega da declaração.', c1: ['Ler o guia', '/artigos/deducoes-irs-e-fatura'], arte: 'irs' }
     ],
-    quatro: [
-      { cl: 'g', h: 'Abra a sua <b>conta online</b> em minutos', l: ['Abrir conta', ABRIR, 'btn'] },
-      { h: 'Faça as contas <b>antes de decidir</b>', l: ['Ver simuladores', '/simuladores'] },
-      { cl: 'al', et: 'Alerta de segurança', h: 'A BXB <b>nunca pede</b> a palavra-passe ou o PIN por mensagem', l: ['Saber mais', '/artigos/proteger-a-sua-conta'] },
-      { h: 'As soluções ideais <b>para a sua empresa</b>', l: ['Ver soluções de Empresas', '/empresas'] }
-    ],
     quero: [
       { id: 'dividas', t: 'Quero sair das dívidas', ico: 'i-cartao', tg: 'Simulação rápida', lb: 'Plano para sair das dívidas', h: 'Quanto deve?', pts: ['Compare várias estratégias de pagamento', 'Veja a data em que fica sem dívidas', 'Saiba quanto poupa com cada reforço'],
         vals: [1000, 2500, 5000, 10000, 20000], def: 5000, un: '€', res: function (v) { var r = 0.10 / 12, P = Math.max(30, v * 0.03), n = -Math.log(1 - r * v / P) / Math.log(1 + r), n2 = -Math.log(1 - r * v / (P + 50)) / Math.log(1 + r);
@@ -87,12 +81,6 @@
       { tag: 'Equipa', h: 'Toda a equipa, cada um no seu papel.', p: 'Convide os colaboradores pelo email e defina o papel e a alçada de cada um.', c1: ['Abrir conta de empresa', ABRIR], arte: 'equipa' },
       { tag: 'Guia', h: 'A tesouraria a 13 semanas.', p: 'Antecipe faltas de liquidez com uma previsão semanal simples de entradas e saídas.', c1: ['Ler o guia', '/artigos/tesouraria-pme-13-semanas'], arte: 'tesouraria' }
     ],
-    quatro: [
-      { cl: 'g', h: 'Abra a <b>conta da empresa</b> em minutos', l: ['Abrir conta de empresa', ABRIR, 'btn'] },
-      { h: 'Margem, preços e recebimentos: <b>faça as contas</b>', l: ['Ver simuladores', '/simuladores#pmr'] },
-      { cl: 'al', et: 'Alerta de segurança', h: 'Pedido urgente para mudar o IBAN de um fornecedor? <b>Confirme por telefone</b>', l: ['Saber mais', '/artigos/dupla-aprovacao-pagamentos'] },
-      { h: 'Também para si: <b>o seu plano pessoal</b>', l: ['Ver soluções para Particulares', '/'] }
-    ],
     quero: [
       { id: 'pagamentos', t: 'Quero controlar pagamentos', ico: 'i-chave', tg: 'Autorização de pagamentos', lb: 'Pagamentos', h: 'Cada pagamento com quem o pode aprovar', pts: ['Alçadas por valor e por pessoa', 'Dupla aprovação acima do limite', 'Assinatura com PIN e rubrica'],
         lado: [['Porque é que a dupla aprovação protege a tesouraria', '/artigos/dupla-aprovacao-pagamentos'], ['O que é a regra das duas pessoas', '/ajuda?p=duas-pessoas'], ['Abrir conta de empresa', ABRIR]] },
@@ -122,27 +110,100 @@
 
   // ---------- montar a página ----------
   var h = '';
-  h += '<section class="carr" id="carr" aria-roledescription="carrossel"><div class="faixa-s" id="faixaS">' + D.slides.map(function (s, i) {
+  h += '<section class="ecra1"><div class="carr" id="carr" aria-roledescription="carrossel"><div class="faixa-s" id="faixaS">' + D.slides.map(function (s, i) {
     return '<div class="slide s' + (i + 1) + '" aria-label="' + (i + 1) + ' de ' + D.slides.length + '"><div class="wrap"><div><span class="tag">' + s.tag + '</span>' + (i ? '<h2 class="h">' : '<h1>') + s.h + (i ? '</h2>' : '</h1>') + '<p>' + s.p + '</p><div class="ctas"><a class="btn btn-p" href="' + s.c1[1] + '">' + s.c1[0] + ' ' + ic('i-seta', 18) + '</a>' + (s.c2 ? '<a class="btn btn-s" href="' + s.c2[1] + '">' + s.c2[0] + '</a>' : '') + '</div></div><div class="arte">' + ARTE[s.arte] + '</div></div></div>'; }).join('') +
-    '</div><div class="carr-c"><div class="wrap"><button class="bt" type="button" id="cAnt" aria-label="Anterior">‹</button><span class="n" id="cN">1 de ' + D.slides.length + '</span><button class="bt" type="button" id="cSeg" aria-label="Seguinte">›</button><button class="bt" type="button" id="cPausa" aria-label="Pausa">❚❚</button><div class="barras-c" id="cB">' + D.slides.map(function (s, i) { return '<button type="button" aria-label="Ir para ' + (i + 1) + '"><i></i></button>'; }).join('') + '</div></div></div></section>';
-  h += '<div class="wrap"><div class="quatro">' + D.quatro.map(function (q) { return '<div class="q4 ' + (q.cl || '') + '">' + (q.et ? '<span class="et-al">' + ic('i-escudo', 14) + q.et + '</span>' : '') + '<h3>' + q.h + '</h3>' + (q.l[2] ? '<a class="btn" href="' + q.l[1] + '">' + q.l[0] + ' ' + ic('i-seta', 16) + '</a>' : '<a class="lk-s" href="' + q.l[1] + '">' + q.l[0] + '</a>') + '</div>'; }).join('') + '</div></div>';
-  h += '<section class="hp-sec" id="quero"><div class="wrap"><p class="sobre-t">Passe das ideias à ação</p><h2 class="tit" style="margin-bottom:24px">Como podemos <b>ajudar hoje?</b></h2><div class="quero-t" id="queroT" role="tablist">' + D.quero.map(function (q, i) { return '<button type="button" role="tab" data-q="' + i + '"' + (i ? '' : ' class="on"') + '>' + ic(q.ico, 16) + q.t + '</button>'; }).join('') + '</div><div id="queroC"></div></div></section>';
-  h += '<section class="hp-sec alt" id="destaques"><div class="wrap"><div class="cab-s"><div><p class="sobre-t">Em destaque</p><h2 class="tit">Os destaques <b>que importam</b></h2></div><div class="setas"><button type="button" data-d="-1" aria-label="Anterior">‹</button><button type="button" data-d="1" aria-label="Seguinte">›</button></div></div><div class="dest-c" id="destC">' +
+    '</div><div class="carr-c"><div class="wrap"><button class="bt" type="button" id="cAnt" aria-label="Anterior">‹</button><span class="n" id="cN">1 de ' + D.slides.length + '</span><button class="bt" type="button" id="cSeg" aria-label="Seguinte">›</button><button class="bt" type="button" id="cPausa" aria-label="Pausa">❚❚</button><div class="barras-c" id="cB">' + D.slides.map(function (s, i) { return '<button type="button" aria-label="Ir para ' + (i + 1) + '"><i></i></button>'; }).join('') + '</div></div></div></div>';
+  h += '</section>';
+  h += '<section class="hp-sec tela" id="quero"><div class="wrap"><p class="sobre-t">Passe das ideias à ação</p><h2 class="tit" style="margin-bottom:24px">Como podemos <b>ajudar hoje?</b></h2><div class="quero-t" id="queroT" role="tablist">' + D.quero.map(function (q, i) { return '<button type="button" role="tab" data-q="' + i + '"' + (i ? '' : ' class="on"') + '>' + ic(q.ico, 16) + q.t + '</button>'; }).join('') + '</div><div id="queroC"></div></div></section>';
+  h += '<section class="hp-sec alt tela" id="destaques"><div class="wrap"><div class="cab-s"><div><p class="sobre-t">Em destaque</p><h2 class="tit">Os destaques <b>que importam</b></h2></div><div class="setas"><button type="button" data-d="-1" aria-label="Anterior">‹</button><button type="button" data-d="1" aria-label="Seguinte">›</button></div></div><div class="dest-c" id="destC">' +
     D.dest.map(function (d) { return '<a class="dc" id="' + d.id + '" href="' + d.l[1] + '">' + capa(d.cat, d.ico) + '<div class="tx"><h3>' + d.h + '</h3><p>' + d.p + '</p><span class="lk-s">' + d.l[0] + '</span></div></a>'; }).join('') + '</div></div></section>';
-  h += '<section class="hp-sec" id="simuladores"><div class="wrap"><div class="cab-s"><div><p class="sobre-t">Simuladores</p><h2 class="tit">Faça as contas <b>antes de decidir</b></h2></div><a class="lk-s" href="/simuladores">Ver todos</a></div><div class="sim4">' +
+  h += '<section class="hp-sec tela" id="simuladores"><div class="wrap"><div class="cab-s"><div><p class="sobre-t">Simuladores</p><h2 class="tit">Faça as contas <b>antes de decidir</b></h2></div><a class="lk-s" href="/simuladores">Ver todos</a></div><div class="sim4">' +
     D.sims.map(function (s) { var href = s[0] === 'guia' ? '/artigos/tesouraria-pme-13-semanas' : '/simuladores' + (s[0] ? '#' + s[0] : '');
       return '<a class="s4" href="' + href + '"><div class="rodela"><span>' + ic(s[1], 40) + '</span></div><h3>' + s[2] + '</h3><p>' + s[3] + '</p><span class="lk-s">' + (s[0] === 'guia' ? 'Ler guia' : s[0] ? 'Simular' : 'Ver simuladores') + '</span></a>'; }).join('') + '</div></div></section>';
-  h += '<section class="hp-sec alt"><div class="wrap blocos">' + D.blocos.map(function (b, i) { return '<div class="bloco-z' + (i % 2 ? ' inv' : '') + '" id="' + b.id + '"><div><p class="sobre-t">' + b.sob + '</p><h2 class="tit" style="font-size:clamp(26px,3vw,38px)">' + b.h + '</h2><p style="margin-top:16px">' + b.p + '</p><a class="lk-s" href="' + b.l[1] + '">' + b.l[0] + '</a></div><div class="vis-z">' + ARTE[b.arte] + '</div></div>'; }).join('') + '</div></section>';
+  h += D.blocos.map(function (b, i) { return '<section class="hp-sec tela' + (i % 2 ? '' : ' alt') + '"><div class="wrap"><div class="bloco-z' + (i % 2 ? ' inv' : '') + '" id="' + b.id + '"><div><p class="sobre-t">' + b.sob + '</p><h2 class="tit" style="font-size:clamp(26px,3vw,38px)">' + b.h + '</h2><p style="margin-top:16px">' + b.p + '</p><a class="lk-s" href="' + b.l[1] + '">' + b.l[0] + '</a></div><div class="vis-z">' + ARTE[b.arte] + '</div></div></div></section>'; }).join('');
   var arts = ARTIGOS.slice().sort(function (a, b) { return ((b.cat === 'empresas') === emp) - ((a.cat === 'empresas') === emp) || b.data.localeCompare(a.data); }).slice(0, 3);
-  h += '<section class="hp-sec" id="artigos"><div class="wrap"><p class="sobre-t">Artigos, dicas e muito mais</p><h2 class="tit" style="margin-bottom:30px">Tudo o que precisa <b>para decidir melhor</b></h2><div class="dicas"><div class="dica-p"><div><p class="sobre-t" style="color:#e9e5ff">Artigos BXB</p><h3>Poupança, crédito, impostos e gestão, sem jargão</h3></div><a class="btn btn-s" href="/artigos" style="align-self:flex-start;border-radius:999px">Ver todos os artigos</a></div>' +
+  h += '<section class="hp-sec tela" id="artigos"><div class="wrap"><p class="sobre-t">Artigos, dicas e muito mais</p><h2 class="tit" style="margin-bottom:30px">Tudo o que precisa <b>para decidir melhor</b></h2><div class="dicas"><div class="dica-p"><div><p class="sobre-t" style="color:#e9e5ff">Artigos BXB</p><h3>Poupança, crédito, impostos e gestão, sem jargão</h3></div><a class="btn btn-s" href="/artigos" style="align-self:flex-start;border-radius:999px">Ver todos os artigos</a></div>' +
     arts.map(function (a) { var c = CATEGORIAS[a.cat] || {}; return '<a class="art" href="/artigos/' + a.id + '">' + capa(a.cat, c.ico || 'i-livro') + '<div class="tx"><span class="tagc">' + esc(c.nome) + '</span><h3>' + esc(a.titulo) + '</h3><span class="meta">' + a.min + ' min de leitura</span></div></a>'; }).join('') + '</div></div></section>';
   var s = emp ? 'e' : 'p';
   var faq = AJUDA.filter(function (x) { return x.topo && x.seg.indexOf(s) >= 0; }).concat(AJUDA.filter(function (x) { return !x.topo && x.seg.indexOf(s) >= 0; })).slice(0, 6);
-  h += '<section class="hp-sec alt" id="duvidas"><div class="wrap"><div class="cab-s"><div><p class="sobre-t">Dúvidas frequentes</p><h2 class="tit">Antes de <b>começar</b></h2></div><a class="lk-s" href="/ajuda">Ir para a Ajuda</a></div><div class="faq6">' +
+  h += '<section class="hp-sec alt tela" id="duvidas"><div class="wrap"><div class="cab-s"><div><p class="sobre-t">Dúvidas frequentes</p><h2 class="tit">Antes de <b>começar</b></h2></div><a class="lk-s" href="/ajuda">Ir para a Ajuda</a></div><div class="faq6">' +
     faq.map(function (x) { return '<a class="fq" href="/ajuda?p=' + x.id + '">' + esc(x.q) + '</a>'; }).join('') + '</div></div></section>';
-  h += '<section class="hp-sec"><div class="wrap"><p class="sobre-t">Precisa de ajuda?</p><h2 class="tit" style="margin-bottom:30px">Estamos <b>aqui para si</b></h2><div class="aj3">' +
+  h += '<section class="hp-sec tela" id="ajuda-hp"><div class="wrap"><p class="sobre-t">Precisa de ajuda?</p><h2 class="tit" style="margin-bottom:30px">Estamos <b>aqui para si</b></h2><div class="aj3">' +
     D.ajuda.map(function (a) { return '<div class="a3"><i>' + ic(a[0], 20) + '</i><p class="sobre-t">' + a[1] + '</p><h3>' + a[2] + '</h3><a class="lk-s" href="' + a[4] + '">' + a[3] + '</a></div>'; }).join('') + '</div></div></section>';
   document.getElementById('hp').innerHTML = h;
+
+  // ---------- ecrãs (computador): cada segmento ocupa o ecrã; a roda troca de segmento por desvanecimento ----------
+  var raiz = document.documentElement, mq = matchMedia('(min-width:980px) and (min-height:620px)'), reduz = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var secs = [].slice.call(document.querySelectorAll('#hp > section')), rod = document.querySelector('footer');
+  if (rod) secs.push(rod);
+  secs.forEach(function (s, i) { s.classList.add('seg-x');
+    var k = 0; [].forEach.call(s.querySelectorAll('.tela > .wrap > *'), function (f) {
+      var filhos = f.matches('.cab-s, .sim4, .faq6, .aj3, .dicas, .bloco-z, .dest-c') ? [].slice.call(f.children) : [f];
+      filhos.forEach(function (el) { el.classList.add('anim'); el.style.setProperty('--k', Math.min(k++, 9)); }); });
+    if (s.classList.contains('tela') && !s.id) { var a = s.querySelector('[id]'); if (a) s.dataset.alvo = a.id; } });
+  var nomes = secs.map(function (s, i) { if (!i) return 'Início'; if (s === rod) return 'Mapa do site'; var t = s.querySelector('.sobre-t'); return t ? t.textContent : ''; });
+  document.body.insertAdjacentHTML('beforeend', '<nav class="pontos" id="pontos" aria-label="Secções da página">' + nomes.map(function (n, i) { return '<button type="button" data-i="' + i + '" aria-label="' + esc(n) + '"><span>' + esc(n) + '</span></button>'; }).join('') + '</nav>');
+  var pts = [].slice.call(document.querySelectorAll('#pontos button')), idx = 0, ocupado = false, esperar = false, ultW = 0, acum = 0, hdr = 0;
+  function ativo() { return raiz.classList.contains('snap'); }
+  function alvo(i) { var max = raiz.scrollHeight - innerHeight; if (!i) return 0; if (secs[i] === rod) return max;
+    return Math.min(max, Math.round(secs[i].getBoundingClientRect().top + scrollY - hdr)); }
+  function maisPerto() { var b = 0, d = 1e9; secs.forEach(function (s, i) { var x = Math.abs(alvo(i) - scrollY); if (x < d) { d = x; b = i; } }); return b; }
+  function marcar(i) { idx = i; pts.forEach(function (p, k) { p.classList.toggle('on', k === i); });
+    secs.forEach(function (s) { var r = s.getBoundingClientRect(); s.classList.toggle('vis', r.top < innerHeight - 40 && r.bottom > hdr + 40); }); }
+  function irSeg(i, ja) {
+    i = Math.max(0, Math.min(secs.length - 1, i));
+    if (!ativo() || ja || reduz) { scrollTo(0, alvo(i)); marcar(i); return; }
+    if (i === idx || ocupado) return;
+    ocupado = true;
+    var saem = secs.filter(function (s) { return s.classList.contains('vis'); });
+    saem.forEach(function (s) { s.classList.add('sai'); });
+    setTimeout(function () {
+      saem.forEach(function (s) { s.classList.remove('sai', 'vis'); });
+      scrollTo(0, alvo(i)); void raiz.offsetHeight; marcar(i);
+      setTimeout(function () { ocupado = false; esperar = true; }, 560);
+    }, 360);
+  }
+  function medir() { var nav = document.getElementById('nav'), av = document.getElementById('aviso');
+    hdr = nav.offsetHeight; raiz.style.setProperty('--hdr', hdr + 'px'); raiz.style.setProperty('--topo', (hdr + (av ? av.offsetHeight : 0)) + 'px');
+    var era = ativo(); raiz.classList.toggle('snap', mq.matches);
+    if (ativo()) { if (era) scrollTo(0, alvo(idx)); marcar(era ? idx : maisPerto()); } else secs.forEach(function (s) { s.classList.remove('sai'); }); }
+  try { history.scrollRestoration = 'manual'; } catch (e) { }
+  if (!location.hash && mq.matches) scrollTo(0, 0);
+  raiz.classList.add('parado'); medir(); setTimeout(function () { raiz.classList.remove('parado'); }, 60);
+  addEventListener('resize', medir);
+  new MutationObserver(medir).observe(document.body, { childList: true });
+  var aberto = function () { return document.querySelector('.pesq.on, .painel.on, .menu-m.on'); };
+  addEventListener('wheel', function (e) {
+    if (!ativo() || e.ctrlKey || aberto() || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    e.preventDefault();
+    var agora = performance.now(), pausa = agora - ultW; ultW = agora;
+    if (ocupado) return;
+    if (esperar) { if (pausa < 180) return; esperar = false; }
+    if (pausa > 250) acum = 0;
+    acum += e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1);
+    if (Math.abs(acum) < 30) return;
+    var d = acum > 0 ? 1 : -1; acum = 0; irSeg(idx + d);
+  }, { passive: false });
+  addEventListener('keydown', function (e) {
+    if (!ativo() || aberto() || e.altKey || e.ctrlKey || e.metaKey) return;
+    var t = e.target; if (t && (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName) || t.isContentEditable) && e.key === ' ') return;
+    if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    var m = { PageDown: 1, ArrowDown: 1, ' ': e.shiftKey ? -1 : 1, PageUp: -1, ArrowUp: -1 }[e.key];
+    if (e.key === 'Home') { e.preventDefault(); return irSeg(0); }
+    if (e.key === 'End') { e.preventDefault(); return irSeg(secs.length - 1); }
+    if (m) { e.preventDefault(); irSeg(idx + m); }
+  });
+  var tSc = null; addEventListener('scroll', function () { if (!ativo() || ocupado) return; clearTimeout(tSc); tSc = setTimeout(function () { if (!ocupado) marcar(maisPerto()); }, 160); }, { passive: true });
+  function secDe(el) { for (var k = 0; k < secs.length; k++) if (secs[k].contains(el)) return k; return -1; }
+  document.addEventListener('click', function (e) {
+    if (!ativo()) return;
+    if (e.target.closest('#subir')) { e.preventDefault(); e.stopImmediatePropagation(); return irSeg(0); }
+    var p = e.target.closest('#pontos button'); if (p) return irSeg(+p.dataset.i);
+    var a = e.target.closest('a[href*="#"]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    var u = new URL(a.href, location.href); if (u.pathname !== location.pathname || !u.hash) return;
+    var el = document.getElementById(u.hash.slice(1)), k = el ? secDe(el) : -1; if (k < 0) return;
+    e.preventDefault(); history.replaceState(null, '', u.hash); document.querySelectorAll('.painel.on').forEach(function (x) { x.classList.remove('on'); }); irSeg(k);
+  }, true);
 
   // ---------- carrossel ----------
   var faixa = document.getElementById('faixaS'), car = document.getElementById('carr'), bs = document.querySelectorAll('#cB button'), n = D.slides.length, at = 0, tm = null, pausa = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -183,7 +244,7 @@
   var dc = document.getElementById('destC');
   document.querySelectorAll('[data-d]').forEach(function (b) { b.onclick = function () { var w = dc.querySelector('.dc').offsetWidth + 20; dc.scrollBy({ left: +b.dataset.d * w, behavior: 'smooth' }); }; });
 
-  if (location.hash) { var alvo = document.getElementById(location.hash.slice(1)); if (alvo) setTimeout(function () { alvo.scrollIntoView(); }, 80); }
+  if (location.hash) { var dest = document.getElementById(location.hash.slice(1)), kd = dest ? secDe(dest) : -1; if (kd >= 0) setTimeout(function () { if (ativo()) irSeg(kd, true); else dest.scrollIntoView(); }, 80); }
 })();
 </script>
 </body>
