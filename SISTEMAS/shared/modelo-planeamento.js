@@ -830,20 +830,27 @@ function lerSIRE(texto) {
   return linhas.slice(1).map(l => { const f = l.split(';'), g = k => c[k] < 0 ? '' : (f[c[k]] || '').trim(), ref = g('ref');
     return { numero: ref, tipo: (ref.match(/^(FR|RG|FT|NC)\b/i) || [, ''])[1].toUpperCase() || (/RECIBO/i.test(g('tipo')) ? 'FR' : 'FT'), anulado: /ANULAD/i.test(g('sit')), data: g('data') || g('emis'), nif: g('nif'), cliente: g('nome'), atcud: g('atcud'), bruto: r2(numSIRE(g('base'))), iva: r2(numSIRE(g('iva'))), irs: r2(numSIRE(g('irs'))) }; }).filter(x => x.numero && /^\d{4}-\d{2}-\d{2}$/.test(x.data));
 }
+// identificação de um recibo verde: o n.º do documento (série/número, ex.: "FR ATSIRE01FR/9" e "FR/9" são o mesmo);
+// sem número, a data, o tipo e o valor
+const chaveB = x => { const t = String(x.numero || '').replace(/\s+/g, '').toUpperCase(), k = t.match(/(FR|RG|FT|NC)\/\d+$/); return k ? k[0] : t || `${x.data}|${x.tipo}|${r2(+x.bruto || 0)}`; };
+const nomeB = x => x.numero ? String(x.numero).trim() : `${x.tipo || 'recibo'} de ${date(x.data)} (${eur(x.bruto)})`;
 function importarSIRE() {
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.csv,text/csv';
   inp.onchange = async () => {
     const f = inp.files[0]; if (!f) return; let docs;
     try { docs = lerSIRE(await f.text()); } catch (e) { ui.toast('Não consegui ler o ficheiro: ' + e.message, 'bad'); return; }
-    const m = M(), chave = n => { const t = String(n || '').replace(/\s+/g, '').toUpperCase(), k = t.match(/(FR|RG|FT|NC)\/\d+$/); return k ? k[0] : t; }, ex = new Map(m.recibosB.map(x => [chave(x.numero), x]));
+    const m = M(), ex = new Map(m.recibosB.map(x => [chaveB(x), x])), ign = [];
     let novos = 0, atual = 0, anul = 0;
-    docs.forEach(d => { const x = ex.get(chave(d.numero));
+    docs.forEach(d => { const x = ex.get(chaveB(d));
       if (d.anulado) { if (x && !x.anulado) { x.anulado = true; x.tipo = d.tipo; anul++; } return; }
-      if (x) { let mud = false; ['cliente', 'nif', 'atcud'].forEach(k => { if (d[k] && x[k] !== d[k]) { x[k] = d[k]; mud = true; } }); if (x.numero !== d.numero) { x.numero = d.numero; mud = true; } if (mud) atual++; return; }
-      m.recibosB.push({ id: 'B' + uid(), data: d.data, tipo: d.tipo, numero: d.numero, cliente: d.cliente, nif: d.nif, atcud: d.atcud, bruto: d.bruto, iva: d.iva, irs: d.irs, origem: 'portal', criadoEm: new Date().toISOString() }); novos++; });
-    if (!novos && !atual && !anul) { ui.toast('Nada de novo: todos os documentos já estavam registados.', 'info'); return; }
+      if (x) { let mud = false; ['cliente', 'nif', 'atcud'].forEach(k => { if (d[k] && x[k] !== d[k]) { x[k] = d[k]; mud = true; } }); if (x.numero !== d.numero) { x.numero = d.numero; mud = true; } if (mud) atual++; ign.push(nomeB(d)); return; }
+      const y = { id: 'B' + uid(), data: d.data, tipo: d.tipo, numero: d.numero, cliente: d.cliente, nif: d.nif, atcud: d.atcud, bruto: d.bruto, iva: d.iva, irs: d.irs, origem: 'portal', criadoEm: new Date().toISOString() };
+      m.recibosB.push(y); ex.set(chaveB(y), y); novos++; });
+    // os que já existiam não se voltam a inserir: diz-se quais foram ignorados
+    const jaTxt = ign.length ? `${ign.length === 1 ? 'Já existia e foi ignorado' : `Já existiam e foram ignorados (${ign.length})`}: ${ign.slice(0, 8).map(esc).join(', ')}${ign.length > 8 ? '…' : ''}` : '';
+    if (!novos && !atual && !anul) { ui.toast(jaTxt || 'Nada de novo: todos os documentos já estavam registados.', 'warn'); return; }
     audit('PF_CATB_IMPORT', `Portal das Finanças: ${novos} novos, ${atual} atualizados, ${anul} anulados`); app.save();
-    ui.toast(`Importado: ${novos} novos · ${atual} atualizados${anul ? ` · ${anul} anulados ignorados` : ''}`, 'ok'); app.refresh(); };
+    ui.toast(`Importado: ${novos} novos${atual ? ` · ${atual} atualizados` : ''}${anul ? ` · ${anul} anulados` : ''}${jaTxt ? '. ' + jaTxt : ''}`, novos ? 'ok' : 'warn'); app.refresh(); };
   inp.click();
 }
 function rendCatB(v, T) {
@@ -863,6 +870,9 @@ function rendCatB(v, T) {
         <div class="fld"><label>Valor (sem IVA) (€)</label><input class="inp num" type="number" step="any" name="bruto" value="${esc(x.bruto)}"></div><div class="fld"><label>IVA (€)</label><input class="inp num" type="number" step="any" name="iva" value="${esc(x.iva || 0)}"></div><div class="fld"><label>Retenção de IRS (€)</label><input class="inp num" type="number" step="any" name="irs" value="${esc(x.irs || 0)}"></div></form>`,
       actions: [...(x0 ? [{ label: icon('trash') + 'Remover', kind: 'bad', onClick: async () => { if (!await ui.confirm('Remover', 'Remover este recibo verde?', { danger: true, okLabel: 'Remover' })) return false; m.recibosB = m.recibosB.filter(y => y !== x0); audit('PF_CATB_REMOVIDO', `${x0.numero || ''} ${eur(x0.bruto)}`); app.save(); app.refresh(); } }] : []),
         { label: 'Cancelar', kind: 'ghost' }, { label: 'Guardar', kind: 'primary', onClick: el => { const f = ui.formData(el); if (!f.data || !(+f.bruto > 0)) { ui.toast('Indique a data e o valor', 'warn'); return false; }
+          // não deixa inserir duas vezes o mesmo recibo
+          const dup = m.recibosB.find(z => z !== x0 && chaveB(z) === chaveB({ numero: f.numero, data: f.data, tipo: f.tipo, bruto: f.bruto }));
+          if (dup) { ui.toast(`O recibo ${esc(nomeB(dup))} já existia e foi ignorado.`, 'warn'); return x0 ? false : undefined; }
           const y = x0 || { id: 'B' + uid(), criadoEm: new Date().toISOString() }; Object.assign(y, { data: f.data, tipo: f.tipo, numero: f.numero.trim(), cliente: f.cliente.trim(), nif: f.nif.trim(), bruto: r2(+f.bruto), iva: r2(+f.iva || 0), irs: r2(+f.irs || 0) });
           if (!x0) m.recibosB.push(y); audit('PF_CATB', `${y.tipo} ${y.numero} · ${y.data} · ${eur(y.bruto)}`); app.save(); app.refresh(); } }] }); };
   v.querySelectorAll('[data-mais]').forEach(b => b.onclick = () => escolherAcao([['Importar do Portal', null, importarSIRE, null, 'upload', 'CSV do Portal das Finanças (Faturas e Recibos › Consultar › Exportar)'], ['Adicionar manualmente', null, () => editarB(), null, 'edit', 'Introduzir uma fatura-recibo']]));
