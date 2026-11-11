@@ -925,14 +925,11 @@ SPAP.createApp = function (cfg) {
     // cartões fechados no telemóvel (.m-colapso): abrir/fechar no cabeçalho (fica memorizado) e "Mostrar mais"
     const colapsos = () => view.querySelectorAll('.card.m-colapso:not([data-mi])').forEach(c => { c.setAttribute('data-mi', '1');
       const k = 'mc:' + (c.dataset.m || ''), h = c.querySelector(':scope>.card-h'); let ab = false; try { ab = sessionStorage.getItem(k) === '1'; } catch (e) { }
-      c.classList.toggle('aberto', ab); const pos = (on) => { c.classList.toggle('aberto', on); try { sessionStorage.setItem(k, on ? '1' : '0'); } catch (e) { } if (!on) altura(); };
+      c.classList.toggle('aberto', ab); const pos = (on) => { c.classList.toggle('aberto', on); try { sessionStorage.setItem(k, on ? '1' : '0'); } catch (e) { } };
       if (h) h.addEventListener('click', ev => { if (ev.target.closest('button,a,input,select')) return; pos(!c.classList.contains('aberto')); });
       const cp = c.querySelector(':scope>.m-capa'); if (cp) cp.addEventListener('click', () => pos(true));
       const n = c.querySelectorAll('tbody tr:not(.tbl-sec)').length; if (n > 5) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost sm m-mais'; b.textContent = `Mostrar mais (${n - 5})`; b.onclick = () => c.classList.add('tudo'); c.appendChild(b); } });
-    // o cartão fechado com capa estende-se até ao fundo do ecrã
-    const altura = () => view.querySelectorAll('.card.m-colapso').forEach(c => { c.style.removeProperty('--m-alt'); if (c.classList.contains('aberto')) return; const ul = c.closest('#view').lastElementChild, sobra = ul ? Math.floor(innerHeight - (ul.getBoundingClientRect().bottom + scrollY) - 16) : 0; if (sobra > 0) c.style.setProperty('--m-alt', (c.offsetHeight + sobra) + 'px'); });
-    let rq = 0; new MutationObserver(() => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; rotular(); colapsos(); altura(); clearTimeout(view.__alt); view.__alt = setTimeout(altura, 300); }); }).observe(view, { childList: true, subtree: true });
-    if (!window.__mAlt) { window.__mAlt = 1; addEventListener('resize', () => { const v = document.getElementById('view'); if (v) v.querySelectorAll('.card.m-colapso').forEach(c => { c.style.removeProperty('--m-alt'); if (c.classList.contains('aberto')) return; const ul = c.closest('#view').lastElementChild, sobra = ul ? Math.floor(innerHeight - (ul.getBoundingClientRect().bottom + scrollY) - 16) : 0; if (sobra > 0) c.style.setProperty('--m-alt', (c.offsetHeight + sobra) + 'px'); }); }); }
+    let rq = 0; new MutationObserver(() => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; rotular(); colapsos(); }); }).observe(view, { childList: true, subtree: true });
     try { rt.render(view, app, params); }
     catch (err) { console.error(err); view.innerHTML = `<div class="alert bad">${icon('alert')}<div><b>Erro ao apresentar a página.</b><br>${esc(err.message)}</div></div>`; }
     window.scrollTo(0, 0);

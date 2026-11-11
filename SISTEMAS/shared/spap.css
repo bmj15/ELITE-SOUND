@@ -359,9 +359,9 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .m-colapso.aberto .m-resumo::after{transform:rotate(90deg)}
   .m-colapso:not(.aberto)>:not(.card-h,.m-capa){display:none}
   .m-colapso.aberto>.m-capa{display:none}
-  /* cartão fechado com capa: compacto; se a página couber no ecrã e sobrar espaço, estica e centra o conteúdo */
-  .m-colapso:not(.aberto):has(>.m-capa){display:flex;flex-direction:column;min-height:var(--m-alt,0);cursor:pointer}
-  .m-colapso:not(.aberto)>.m-capa{display:flex;flex-direction:column;justify-content:center;gap:12px;flex:1;padding:4px 14px 14px}
+  /* cartão fechado com capa: compacto, só com o conteúdo */
+  .m-colapso:not(.aberto):has(>.m-capa){cursor:pointer}
+  .m-colapso:not(.aberto)>.m-capa{display:flex;flex-direction:column;gap:12px;padding:4px 14px 14px}
   .m-capa-n{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .m-capa-n>div{background:var(--panel2);border-radius:12px;padding:10px 12px}
   .m-capa-n span,.m-capa-t{display:block;font-size:12px;color:var(--muted)}
