@@ -1100,9 +1100,11 @@ SPAP.createApp = function (cfg) {
       if (h) { const vb = document.createElement('button'); vb.type = 'button'; vb.className = 'btn sm m-voltar'; vb.textContent = '‹ Voltar'; vb.onclick = ev => { ev.stopPropagation(); fechar(true); }; h.prepend(vb); }
       if (mem[k] && movel()) abrir(false);
       c.addEventListener('click', ev => { if (!movel() || c.classList.contains('aberto') || ev.target.closest('button,a,input,select')) return; abrir(true); }); });
-    // cartões informativos (.card[data-info]): ficam fechados, com o título e o valor resumo (data-info) no cabeçalho;
+    // cartões informativos (.card[data-info]), só no telemóvel: ficam fechados, com o título e o valor resumo (data-info) no cabeçalho;
     // tocar abre o cartão e fecha os outros da página. Começam fechados ao carregar a página e ao mudar de página.
-    const infos = () => view.querySelectorAll('.card[data-info]:not(.acord)').forEach(c => { const h = c.querySelector(':scope>.card-h'); if (!h) return;
+    // No computador ficam abertos, como cartões normais (ao atravessar os 640px a página redesenha-se).
+    if (!window.__infoMq) { window.__infoMq = 1; matchMedia('(max-width:640px)').addEventListener('change', () => { if (app.user) render(); }); }
+    const infos = () => movel() && view.querySelectorAll('.card[data-info]:not(.acord)').forEach(c => { const h = c.querySelector(':scope>.card-h'); if (!h) return;
       const k = c.dataset.infoK || (h.querySelector('h3') || h).textContent.trim();
       c.classList.add('acord', 'flush'); c.dataset.acord = k; h.classList.add('acord-h'); h.setAttribute('role', 'button'); h.tabIndex = 0;
       const r = document.createElement('span'); r.className = 'acord-r'; r.innerHTML = c.dataset.info; h.appendChild(r);

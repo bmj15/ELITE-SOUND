@@ -609,3 +609,39 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
 .tq-ok{width:100%;height:56px;margin-top:12px;border:0;border-radius:16px;font-size:16px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 12px 26px -12px var(--accent);cursor:pointer}
 body.tq-aberto{overflow:hidden}
 @media print{.tabbar,.tq-raiz{display:none!important}}
+
+/* o X do menu só existe no telemóvel (no computador o .btn sobrepunha-se ao display:none) */
+@media (min-width:861px){.side-x{display:none!important}}
+/* quadros com [+] e um segundo número ao lado: o número fica à esquerda do botão, sem se sobreporem */
+.kpi.tem-lado:has(>[data-add]) .kpi-lado{right:56px}
+@media (max-width:640px){.kpi.tem-lado:has(>[data-add]) .kpi-lado{right:44px}}
+/* Poupa este mês: no computador o valor fica à esquerda e a divisão ocupa o resto da largura */
+@media (min-width:861px){
+  .kpi:has(>.foot>.pp-div){display:grid;grid-template-columns:minmax(200px,max-content) minmax(0,1fr);grid-template-rows:auto auto;column-gap:48px;align-items:center}
+  .kpi:has(>.foot>.pp-div)>.lbl{grid-column:1;grid-row:1;align-self:end}
+  .kpi:has(>.foot>.pp-div)>.val{grid-column:1;grid-row:2;align-self:start}
+  .kpi:has(>.foot>.pp-div)>.foot{grid-column:2;grid-row:1/span 2;margin:0}
+  .kpi>.foot>.pp-div{max-width:none;margin-top:0;gap:12px}
+  .kpi>.foot>.pp-div>div{padding:12px 16px;border-radius:14px}
+  .kpi>.foot>.pp-div span{font-size:12.5px}
+  .kpi>.foot>.pp-div b{font-size:18px}
+}
+/* Poupanças: cartões com ícone, valor em destaque, lista de números e nota no fundo */
+.pp-card{display:flex;flex-direction:column}
+.pp-card>.card-h h3{display:flex;align-items:center;gap:10px}
+.pp-ic{flex:none;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.pp-ic svg{width:17px;height:17px}
+.pp-val{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin:2px 0 12px}
+.pp-val b{font-size:28px;font-weight:800;letter-spacing:-.03em;line-height:1.15;font-variant-numeric:tabular-nums}
+.pp-val span{font-size:13.5px;color:var(--muted)}
+.pp-barra{height:8px;margin:-2px 0 14px}
+.pp-lista{border-top:1px solid var(--line)}
+.pp-lista>div{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--line)}
+.pp-lista>div:last-child{border-bottom:0}
+.pp-lista span{min-width:0;font-size:13.5px;color:var(--text)}
+.pp-lista small{display:block;margin-top:1px;font-size:12px;color:var(--faint)}
+.pp-lista b{flex:none;font-size:15px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.pp-fim{margin-top:auto;padding-top:12px;font-size:12.5px;color:var(--faint)}
+.pp-link{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;font-size:13.5px;font-weight:600;color:var(--text);text-decoration:none;transition:border-color .15s}
+.pp-link:hover{border-color:var(--accent)}
+.pp-link i{font-style:normal;font-size:20px;line-height:1;color:var(--muted)}

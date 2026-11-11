@@ -2199,6 +2199,7 @@ function configOrdenado() {
       Object.assign(P, { refeicaoRend: rr, pagamentoEnt: pg, entInfo: ei });
       audit('PF_PLANO', 'Configuração do ordenado por entidade pagadora (pagamento e subsídio de refeição)'); app.save(); ui.toast('Configuração guardada', 'ok'); app.refresh(); } }] });
 }
+const linhaPP = (rot, val, nota = '') => `<div><span>${rot}${nota ? `<small>${nota}</small>` : ''}</span><b>${val}</b></div>`;
 function poupancas(v) {
   const pl = M().plano, ed = podeEditar(), desp = despesasMensais(), rend = rendimentoMensal(), P = projPoupanca(24), p0 = P[0] || { poup: 0, fundoMes: 0 };
   const alvo = r2(desp * (+pl.emergMeses || 0)), saldoF = fundoAtual(), fr = alvo > 0 ? Math.min(1, saldoF / alvo) : 0, cobertos = desp > 0 ? saldoF / desp : 0;
@@ -2212,27 +2213,29 @@ function poupancas(v) {
   v.innerHTML = `<div>
       ${kpi(`${icon('target')} Poupa este mês`, eur(mes), `<div class="pp-div"><div><span>Poupança</span><b>${eur(p0.poup)}</b></div><div><span>Fundo</span><b>${eur(p0.fundoMes)}</b></div><div><span>Extra</span><b>${eur(extra)}</b></div><div><span>Do rendimento</span><b class="${taxaCls}">${pct(taxa)}</b></div></div>`, '', true)}</div>
     <div class="grid g3" style="margin-top:16px;align-items:stretch">
-      <div class="card"><div class="card-h"><h3>${icon('shield')} Fundo de emergência</h3>${ajustar('fundo')}</div>
-        ${alvo ? `<div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(saldoF)}</span><span class="muted">de ${eur(alvo)}</span></div>
-        <div class="progress" style="height:10px"><i style="width:${r2(fr * 100)}%"></i></div>
-        <div class="grid g3 pp-trio" style="margin-top:16px;gap:12px">
-          <div><div class="faint" style="font-size:12px">Alvo</div><b>${+pl.emergMeses} ${+pl.emergMeses === 1 ? 'mês' : 'meses'}</b><div class="faint" style="font-size:12px">de despesas fixas</div></div>
-          <div><div class="faint" style="font-size:12px">Cobre hoje</div><b>${String(r2(cobertos)).replace('.', ',')} meses</b><div class="faint" style="font-size:12px">sem nenhum rendimento</div></div>
-          <div><div class="faint" style="font-size:12px">Completo</div><b>${completo === 'já' ? 'já está' : completo ? fmtMes(completo) : 'não em 24 meses'}</b><div class="faint" style="font-size:12px">${+pl.emergProgressivo ? `prazo de ${pl.emergProgressivo} meses` : 'sem prazo definido'}</div></div></div>
-        <div class="faint" style="font-size:12px;margin-top:12px">${pl.fundoOrigem === 'manual' ? 'Valor guardado indicado por si.' : 'Conta o saldo das suas contas de tesouraria.'}</div>`
+      <div class="card pp-card"><div class="card-h"><h3><span class="pp-ic">${icon('shield')}</span>Fundo de emergência</h3>${ajustar('fundo')}</div>
+        ${alvo ? `<div class="pp-val"><b>${eur(saldoF)}</b><span>de ${eur(alvo)}</span></div>
+        <div class="progress pp-barra"><i style="width:${r2(fr * 100)}%"></i></div>
+        <div class="pp-lista">
+          ${linhaPP('Alvo', `${+pl.emergMeses} ${+pl.emergMeses === 1 ? 'mês' : 'meses'}`, 'de despesas fixas')}
+          ${linhaPP('Cobre hoje', `${String(r2(cobertos)).replace('.', ',')} meses`, 'sem nenhum rendimento')}
+          ${linhaPP('Completo', completo === 'já' ? 'já está' : completo ? fmtMes(completo) : 'não em 24 meses', +pl.emergProgressivo ? `prazo de ${pl.emergProgressivo} meses` : 'sem prazo definido')}</div>
+        <div class="pp-fim">${pl.fundoOrigem === 'manual' ? 'Valor guardado indicado por si.' : 'Conta o saldo das suas contas de tesouraria.'}</div>`
         : `<div class="empty">${+pl.emergMeses && !desp ? `O alvo é de ${pl.emergMeses} meses de despesas fixas, mas ainda não há <a href="#/despesas">despesas fixas</a> registadas.` : `Sem fundo de emergência definido.${ed ? ' Use o lápis para escolher quantos meses de despesas quer ter de reserva.' : ''}`}</div>`}</div>
-      <div class="card"><div class="card-h"><h3>${icon('target')} Poupança mensal</h3>${ajustar('poup')}</div>
-        ${pl.poupancaTipo && pl.poupancaTipo !== 'none' ? `<div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(p0.poup)}</span><span class="muted">este mês</span></div>
-        <div class="grid g3 pp-trio" style="margin-top:8px;gap:12px">
-          <div><div class="faint" style="font-size:12px">Regra</div><b>${esc(NOME_POUP[pl.poupancaTipo])}</b><div class="faint" style="font-size:12px">${regra}</div></div>
-          <div><div class="faint" style="font-size:12px">Em 12 meses</div><b>${eur(em12.acc)}</b><div class="faint" style="font-size:12px">acumulado</div></div>
-          <div><div class="faint" style="font-size:12px">Em 24 meses</div><b>${eur((P[P.length - 1] || { acc: 0 }).acc)}</b><div class="faint" style="font-size:12px">acumulado</div></div></div>
-        <div class="faint" style="font-size:12px;margin-top:12px">Sai primeiro, antes dos <a href="#/objetivos">objetivos</a> e da amortização extra.</div>`
+      <div class="card pp-card"><div class="card-h"><h3><span class="pp-ic">${icon('target')}</span>Poupança mensal</h3>${ajustar('poup')}</div>
+        ${pl.poupancaTipo && pl.poupancaTipo !== 'none' ? `<div class="pp-val"><b>${eur(p0.poup)}</b><span>este mês</span></div>
+        <div class="pp-lista">
+          ${linhaPP('Regra', pl.poupancaTipo === 'fixed' ? eur(pl.poupancaFixa) : pct(+pl.poupancaPct || 0), pl.poupancaTipo === 'fixed' ? 'por mês' : NOME_POUP[pl.poupancaTipo].replace('% ', ''))}
+          ${linhaPP('Em 12 meses', eur(em12.acc), 'acumulado')}
+          ${linhaPP('Em 24 meses', eur((P[P.length - 1] || { acc: 0 }).acc), 'acumulado')}</div>
+        <div class="pp-fim">Sai primeiro, antes dos <a href="#/objetivos">objetivos</a> e da amortização extra.</div>`
         : `<div class="empty">Não separa poupança todos os meses.${ed ? ' Use o lápis para pôr de parte um valor fixo ou uma percentagem.' : ''}</div>`}</div>
-      <div class="card"><div class="card-h"><h3>${icon('credit')} Dívidas</h3>${ajustar('extra')}</div>
-        <div class="row between" style="margin:4px 0 8px"><span class="num" style="font-size:22px;font-weight:700">${eur(extra)}</span><span class="muted">extra por mês</span></div>
-        <div class="faint" style="font-size:12.5px">Além do que sobrar em cada mês. Prestações atuais: ${eur(prestacoesMensais())}/mês.</div>
-        <div style="margin-top:14px"><a href="#/simulador">Ver no Simulador de estratégias</a></div></div></div>`;
+      <div class="card pp-card"><div class="card-h"><h3><span class="pp-ic">${icon('credit')}</span>Dívidas</h3>${ajustar('extra')}</div>
+        <div class="pp-val"><b>${eur(extra)}</b><span>extra por mês</span></div>
+        <div class="pp-lista">
+          ${linhaPP('Prestações', eur(prestacoesMensais()), 'por mês')}
+          ${linhaPP('Em dívida', eur(sum(divAtivas(), 'capital')), divAtivas().length === 1 ? '1 dívida ativa' : `${divAtivas().length} dívidas ativas`)}</div>
+        <div class="pp-fim">O extra junta-se ao que sobrar em cada mês.<a class="pp-link" href="#/simulador">Ver no Simulador de estratégias<i>›</i></a></div></div></div>`;
   v.querySelectorAll('[data-aj]').forEach(b => b.onclick = () => ajustarPoupanca(b.dataset.aj));
 }
 function simulador(v) {
