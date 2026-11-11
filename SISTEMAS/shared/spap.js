@@ -73,6 +73,8 @@ const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOff
 const ym = d => String(d || '').slice(0, 7);
 const addMonths = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+// cartão informativo com um segundo valor ao lado (para não encher a página de cartões): lado = [rótulo, valor, nota, classe]
+const kpiD = (rot, val, foot = '', lado = null, hero = false, cls = '') => `<div class="card kpi${hero ? ' hero' : ''}${lado ? ' tem-lado' : ''}">${lado ? `<div class="kpi-lado"><div class="lbl">${lado[0]}</div><div class="val num ${lado[3] || ''}">${lado[1]}</div>${lado[2] ? `<div class="foot">${lado[2]}</div>` : ''}</div>` : ''}<div class="lbl">${rot}</div><div class="val num ${cls}">${val}</div>${foot ? `<div class="foot">${foot}</div>` : ''}</div>`;
 const MES3 = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
 const initials = n => String(n || '?').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
 Object.assign(SPAP, { r2, eur, pct, date, dt, esc, uid, today, ym, addMonths, MESES, MES3, initials });
@@ -1070,11 +1072,9 @@ SPAP.createApp = function (cfg) {
       ${can('criar') && app.recorrentesDevidos().length ? `<div class="alert warn" style="margin-bottom:16px">${icon('clock')}<div><b>${app.recorrentesDevidos().length} pedido(s) recorrente(s) por gerar.</b> <a href="#/recorrentes">Gerar e assinar</a></div></div>` : ''}
       ${app.alteracoesParaMim().length ? `<div class="alert warn" style="margin-bottom:16px">${icon('edit')}<div><b>${app.alteracoesParaMim().length} alteração(ões) às regras aguarda(m) a sua aprovação.</b> <a href="#/alteracoes">Rever</a></div></div>` : ''}
       ${!db.settings.segregacao ? `<div class="alert warn" style="margin-bottom:16px">${icon('alert')}<div><b>Segregação de funções desativada.</b> Um utilizador pode aprovar os próprios pedidos. Quando existirem dois ou mais aprovadores, ative-a em <a href="#/definicoes">Definições</a>.</div></div>` : ''}
-      <div class="grid g4">
-        <div class="card kpi hero"><div class="lbl">${icon('wallet')} Saldo total consolidado</div><div class="val num">${eur(tot)}</div><div class="foot">${app.contasInternas().length} contas internas</div></div>
-        <div class="card kpi"><div class="lbl">${icon('clock')} A aguardar aprovação</div><div class="val num">${pend.length}</div><div class="foot">${eur(pend.reduce((s, p) => s + p.valor, 0))}</div></div>
-        <div class="card kpi"><div class="lbl">${icon('check')} Aprovados por executar</div><div class="val num">${by('APROVADO').length}</div><div class="foot">${eur(by('APROVADO').reduce((s, p) => s + p.valor, 0))} cativos</div></div>
-        <div class="card kpi"><div class="lbl">${icon('arrow')} Executado este mês</div><div class="val num">${eur(execMes.reduce((s, p) => s + p.valor, 0))}</div><div class="foot">${execMes.length} operações</div></div>
+      <div class="grid g2">
+        ${kpiD(`${icon('wallet')} Saldo total consolidado`, eur(tot), `${app.contasInternas().length} contas internas`, [`Executado este mês`, eur(execMes.reduce((s, p) => s + p.valor, 0)), `${execMes.length} operações`], true)}
+        ${kpiD(`${icon('clock')} A aguardar aprovação`, String(pend.length), eur(pend.reduce((s, p) => s + p.valor, 0)), ['Aprovados por executar', String(by('APROVADO').length), `${eur(by('APROVADO').reduce((s, p) => s + p.valor, 0))} cativos`])}
       </div>
       <div class="grid g3" style="margin-top:16px">
         <div class="card span2"><div class="card-h"><h3>Fluxo de pedidos · últimos 6 meses</h3><span class="sub">por data prevista</span></div><div id="ch1"></div></div>
@@ -1439,10 +1439,8 @@ SPAP.createApp = function (cfg) {
       ${can('criar') ? `<button class="btn" id="pag">${icon('upload')} Pedido de pagamento</button>` : ''}
       ${can('contas') ? `<button class="btn ghost" id="ed">${icon('edit')} Editar</button>` : ''}
       <button class="btn ghost" id="csv">${icon('download')} Extrato CSV</button></div>
-      <div class="grid g4"><div class="card kpi hero"><div class="lbl">Saldo contabilístico</div><div class="val num">${eur(saldo(id))}</div><div class="foot mono">${esc(c.codigo || c.id)}</div></div>
-        <div class="card kpi"><div class="lbl">Saldo cativo</div><div class="val num">${eur(cativo(id))}</div><div class="foot">aprovado, por executar</div></div>
-        <div class="card kpi"><div class="lbl">Disponível</div><div class="val num">${eur(disponivel(id))}</div><div class="foot">${c.nif ? 'NIF ' + esc(c.nif) : '&nbsp;'}</div></div>
-        <div class="card kpi"><div class="lbl">Entradas / saídas</div><div class="val num" style="font-size:18px"><span class="pos">+${eur(ent)}</span><br><span class="neg">${eur(sai)}</span></div></div></div>
+      <div class="grid g2">${kpiD('Saldo contabilístico', eur(saldo(id)), `<span class="mono">${esc(c.codigo || c.id)}</span>`, ['Disponível', eur(disponivel(id)), `cativo ${eur(cativo(id))}`], true)}
+        ${kpiD('Entradas', '+' + eur(ent), c.nif ? 'NIF ' + esc(c.nif) : '', ['Saídas', eur(sai), '', 'neg'], false, 'pos')}</div>
       ${app.cartaoLimites(c)}
       ${pend.length ? `<div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Pedidos em curso</h3></div>${app.tabelaPedidos(pend, { compact: true })}</div>` : ''}
       <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Extrato de movimentos</h3><span class="sub">Saldo inicial ${eur(c.saldoInicial)}</span></div>
@@ -1813,15 +1811,12 @@ SPAP.createApp = function (cfg) {
         <td class="r num"><b>${eur(x.valor)}</b></td><td class="r num">${eur(x.exec)}</td><td>${x.ps.map(p => lado === 'rec' ? `<a class="mono" href="#/pedidos/${p.id}">${esc(p.numero)}</a>` : `<span class="mono">${esc(p.numero)}</span>`).join(' ') || '<span class="faint">—</span>'}</td><td>${badge(x.estado)}</td>
         <td class="r">${lado === 'rec' && x.falta > 0.004 && can('criar') ? `<button class="btn sm" data-r="${i}">Reconhecer ${eur(x.falta)}</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Sem movimentos intercompany.</div>';
     // só a holding (cfg.verGrupo) vê saldos de outras empresas e o consolidado; as subsidiárias veem apenas as transferências em que participam
-    v.innerHTML = (cfg.verGrupo ? `<div class="grid g4">
-      <div class="card kpi"><div class="lbl">Fundos ${esc(cfg.nome)}</div><div class="val num">${eur(meu)}</div></div>
-      <div class="card kpi"><div class="lbl">Fundos ${esc(ic.nome)}</div><div class="val num">${eur(dele)}</div><div class="foot">lido do livro da subsidiária</div></div>
-      <div class="card kpi"><div class="lbl">Eliminações intercompany</div><div class="val num">−${eur(elim)}</div><div class="foot">${eur(transito)} em trânsito</div></div>
-      <div class="card kpi hero"><div class="lbl">${icon('layers')} Total consolidado</div><div class="val num">${eur(meu + dele - elim)}</div><div class="foot">${esc(cfg.nome)} + ${esc(ic.nome)}, sem dupla contagem</div></div></div>`
-      : `<div class="grid g3">
-      <div class="card kpi hero"><div class="lbl">${icon('download')} Recebido de ${esc(ic.nome)}</div><div class="val num">${eur(recebidas.reduce((s, x) => s + x.valor, 0))}</div><div class="foot">${eur(recebidas.reduce((s, x) => s + x.exec, 0))} já reconhecido</div></div>
-      <div class="card kpi"><div class="lbl">${icon('upload')} Enviado para ${esc(ic.nome)}</div><div class="val num">${eur(enviadas.reduce((s, x) => s + x.valor, 0))}</div><div class="foot">${eur(enviadas.reduce((s, x) => s + x.exec, 0))} reconhecido pela holding</div></div>
-      <div class="card kpi"><div class="lbl">${icon('clock')} Em trânsito</div><div class="val num">${eur(transito)}</div><div class="foot">por reconhecer de um dos lados</div></div></div>`) + `
+    v.innerHTML = (cfg.verGrupo ? `<div class="grid g2">
+      ${kpiD(`${icon('layers')} Total consolidado`, eur(meu + dele - elim), `${esc(cfg.nome)} + ${esc(ic.nome)}, sem dupla contagem`, ['Eliminações intercompany', '−' + eur(elim), `${eur(transito)} em trânsito`], true)}
+      ${kpiD(`Fundos ${esc(cfg.nome)}`, eur(meu), '', [`Fundos ${esc(ic.nome)}`, eur(dele), 'lido do livro da subsidiária'])}</div>`
+      : `<div class="grid g2">
+      ${kpiD(`${icon('download')} Recebido de ${esc(ic.nome)}`, eur(recebidas.reduce((s, x) => s + x.valor, 0)), `${eur(recebidas.reduce((s, x) => s + x.exec, 0))} já reconhecido`, ['Em trânsito', eur(transito), 'por reconhecer de um dos lados'], true)}
+      ${kpiD(`${icon('upload')} Enviado para ${esc(ic.nome)}`, eur(enviadas.reduce((s, x) => s + x.valor, 0)), `${eur(enviadas.reduce((s, x) => s + x.exec, 0))} reconhecido pela holding`)}</div>`) + `
       <div class="alert info" style="margin:16px 0">${icon('swap')}<div>Cada transferência entre as empresas é executada no livro de quem envia e <b>reconhecida</b> no livro de quem recebe, com pedido próprio, autorização e assinatura. Os valores reconhecidos dos dois lados são eliminados na consolidação para não serem contados duas vezes.</div></div>
       <div class="card flush"><div class="card-h"><h3>Recebidas de ${esc(ic.nome)}</h3><span class="sub">a reconhecer em ${esc(app.nomeConta(ic.contaDestino))}</span></div>${tabela(recebidas, 'rec')}</div>
       <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Enviadas para ${esc(ic.nome)}</h3><span class="sub">reconhecimento feito no sistema ${esc(ic.nome)}</span></div>${tabela(enviadas, 'env')}</div>`;
@@ -2002,11 +1997,9 @@ SPAP.createApp = function (cfg) {
       <label class="check"><input type="checkbox" id="lp" ${pend ? 'checked' : ''}> Incluir pedidos ainda em aprovação</label></div><span class="muted" style="font-size:12px">${date(prev.ini)} a ${date(prev.fim)}</span></div>
       ${alertas.length ? `<div class="alert bad" style="margin-bottom:16px">${icon('alert')}<div>${alertas.slice(0, 5).map(a => `<b>${esc(a.conta.nome)}</b> fica ${a.min ? 'abaixo do mínimo de ' + eur(a.min) : 'negativa'} na semana de ${date(a.semana.ini)} (${eur(a.semana.final)})`).join('<br>')}</div></div>` : ''}
       ${!cid ? `<div class="alert info" style="margin-bottom:16px">${icon('swap')}<div>Na vista consolidada as transferências entre contas internas anulam-se: só contam entradas de fundos e saídas para fora do livro. Escolha uma conta para ver a sua liquidez própria.</div></div>` : ''}
-      <div class="grid g4">
-        <div class="card kpi hero"><div class="lbl">Saldo atual</div><div class="val num">${eur(proj[0] ? proj[0].inicial : 0)}</div><div class="foot">${c ? esc(c.nome) : 'todas as contas'}</div></div>
-        <div class="card kpi"><div class="lbl">Entradas previstas</div><div class="val num pos">+${eur(proj.reduce((a, w) => a + w.ent, 0))}</div></div>
-        <div class="card kpi"><div class="lbl">Saídas previstas</div><div class="val num neg">${eur(proj.reduce((a, w) => a + w.sai, 0))}</div></div>
-        <div class="card kpi"><div class="lbl">Saldo mais baixo</div><div class="val num ${menor && menor.final < min ? 'neg' : ''}">${eur(menor ? menor.final : 0)}</div><div class="foot">semana de ${menor ? date(menor.ini) : '—'}${min ? ' · mínimo ' + eur(min) : ''}</div></div></div>
+      <div class="grid g2">
+        ${kpiD('Saldo atual', eur(proj[0] ? proj[0].inicial : 0), c ? esc(c.nome) : 'todas as contas', ['Saldo mais baixo', eur(menor ? menor.final : 0), `semana de ${menor ? date(menor.ini) : '—'}${min ? ' · mínimo ' + eur(min) : ''}`, menor && menor.final < min ? 'neg' : ''], true)}
+        ${kpiD('Entradas previstas', '+' + eur(proj.reduce((a, w) => a + w.ent, 0)), '', ['Saídas previstas', eur(proj.reduce((a, w) => a + w.sai, 0)), '', 'neg'], false, 'pos')}</div>
       <div class="card" style="margin-top:16px"><div class="card-h"><h3>Saldo projetado no fim de cada semana</h3></div><div id="ch"></div></div>
       <div class="card flush" style="margin-top:16px"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Semana</th><th class="r">Saldo inicial</th><th class="r">Entradas</th><th class="r">Saídas</th><th class="r">Saldo final</th><th>Movimentos previstos</th></tr></thead><tbody>
       ${proj.map(w => `<tr><td><b>${date(w.ini)}</b> <span class="faint">a ${date(w.fim)}</span></td><td class="r num">${eur(w.inicial)}</td><td class="r num pos">${w.ent ? '+' + eur(w.ent) : '–'}</td><td class="r num neg">${w.sai ? eur(w.sai) : '–'}</td>
@@ -2103,10 +2096,8 @@ SPAP.createApp = function (cfg) {
     if (tab === 'orc') {
       const tot = k => r2(linhas.reduce((s, l) => s + l[k], 0));
       c.innerHTML = `${!ccs.length ? `<div class="alert info" style="margin-bottom:16px">${icon('target')}<div>Ainda não existem centros de custo. Crie-os no separador <a href="#/relatorios" data-aba="rel=cc">Centros de custo</a> e associe-os aos pedidos.</div></div>` : ''}
-        <div class="grid g4" style="margin-bottom:16px"><div class="card kpi hero"><div class="lbl">Orçamento anual ${ano}</div><div class="val num">${eur(tot('orc'))}</div></div>
-          <div class="card kpi"><div class="lbl">Executado</div><div class="val num">${eur(tot('exec'))}</div><div class="foot">${tot('orc') ? pct(tot('exec') / tot('orc')) + ' do orçamento' : ''}</div></div>
-          <div class="card kpi"><div class="lbl">Comprometido</div><div class="val num">${eur(tot('comp'))}</div><div class="foot">pedidos em curso</div></div>
-          <div class="card kpi"><div class="lbl">Disponível</div><div class="val num">${eur(tot('orc') - tot('exec') - tot('comp'))}</div></div></div>
+        <div class="grid g2" style="margin-bottom:16px">${kpiD(`Orçamento anual ${ano}`, eur(tot('orc')), '', ['Disponível', eur(tot('orc') - tot('exec') - tot('comp')), ''], true)}
+          ${kpiD('Executado', eur(tot('exec')), tot('orc') ? pct(tot('exec') / tot('orc')) + ' do orçamento' : '', ['Comprometido', eur(tot('comp')), 'pedidos em curso'])}</div>
         <div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Orçamento, executado e comprometido</h3></div><div id="ch"></div></div>
         <div class="card flush"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Centro de custo</th><th>Responsável</th><th class="r">Orçamento</th><th class="r">Executado</th><th class="r">Comprometido</th><th class="r">Disponível</th><th style="width:22%">Execução</th></tr></thead><tbody>
         ${linhas.map(l => { const f = l.orc ? (l.exec + l.comp) / l.orc : 0; return `<tr><td><b>${esc(l.nome)}</b>${l.ativo ? '' : ' <span class="badge">Inativo</span>'}</td><td>${esc(l.resp)}</td><td class="r num">${l.orc ? eur(l.orc) : '—'}</td><td class="r num">${eur(l.exec)}</td><td class="r num">${eur(l.comp)}</td>
