@@ -380,9 +380,9 @@ section.curta{padding:clamp(48px,6vw,80px) 0}
 .carr-c .bt{width:38px;height:38px;border-radius:50%;border:1px solid var(--line2);background:rgba(16,20,28,.7);color:var(--text);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(6px)}
 .carr-c .bt:hover{border-color:var(--roxo2)}
 .carr-c .n{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:48px;text-align:center}
-.carr-c .barras-c{display:flex;gap:6px;margin-left:6px}
-.carr-c .barras-c button{width:34px;height:4px;border-radius:4px;border:0;padding:0;background:var(--line2);cursor:pointer;overflow:hidden;position:relative}
-.carr-c .barras-c button i{position:absolute;inset:0;width:0;background:var(--grad)}
+.carr-c .barras-c{display:flex;gap:8px;margin-left:0}
+.carr-c .barras-c button{width:48px;height:4px;border-radius:4px;border:0;padding:0;background:rgba(255,255,255,.18);background-clip:content-box;box-sizing:content-box;padding:10px 0;margin:-10px 0;cursor:pointer;overflow:hidden;position:relative}
+.carr-c .barras-c button i{position:absolute;top:10px;bottom:10px;left:0;width:0;border-radius:4px;background:var(--grad)}
 .carr-c .barras-c button.on i{animation:enche var(--dur,8s) linear forwards}.carr.pausa .barras-c button.on i{animation-play-state:paused}
 .carr-c .barras-c button.feito i{width:100%}
 @keyframes enche{to{width:100%}}

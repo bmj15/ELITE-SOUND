@@ -7,7 +7,7 @@
 <meta name="description" content="Planeamento financeiro pessoal e gestão de tesouraria para empresas, com autorizações assinadas.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=6">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=7">
 <script>if (/^\/empresas/.test(location.pathname)) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
@@ -119,7 +119,7 @@
   var h = '';
   h += '<section class="ecra1"><div class="carr" id="carr" aria-roledescription="carrossel"><div class="faixa-s" id="faixaS">' + D.slides.map(function (s, i) {
     return '<div class="slide s' + (i + 1) + '" aria-label="' + (i + 1) + ' de ' + D.slides.length + '"><div class="wrap"><div><span class="tag">' + s.tag + '</span>' + (i ? '<h2 class="h">' : '<h1>') + s.h + (i ? '</h2>' : '</h1>') + '<p>' + s.p + '</p><div class="ctas"><a class="btn btn-p" href="' + s.c1[1] + '">' + s.c1[0] + ' ' + ic('i-seta', 18) + '</a>' + (s.c2 ? '<a class="btn btn-s" href="' + s.c2[1] + '">' + s.c2[0] + '</a>' : '') + '</div></div><div class="arte">' + ARTE[s.arte] + '</div></div></div>'; }).join('') +
-    '</div><div class="carr-c"><div class="wrap"><button class="bt" type="button" id="cAnt" aria-label="Anterior">‹</button><span class="n" id="cN">1 de ' + D.slides.length + '</span><button class="bt" type="button" id="cSeg" aria-label="Seguinte">›</button><button class="bt" type="button" id="cPausa" aria-label="Pausa">❚❚</button><div class="barras-c" id="cB">' + D.slides.map(function (s, i) { return '<button type="button" aria-label="Ir para ' + (i + 1) + '"><i></i></button>'; }).join('') + '</div></div></div></div>';
+    '</div><div class="carr-c"><div class="wrap"><div class="barras-c" id="cB">' + D.slides.map(function (s, i) { return '<button type="button" aria-label="Ir para ' + (i + 1) + '"><i></i></button>'; }).join('') + '</div></div></div></div>';
   h += '</section>';
   h += '<section class="hp-sec tela" id="quero"><div class="wrap"><p class="sobre-t">Passe das ideias à ação</p><h2 class="tit" style="margin-bottom:24px">Como podemos <b>ajudar hoje?</b></h2><div class="quero-t" id="queroT" role="tablist">' + D.quero.map(function (q, i) { return '<button type="button" role="tab" data-q="' + i + '"' + (i ? '' : ' class="on"') + '>' + ic(q.ico, 16) + q.t + '</button>'; }).join('') + '</div><div id="queroC"></div></div></section>';
   h += '<section class="hp-sec alt tela" id="destaques"><div class="wrap"><div class="cab-s"><div><p class="sobre-t">Em destaque</p><h2 class="tit">Os destaques <b>que importam</b></h2></div><div class="setas"><button type="button" data-d="-1" aria-label="Anterior">‹</button><button type="button" data-d="1" aria-label="Seguinte">›</button></div></div><div class="dest-c" id="destC">' +
@@ -220,21 +220,16 @@
   // ---------- carrossel ----------
   var faixa = document.getElementById('faixaS'), car = document.getElementById('carr'), bs = document.querySelectorAll('#cB button'), n = D.slides.length, at = 0, tm = null, pausa = matchMedia('(prefers-reduced-motion: reduce)').matches;
   var DUR = 8000; car.style.setProperty('--dur', DUR + 'ms');
-  function ir(i) { at = (i + n) % n; faixa.style.transform = 'translateX(' + (-100 * at) + '%)'; document.getElementById('cN').textContent = (at + 1) + ' de ' + n;
+  function ir(i) { at = (i + n) % n; faixa.style.transform = 'translateX(' + (-100 * at) + '%)';
     bs.forEach(function (b, k) { b.classList.remove('on'); b.classList.toggle('feito', k < at); }); void bs[at].offsetWidth; bs[at].classList.add('on');
     faixa.querySelectorAll('.slide').forEach(function (sl, k) { sl.setAttribute('aria-hidden', k !== at); sl.querySelectorAll('a').forEach(function (a) { a.tabIndex = k === at ? 0 : -1; }); });
     clearTimeout(tm); if (!pausa) tm = setTimeout(function () { ir(at + 1); }, DUR); }
-  document.getElementById('cAnt').onclick = function () { ir(at - 1); };
-  document.getElementById('cSeg').onclick = function () { ir(at + 1); };
   bs.forEach(function (b, k) { b.onclick = function () { ir(k); }; });
-  var bP = document.getElementById('cPausa');
-  function marcarPausa() { car.classList.toggle('pausa', pausa); bP.textContent = pausa ? '▶' : '❚❚'; bP.setAttribute('aria-label', pausa ? 'Continuar' : 'Pausa'); }
-  bP.onclick = function () { pausa = !pausa; marcarPausa(); ir(at); };
   car.addEventListener('mouseenter', function () { if (!pausa) { clearTimeout(tm); car.classList.add('pausa'); } });
   car.addEventListener('mouseleave', function () { if (!pausa) { car.classList.remove('pausa'); ir(at); } });
   var x0 = null; car.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
   car.addEventListener('touchend', function (e) { if (x0 === null) return; var dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 50) ir(at + (dx < 0 ? 1 : -1)); x0 = null; });
-  marcarPausa(); ir(0);
+  car.classList.toggle('pausa', pausa); ir(0);
 
   // ---------- como podemos ajudar hoje? ----------
   var QC = document.getElementById('queroC');
