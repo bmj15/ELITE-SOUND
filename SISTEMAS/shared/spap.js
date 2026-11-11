@@ -920,8 +920,8 @@ SPAP.createApp = function (cfg) {
     if ($('#b-new')) $('#b-new').onclick = () => app.novoPedido();
     const view = $('#view');
     // telemóvel: as tabelas passam a cartões; cada célula leva o nome da sua coluna (data-l)
-    const rotular = () => view.querySelectorAll('table.tbl').forEach(t => { const hs = [...t.querySelectorAll('thead th')].map(th => { const c = th.cloneNode(true); c.querySelectorAll('.info-tip').forEach(x => x.remove()); return c.textContent.trim(); });
-      t.querySelectorAll('tbody tr').forEach(tr => { if (tr.children.length !== hs.length) return; [...tr.children].forEach((td, i) => { if (hs[i] && !td.hasAttribute('data-l')) td.setAttribute('data-l', hs[i]); if (!td.textContent.trim() && !td.querySelector('button,input,select,a,svg')) td.classList.add('vazio'); }); }); });
+    const rotular = () => view.querySelectorAll('table.tbl').forEach(t => { const ths = [...t.querySelectorAll('thead th')], hs = ths.map(th => { const c = th.cloneNode(true); c.querySelectorAll('.info-tip').forEach(x => x.remove()); return c.textContent.trim(); });
+      t.querySelectorAll('tbody tr').forEach(tr => { if (tr.children.length !== hs.length) return; [...tr.children].forEach((td, i) => { if (hs[i] && !td.hasAttribute('data-l')) td.setAttribute('data-l', hs[i]); if (ths[i] && ths[i].classList.contains('m-oculto')) td.classList.add('m-oculto'); if (!td.textContent.trim() && !td.querySelector('button,input,select,a,svg')) td.classList.add('vazio'); }); }); });
     let rq = 0; new MutationObserver(() => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; rotular(); }); }).observe(view, { childList: true, subtree: true });
     try { rt.render(view, app, params); }
     catch (err) { console.error(err); view.innerHTML = `<div class="alert bad">${icon('alert')}<div><b>Erro ao apresentar a página.</b><br>${esc(err.message)}</div></div>`; }
