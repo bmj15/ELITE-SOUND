@@ -681,7 +681,7 @@ function abrirRede() {
 }
 
 /* ================= Consola de gestão (http://127.0.0.1:8099, só neste computador) =================
-   Entra-se com um bilhete de uso único pedido pelo BXB Gestor (que lê DADOS-SERVIDOR\gestao.chave) ou com uma conta de administrador.
+   Entra-se com um bilhete de uso único pedido pelo BXB Gestor (que lê DADOS-SERVIDOR\gestao.chave) ou com um utilizador da consola (gestao.db, separado das contas dos clientes).
    Proteções: só aceita o nome 127.0.0.1/localhost (contra DNS rebinding), pedidos que alteram têm o cabeçalho X-BXB e a mesma origem. */
 const GESTAO_DIR = path.join(RAIZ, 'SISTEMAS', 'gestao');
 const DURACAO_GESTAO = 12 * 3600 * 1000;
@@ -699,13 +699,29 @@ function versaoCodigo() {
     return h.slice(0, 7) || null; } catch (e) { return null; }
 }
 
-// Perfis da consola: separados das áreas e dos dados dos clientes.
+// Utilizadores da consola: base de dados própria (gestao.db), sem ligação às contas dos clientes.
+// O perfil "admin" (Administrador) é do sistema: todos os acessos, não se altera nem se apaga.
 const ACESSOS_GESTAO = ['painel','utilizadores','email','registos','definicoes','operadores'];
-function perfisGestao() { return cfg('gestao:perfis', { perfis: [], operadores: {} }); }
-function acessosGestao(c) {
-  if (c && c.admin) return ACESSOS_GESTAO.slice();
-  const p = perfisGestao(), id = c && p.operadores[c.id], perfil = p.perfis.find(x => x.id === id);
-  return perfil ? perfil.acessos.filter(x => ACESSOS_GESTAO.includes(x)) : [];
+const bdg = new DatabaseSync(path.join(DADOS, 'gestao.db'));
+bdg.exec(`PRAGMA journal_mode = WAL;
+  CREATE TABLE IF NOT EXISTS perfis (id TEXT PRIMARY KEY, nome TEXT NOT NULL, acessos TEXT NOT NULL DEFAULT '[]');
+  CREATE TABLE IF NOT EXISTS operadores (id TEXT PRIMARY KEY, nome TEXT NOT NULL, email TEXT NOT NULL UNIQUE, hash TEXT NOT NULL,
+    perfil TEXT NOT NULL, ativo INTEGER NOT NULL DEFAULT 1, criado_em TEXT NOT NULL, ultima TEXT);`);
+const qg = sql => bdg.prepare(sql);
+if (!qg('PRAGMA user_version').get().user_version) { // uma vez: os perfis criados antes passam para cá (as pessoas não: eram contas de clientes)
+  for (const p of (cfg('gestao:perfis', { perfis: [] }).perfis || [])) qg('INSERT OR IGNORE INTO perfis (id, nome, acessos) VALUES (?,?,?)').run(p.id, p.nome, JSON.stringify(p.acessos || []));
+  bdg.exec('PRAGMA user_version = 1');
+}
+const perfisGestao = () => qg('SELECT id, nome, acessos FROM perfis ORDER BY nome').all().map(p => ({ id: p.id, nome: p.nome, acessos: JSON.parse(p.acessos) }));
+const operador = id => qg('SELECT * FROM operadores WHERE id = ?').get(String(id));
+const operadorPorEmail = e => qg('SELECT * FROM operadores WHERE email = ?').get(String(e || '').trim().toLowerCase());
+const operadoresLista = () => qg('SELECT id, nome, email, perfil, ativo, criado_em, ultima FROM operadores ORDER BY nome').all().map(o => Object.assign({}, o, { ativo: !!o.ativo }));
+const adminsAtivos = exceto => qg("SELECT COUNT(*) n FROM operadores WHERE perfil = 'admin' AND ativo = 1 AND id <> ?").get(exceto || '').n;
+function acessosGestao(o) {
+  if (!o) return [];
+  if (o.perfil === 'admin') return ACESSOS_GESTAO.slice();
+  const p = qg('SELECT acessos FROM perfis WHERE id = ?').get(o.perfil);
+  return p ? JSON.parse(p.acessos).filter(x => ACESSOS_GESTAO.includes(x)) : [];
 }
 
 const bilhetes = new Map(); // bilhete de uso único (60 s) com que o Gestor abre a consola no browser
@@ -718,7 +734,7 @@ function quemGestao(req) {
   const m = /(?:^|;\s*)bxb_gestao=(\d+)\.([A-Za-z0-9_-]+)\.([a-f0-9]{64})/.exec(req.headers.cookie || ''); if (!m) return null;
   if (+m[1] < Date.now() || !igual(m[3], assinar(m[1] + '.' + m[2]))) return null;
   if (m[2] === 'gestor') return { quem: 'gestor', nome: 'BXB Gestor' };
-  const c = conta(m[2]); return c && c.ativo && acessosGestao(c).length ? { quem: c.id, nome: c.nome, conta: c } : null;
+  const o = operador(m[2]); return o && o.ativo && acessosGestao(o).length ? { quem: o.id, nome: o.nome, op: o } : null;
 }
 function cookieGestao(res, quem) { const v = (Date.now() + DURACAO_GESTAO) + '.' + quem;
   res.setHeader('Set-Cookie', `bxb_gestao=${v}.${assinar(v)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${DURACAO_GESTAO / 1000}`); }
@@ -779,23 +795,25 @@ async function apiGestao(req, res, caminho) {
       cookieGestao(res, 'gestor'); registar(null, 'GESTAO_ENTRADA', 'BXB Gestor', 'local'); return json(200, { ok: true }); }
     const u = String(b.email || '').trim().toLowerCase(), chaveF = 'gestao:' + u, f = falhas.get(chaveF);
     if (f && f.ate > Date.now()) return json(429, { erro: 'Demasiadas tentativas. Tente de novo dentro de alguns minutos.' });
-    const x = u && contaPorEmail(u);
+    const x = u && operadorPorEmail(u);
     if (!x || !x.ativo || !acessosGestao(x).length || !confere(b.palavra, x.hash)) { const n = (f && f.ate && f.ate <= Date.now() ? 0 : (f ? f.n : 0)) + 1;
-      falhas.set(chaveF, { n, ate: n >= 5 ? Date.now() + 5 * 60000 : 0 }); registar(x && x.id, 'GESTAO_ENTRADA_FALHADA', u, 'local');
-      return json(401, { erro: 'Email ou palavra-passe incorretos, ou a conta não tem acesso à consola' }); }
-    falhas.delete(chaveF); cookieGestao(res, x.id); registar(x.id, 'GESTAO_ENTRADA', null, 'local'); return json(200, { ok: true });
+      falhas.set(chaveF, { n, ate: n >= 5 ? Date.now() + 5 * 60000 : 0 }); registar(null, 'GESTAO_ENTRADA_FALHADA', u, 'local');
+      return json(401, { erro: 'Email ou palavra-passe incorretos, ou o utilizador está desativado' }); }
+    falhas.delete(chaveF); qg('UPDATE operadores SET ultima = ? WHERE id = ?').run(agoraISO(), x.id);
+    cookieGestao(res, x.id); registar(null, 'GESTAO_ENTRADA', x.nome, 'local'); return json(200, { ok: true });
   }
   if (caminho === '/api/gestao/sair' && req.method === 'POST') { res.setHeader('Set-Cookie', 'bxb_gestao=; Path=/; Max-Age=0'); return json(200, { ok: true }); }
 
   const g = quemGestao(req); if (!g) return json(401, { erro: 'Sem sessão na consola' });
-  const acessos = g.conta ? acessosGestao(g.conta) : ACESSOS_GESTAO.slice();
-  const superAdmin = !g.conta || !!g.conta.admin;
+  const acessos = g.op ? acessosGestao(g.op) : ACESSOS_GESTAO.slice();
+  const superAdmin = !g.op || g.op.perfil === 'admin';
   const recurso = caminho.slice('/api/gestao/'.length).split('/')[0];
   const permissao = ({painel:'painel',contas:'utilizadores',conta:'utilizadores',email:'email',registo:'registos',consola:'registos',rede:'registos',definicoes:'definicoes','chave-nova':'definicoes',desligar:'definicoes',perfis:'operadores',operadores:'operadores'})[recurso];
   if (permissao && !acessos.includes(permissao)) return json(403, {erro:'O seu perfil não permite esta operação'});
   // Só os administradores podem mudar a segurança da consola e as credenciais dos administradores.
   if (!superAdmin && ((['perfis','operadores'].includes(recurso) && req.method !== 'GET') || recurso === 'chave-nova')) return json(403,{erro:'Esta operação requer um administrador'});
-  const por = g.conta ? g.conta.id : null, reg = (acao, alvo) => registar(por, acao, alvo, 'consola');
+  // por: quem da consola fez a alteração (fica no registo como texto; não é uma conta de cliente)
+  const por = g.op ? 'consola:' + g.op.id : null, reg = (acao, alvo) => registar(null, acao, (alvo ? alvo + ' · ' : '') + 'por ' + g.nome, 'consola');
   const corpo = () => req.method === 'GET' ? Promise.resolve(qs) : lerCorpo(req);
 
   if (caminho === '/api/gestao/bilhete' && req.method === 'POST') {
@@ -811,68 +829,72 @@ async function apiGestao(req, res, caminho) {
     if(acessos.includes('email')) resumo.email = { rotulo:'Email', valor:smtpPronto(cfg('smtp',SMTP_PADRAO))?'Configurado':'Por configurar' };
     if(acessos.includes('registos')) resumo.registos = { rotulo:'Atividade hoje', valor:q('SELECT COUNT(*) n FROM registo WHERE em >= ?').get(new Date().toISOString().slice(0,10)).n };
     if(acessos.includes('definicoes')) resumo.definicoes = { rotulo:'Projeto', valor:geral().marca };
-    if(acessos.includes('operadores')) resumo.operadores = { rotulo:'Perfis disponíveis', valor:perfisGestao().perfis.length };
+    if(acessos.includes('operadores')) resumo.operadores = { rotulo:'Utilizadores da consola', valor:qg('SELECT COUNT(*) n FROM operadores WHERE ativo = 1').get().n };
     return json(200,{resumo});
   }
-  if (caminho === '/api/gestao/quem') return json(200, { quem: g.quem, nome: g.nome, marca: geral().marca, acessos, administrador: superAdmin });
+  if (caminho === '/api/gestao/quem') return json(200, { quem: g.quem, nome: g.nome, marca: geral().marca, acessos, administrador: superAdmin, semUtilizadores: !qg('SELECT 1 FROM operadores LIMIT 1').get() });
   if (caminho === '/api/gestao/painel') return json(200, painel());
 
-  if (caminho === '/api/gestao/perfis') {
-    const p=perfisGestao();
-    if(req.method==='GET') return json(200,{perfis:p.perfis,acessos:ACESSOS_GESTAO});
-    if(req.method!=='POST') return json(405,{erro:'Método não permitido'});
-    const b=await corpo(), nome=String(b.nome||'').trim().slice(0,80);
-    if(!nome || !Array.isArray(b.acessos) || b.acessos.some(x=>!ACESSOS_GESTAO.includes(x))) return json(400,{erro:'Indique o nome e acessos válidos'});
-    const id=b.id ? String(b.id) : novoId('perfil'), antigo=p.perfis.find(x=>x.id===id);
-    if(b.id && !antigo) return json(404,{erro:'Perfil não encontrado'});
-    if(nome.toLowerCase()==='administrador') return json(409,{erro:'O perfil Administrador é do sistema e já existe'});
-    if(p.perfis.some(x=>x.id!==id && x.nome.toLowerCase()===nome.toLowerCase())) return json(409,{erro:'Já existe um perfil com esse nome'});
-    const novo={id,nome,acessos:[...new Set(b.acessos)]};
-    if(antigo) p.perfis[p.perfis.indexOf(antigo)]=novo; else p.perfis.push(novo);
-    gravarCfg('gestao:perfis',p,por);reg('GESTAO_PERFIL_GUARDADO',id);return json(200,novo);
+  // ---- Utilizadores da consola e perfis (gestao.db): não são contas de clientes ----
+  if (caminho === '/api/gestao/perfis' || caminho === '/api/gestao/operadores') {
+    if (req.method === 'GET') return json(200, { perfis: perfisGestao(), acessos: ACESSOS_GESTAO, operadores: operadoresLista(), eu: g.op ? g.op.id : null });
+    if (req.method !== 'POST') return json(405, { erro: 'Método não permitido' });
+    if (!superAdmin) return json(403, { erro: 'Só o perfil Administrador gere os utilizadores da consola' });
   }
-  if(caminho === '/api/gestao/operadores') {
-    const p=perfisGestao();
-    if(req.method==='GET') return json(200,{perfis:p.perfis,operadores:contasLista().map(c=>({id:c.id,nome:c.nome,email:c.email,admin:c.admin,ativo:c.ativo,perfil:p.operadores[c.id]||''}))});
-    if(req.method!=='POST') return json(405,{erro:'Método não permitido'});
-    const b=await corpo(), perfil=String(b.perfil||'');
-    if(perfil && perfil!=='admin' && !p.perfis.some(x=>x.id===perfil)) return json(400,{erro:'Perfil não encontrado'});
-    let id=b.id && String(b.id);
-    if(!id) {
-      const nome=String(b.nome||'').trim().slice(0,80), email=String(b.email||'').trim().toLowerCase();
-      if(!nome || !EMAIL.test(email) || String(b.palavra||'').length<8 || !perfil) return json(400,{erro:'Indique nome, email, perfil e palavra-passe com pelo menos 8 caracteres'});
-      if(contaPorEmail(email)) return json(409,{erro:'Esse email já tem conta. Atribua-lhe um perfil na lista.'});
-      id=novoId('c');q('INSERT INTO contas (id,nome,email,utilizador,hash,admin,ativo,criada_em) VALUES (?,?,?,?,?,?,1,?)').run(id,nome,email,email,hashPalavra(b.palavra),perfil==='admin'?1:0,agoraISO());
-      if(perfil!=='admin') p.operadores[id]=perfil;
-      gravarCfg('gestao:perfis',p,por);reg('GESTAO_OPERADOR_CRIADO',id);return json(200,{ok:true,id});
+  if (caminho === '/api/gestao/perfis' && req.method === 'POST') {
+    const b = await corpo(), nome = String(b.nome || '').trim().slice(0, 80);
+    if (b.apagar) { const id = String(b.id || '');
+      if (!qg('SELECT 1 FROM perfis WHERE id = ?').get(id)) return json(404, { erro: 'Perfil não encontrado' });
+      if (qg('SELECT 1 FROM operadores WHERE perfil = ?').get(id)) return json(409, { erro: 'Há utilizadores com este perfil. Mude-lhes o perfil primeiro.' });
+      qg('DELETE FROM perfis WHERE id = ?').run(id); reg('GESTAO_PERFIL_APAGADO', id); return json(200, { ok: true }); }
+    if (!nome || !Array.isArray(b.acessos) || b.acessos.some(x => !ACESSOS_GESTAO.includes(x))) return json(400, { erro: 'Indique o nome e acessos válidos' });
+    if (nome.toLowerCase() === 'administrador') return json(409, { erro: 'O perfil Administrador é do sistema e já existe' });
+    const id = b.id ? String(b.id) : novoId('perfil');
+    if (b.id && !qg('SELECT 1 FROM perfis WHERE id = ?').get(id)) return json(404, { erro: 'Perfil não encontrado' });
+    if (qg('SELECT 1 FROM perfis WHERE id <> ? AND lower(nome) = lower(?)').get(id, nome)) return json(409, { erro: 'Já existe um perfil com esse nome' });
+    const acessosP = JSON.stringify([...new Set(b.acessos)]);
+    qg('INSERT INTO perfis (id, nome, acessos) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET nome = excluded.nome, acessos = excluded.acessos').run(id, nome, acessosP);
+    reg('GESTAO_PERFIL_GUARDADO', nome); return json(200, { id, nome, acessos: JSON.parse(acessosP) });
+  }
+  if (caminho === '/api/gestao/operadores' && req.method === 'POST') {
+    // criar ou editar tudo de uma vez: nome, email, perfil, ativo e (opcional ao editar) a palavra-passe
+    const b = await corpo(), eu = g.op ? g.op.id : null, antigo = b.id ? operador(b.id) : null;
+    if (b.id && !antigo) return json(404, { erro: 'Utilizador não encontrado' });
+    if (b.apagar) {
+      if (!antigo) return json(404, { erro: 'Utilizador não encontrado' });
+      if (antigo.id === eu) return json(400, { erro: 'Não pode apagar o seu próprio utilizador' });
+      if (antigo.perfil === 'admin' && antigo.ativo && !adminsAtivos(antigo.id)) return json(400, { erro: 'É o único Administrador ativo: tem de haver sempre um' });
+      qg('DELETE FROM operadores WHERE id = ?').run(antigo.id); reg('GESTAO_UTILIZADOR_APAGADO', antigo.nome); return json(200, { ok: true });
     }
-    const x=conta(id);if(!x) return json(404,{erro:'Conta não encontrada'});
-    if(x.admin) return json(400,{erro:'Os administradores mantêm acesso completo'});
-    if(perfil) p.operadores[id]=perfil; else delete p.operadores[id];
-    gravarCfg('gestao:perfis',p,por);reg('GESTAO_OPERADOR_ALTERADO',id);return json(200,{ok:true,id});
+    const nome = String(b.nome || '').trim().slice(0, 80), email = String(b.email || '').trim().toLowerCase(), perfil = String(b.perfil || ''),
+      ativo = b.ativo === undefined ? true : !!b.ativo, palavra = String(b.palavra || '');
+    if (!nome) return json(400, { erro: 'Indique o nome' });
+    if (!EMAIL.test(email)) return json(400, { erro: 'Indique um email válido: é com ele que se entra na consola' });
+    if (perfil !== 'admin' && !qg('SELECT 1 FROM perfis WHERE id = ?').get(perfil)) return json(400, { erro: 'Escolha o perfil' });
+    if (palavra ? palavra.length < 8 : !antigo) return json(400, { erro: 'A palavra-passe tem de ter pelo menos 8 caracteres' });
+    const outro = operadorPorEmail(email); if (outro && (!antigo || outro.id !== antigo.id)) return json(409, { erro: 'Esse email já é de outro utilizador da consola' });
+    if (antigo) {
+      if (antigo.id === eu && (perfil !== antigo.perfil || !ativo)) return json(400, { erro: 'Não pode mudar o perfil nem desativar o seu próprio utilizador' });
+      if (antigo.perfil === 'admin' && antigo.ativo && (perfil !== 'admin' || !ativo) && !adminsAtivos(antigo.id)) return json(400, { erro: 'É o único Administrador ativo: tem de haver sempre um' });
+      qg('UPDATE operadores SET nome = ?, email = ?, perfil = ?, ativo = ? WHERE id = ?').run(nome, email, perfil, ativo ? 1 : 0, antigo.id);
+      if (palavra) qg('UPDATE operadores SET hash = ? WHERE id = ?').run(hashPalavra(palavra), antigo.id);
+      reg('GESTAO_UTILIZADOR_ALTERADO', nome + (palavra ? ' (palavra-passe)' : '')); return json(200, { ok: true, id: antigo.id });
+    }
+    const id = novoId('op');
+    qg('INSERT INTO operadores (id, nome, email, hash, perfil, ativo, criado_em) VALUES (?,?,?,?,?,?,?)').run(id, nome, email, hashPalavra(palavra), perfil, ativo ? 1 : 0, agoraISO());
+    reg('GESTAO_UTILIZADOR_CRIADO', nome); return json(200, { ok: true, id });
   }
-  // utilizadores
+  // ---- Contas dos clientes ----
   if (caminho === '/api/gestao/contas') return json(200, contasLista());
   if (caminho === '/api/gestao/conta') {
     const b = await corpo(), x = b.id && conta(String(b.id)); if (!x) return json(404, { erro: 'Conta não encontrada' });
     if (req.method === 'POST') {
-      // perfil na consola: '' sem acesso, 'admin' Administrador (perfil do sistema, todos os acessos) ou o id de um perfil criado
-      const pg = perfisGestao(), perfil = b.perfil !== undefined ? String(b.perfil || '') : undefined;
-      if (!superAdmin && (x.admin || acessosGestao(x).length || b.admin !== undefined || perfil !== undefined)) return json(403,{erro:'Só um administrador pode alterar contas com acesso à consola'});
-      if (perfil !== undefined) {
-        if (perfil && perfil !== 'admin' && !pg.perfis.some(f => f.id === perfil)) return json(400, { erro: 'Perfil não encontrado' });
-        if (por && por === x.id && (perfil === 'admin') !== !!x.admin) return json(400, { erro: 'Não pode mudar o perfil da sua própria conta' });
-        if (perfil && !(b.email !== undefined ? String(b.email).trim() : x.email)) return json(400, { erro: 'Indique o email: é com ele que se entra na consola' });
-        b.admin = perfil === 'admin';
-      }
-      const erro = alterarConta(x, b, { id: por, hash: null }); if (erro) return json(400, { erro });
-      if (perfil !== undefined && (pg.operadores[x.id] || '') !== (perfil === 'admin' ? '' : perfil)) {
-        if (perfil && perfil !== 'admin') pg.operadores[x.id] = perfil; else delete pg.operadores[x.id];
-        gravarCfg('gestao:perfis', pg, por);
-      }
-      reg('ADMIN_CONTA_ALTERADA', x.id + (b.palavra ? ' palavra-passe' : '') + (b.ativo !== undefined ? (b.ativo ? ' ativada' : ' desativada') : '') + (perfil !== undefined ? ' perfil ' + (perfil === 'admin' ? 'Administrador' : ((pg.perfis.find(f => f.id === perfil) || {}).nome || 'sem acesso')) : '')); }
-    const y = contasLista().find(r => r.id === x.id), pg = perfisGestao();
-    return json(200, { conta: y, perfil: y.admin ? 'admin' : (pg.operadores[y.id] || ''), perfis: pg.perfis.map(f => ({ id: f.id, nome: f.nome })), sessoes: q('SELECT rowid AS id, criada, visto, ip, agente, expira FROM sessoes WHERE conta = ? AND expira > ? ORDER BY visto DESC').all(x.id, Date.now()),
+      delete b.admin; // o "administrador" das contas pertence ao sistema do cliente: não se muda aqui
+      if (!superAdmin && x.admin) return json(403, { erro: 'Só o perfil Administrador pode alterar esta conta' });
+      const erro = alterarConta(x, b, { id: null, hash: null }); if (erro) return json(400, { erro });
+      reg('ADMIN_CONTA_ALTERADA', x.id + (b.palavra ? ' palavra-passe' : '') + (b.ativo !== undefined ? (b.ativo ? ' ativada' : ' desativada') : '')); }
+    const y = contasLista().find(r => r.id === x.id);
+    return json(200, { conta: y, sessoes: q('SELECT rowid AS id, criada, visto, ip, agente, expira FROM sessoes WHERE conta = ? AND expira > ? ORDER BY visto DESC').all(x.id, Date.now()),
       registo: registoLista({ conta: x.id, limite: 40 }) });
   }
   if (caminho === '/api/gestao/conta/sessoes' && req.method === 'POST') {
@@ -1039,7 +1061,7 @@ function desligar(motivo) {
   if (aDesligar) return; aDesligar = true; console.log(`  O servidor vai desligar (${motivo}).`);
   registar(null, 'SERVIDOR_DESLIGADO', motivo, 'local');
   [servidor, servidorGestao, servidorConsulta, servidorRede].forEach(x => { try { x && x.close(); } catch (e) { } });
-  setTimeout(() => { try { bd.close(); } catch (e) { } process.exit(0); }, 400);
+  setTimeout(() => { try { bd.close(); } catch (e) { } try { bdg.close(); } catch (e) { } process.exit(0); }, 400);
 }
 process.on('SIGINT', () => desligar('Ctrl+C'));
 process.on('SIGTERM', () => desligar('pedido do sistema'));

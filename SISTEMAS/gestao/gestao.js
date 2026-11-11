@@ -51,7 +51,7 @@
     return nav ? `${nav} · ${so}` : so; };
 
   // nomes das ações do registo
-  const ACOES = { CONTA_CRIADA_VERIFICADA: 'Criou conta (email confirmado)', PERFIL_COMPLETO: 'Completou o perfil', GESTAO_VERIFICACAO_LIGADA: 'Ligou a confirmação do email', GESTAO_VERIFICACAO_DESLIGADA: 'Desligou a confirmação do email', GESTAO_PERFIL_GUARDADO: 'Perfil guardado', GESTAO_OPERADOR_ALTERADO: 'Acessos do operador alterados', ENTRADA: 'Entrou', ENTRADA_FALHADA: 'Entrada falhada', SAIDA: 'Saiu', CONTA_CRIADA: 'Conta criada', AREA_CRIADA: 'Área criada', LEITURA: 'Leu os dados',
+  const ACOES = { CONTA_CRIADA_VERIFICADA: 'Criou conta (email confirmado)', PERFIL_COMPLETO: 'Completou o perfil', GESTAO_VERIFICACAO_LIGADA: 'Ligou a confirmação do email', GESTAO_VERIFICACAO_DESLIGADA: 'Desligou a confirmação do email', GESTAO_PERFIL_GUARDADO: 'Perfil guardado', GESTAO_OPERADOR_ALTERADO: 'Acessos do operador alterados', GESTAO_UTILIZADOR_CRIADO: 'Criou um utilizador da consola', GESTAO_UTILIZADOR_ALTERADO: 'Alterou um utilizador da consola', GESTAO_UTILIZADOR_APAGADO: 'Apagou um utilizador da consola', GESTAO_PERFIL_APAGADO: 'Apagou um perfil da consola', ENTRADA: 'Entrou', ENTRADA_FALHADA: 'Entrada falhada', SAIDA: 'Saiu', CONTA_CRIADA: 'Conta criada', AREA_CRIADA: 'Área criada', LEITURA: 'Leu os dados',
     GRAVACAO: 'Gravou', APAGADO: 'Apagou', ACESSO_RECUSADO: 'Acesso recusado', CONTACTO_ADICIONADO: 'Juntou um contacto', COLABORADOR_CONVIDADO: 'Convidou colaborador',
     COLABORADOR_RETIRADO: 'Retirou colaborador', CONVITE_ACEITE: 'Aceitou convite', PALAVRA_ALTERADA: 'Mudou a palavra-passe', ADMIN_CONTA_ALTERADA: 'Conta alterada (admin)',
     ADMIN_SESSOES_TERMINADAS: 'Sessões terminadas (admin)', CONFIGURADO: 'Servidor configurado', SERVIDOR_LIGADO: 'Servidor ligado', SERVIDOR_DESLIGADO: 'Servidor desligado',
@@ -82,7 +82,7 @@
     pararTimers(); E.quem = null;
     $('#app').innerHTML = `<div class="g-entrar"><div class="card">
       <div class="brand"><div class="brand-logo">BXB</div><div><div class="brand-name">BXB</div><div class="brand-sub">Consola de gestão</div></div></div>
-      <h1>Entrar na consola</h1><p>Use a sua conta de operador ou abra pelo BXB Gestor.</p>
+      <h1>Entrar na consola</h1><p>Use o seu utilizador da consola ou abra pelo BXB Gestor.</p>
       ${aviso ? `<div class="alert warn" style="margin-bottom:16px"><div>${esc(aviso)}</div></div>` : ''}
       <form class="form" id="fe">
         <div class="fld"><label for="fe-em">Email</label><input class="inp" id="fe-em" name="email" type="email" autocomplete="username" required></div>
@@ -98,8 +98,8 @@
   }
 
   /* ---------- estrutura ---------- */
-  const ROTAS = { painel: ['Painel', 'painel', 'Estado do servidor e do sistema'], utilizadores: ['Utilizadores', 'users', 'Contas, acessos e sessões'],
-    email: ['Email', 'mail', 'Servidor de envio, modelos e emails enviados'], registos: ['Registos', 'lista', 'Atividade, servidor e rede'], definicoes: ['Definições', 'def', 'Projeto, servidor e acesso à consola'], operadores: ['Perfis e operadores', 'users', 'Acessos dos funcionários à consola'] };
+  const ROTAS = { painel: ['Painel', 'painel', 'Estado do servidor e do sistema'], utilizadores: ['Clientes', 'users', 'Contas dos clientes, sessões e atividade'],
+    email: ['Email', 'mail', 'Servidor de envio, modelos e emails enviados'], registos: ['Registos', 'lista', 'Atividade, servidor e rede'], definicoes: ['Definições', 'def', 'Projeto, servidor e acesso à consola'], operadores: ['Utilizadores da consola', 'chave', 'Quem entra nesta consola e com que perfil'] };
   const pode = k => k === 'painel' || (E.quem.acessos || []).includes(k);
   function montar() {
     const marca = E.quem.marca || 'BXB', sigla = marca.length <= 4 ? marca.toUpperCase() : marca.split(/\s+/).map(p => p[0]).join('').slice(0, 3).toUpperCase();
@@ -165,14 +165,14 @@
           ${p.email.pronto ? '' : '<a class="btn sm" href="#email" style="margin-top:12px">Configurar o envio</a>'}</div>
         <div class="card"><div class="card-h"><h3>Base de dados</h3></div><div class="g-lista">${lin('Tamanho', tamanho(s.bd))}${lin('Cópias diárias', nInt(s.copias) + (s.ultimaCopia ? ' · última a ' + dataCurta(s.ultimaCopia) : ''))}
           <div class="g-lin"><span>Pasta</span><span class="mono" title="${esc(s.dados)}">${esc(s.dados)}</span></div></div></div>
-        <div class="card"><div class="card-h"><h3>Segurança (7 dias)</h3></div><div class="g-lista">${lin('Entradas falhadas', nInt(p.entradas.falhadas7), p.entradas.falhadas7 >= 10 ? 'neg' : '')}${lin('Acessos recusados', nInt(p.entradas.recusados7), p.entradas.recusados7 ? 'neg' : '')}${lin('Administradores ativos', nInt(c.admins))}</div></div>
+        <div class="card"><div class="card-h"><h3>Segurança (7 dias)</h3></div><div class="g-lista">${lin('Entradas falhadas', nInt(p.entradas.falhadas7), p.entradas.falhadas7 >= 10 ? 'neg' : '')}${lin('Acessos recusados', nInt(p.entradas.recusados7), p.entradas.recusados7 ? 'neg' : '')}</div></div>
       </div>
       <div class="card flush" style="margin-top:16px"><div class="card-h"><h3>Atividade recente</h3><a class="btn sm ghost" href="#registos">Ver tudo</a></div>${tabelaRegisto(p.atividade)}</div>`;
     if (!refresco) repetir(() => VISTAS.painel(true).catch(() => { }), 20000);
   };
 
   /* ---------- Utilizadores ---------- */
-  const FILTROS = { todas: ['Todas', () => true], ativas: ['Ativas', x => x.ativo], inativas: ['Desativadas', x => !x.ativo], admins: ['Administradores', x => x.admin] };
+  const FILTROS = { todas: ['Todas', () => true], ativas: ['Ativas', x => x.ativo], inativas: ['Desativadas', x => !x.ativo] };
   VISTAS.utilizadores = async () => {
     const lista = await api('GET', '/api/gestao/contas'); if (E.rota !== 'utilizadores') return;
     $('#view').innerHTML = `<div class="g-barra"><div class="tabs" id="tb">${Object.entries(FILTROS).map(([k, [t, f]]) => `<button data-f="${k}" class="${k === E.filtroContas ? 'on' : ''}">${t}<span class="n">${lista.filter(f).length}</span></button>`).join('')}</div>
@@ -180,7 +180,7 @@
     const pintar = () => {
       const t = E.pqContas.trim().toLowerCase(), l = lista.filter(FILTROS[E.filtroContas][1]).filter(x => !t || (x.nome + ' ' + (x.email || '')).toLowerCase().includes(t));
       $('#tc').innerHTML = !l.length ? '<div class="empty">Nenhuma conta</div>' : `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Conta</th><th>Áreas</th><th>Criada</th><th>Última entrada</th><th class="r">Sessões</th><th>Estado</th></tr></thead><tbody>
-        ${l.map(x => `<tr class="click" data-id="${esc(x.id)}"><td><div class="g-quem-cel"><b>${esc(x.nome)}${x.admin ? ' <span class="badge acc plain">admin</span>' : ''}</b><span>${esc(x.email || '—')}</span></div></td>
+        ${l.map(x => `<tr class="click" data-id="${esc(x.id)}"><td><div class="g-quem-cel"><b>${esc(x.nome)}</b><span>${esc(x.email || '—')}</span></div></td>
           <td>${x.areas.map(a => `<span class="badge plain" title="${esc(a.nome)}">${a.tipo === 'empresa' ? 'Empresa' : 'Particular'}${a.papel === 'colaborador' ? ' · colaborador' : ''}</span>`).join('') || '<span class="faint">—</span>'}</td>
           <td class="g-nw">${dataCurta(x.criada_em)}</td><td class="g-nw" title="${x.ultima ? dataHora(x.ultima) : ''}">${relativo(x.ultima)}</td>
           <td class="r num">${x.sessoes ? x.sessoes : '<span class="faint">0</span>'}</td><td>${x.ativo ? '<span class="badge ok">Ativa</span>' : '<span class="badge bad">Desativada</span>'}</td></tr>`).join('')}</tbody></table></div>`;
@@ -192,16 +192,13 @@
   };
   const gerarPalavra = () => { const a = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', v = crypto.getRandomValues(new Uint32Array(12)); return [...v].map(n => a[n % a.length]).join(''); };
   async function gerirConta(id) {
-    const d = await api('GET', '/api/gestao/conta?id=' + encodeURIComponent(id)), x = d.conta, admin = E.quem.administrador;
-    const perfis = [['', 'Sem acesso à consola'], ['admin', 'Administrador (todos os acessos)'], ...(d.perfis || []).map(f => [f.id, f.nome])];
-    const nomePerfil = (perfis.find(f => f[0] === (d.perfil || '')) || perfis[0])[1];
-    // um só formulário e um só Guardar: dados, perfil na consola, estado e (se preenchida) a nova palavra-passe
+    const d = await api('GET', '/api/gestao/conta?id=' + encodeURIComponent(id)), x = d.conta;
+    // conta de cliente: um só formulário e um só Guardar (dados, estado e, se preenchida, a nova palavra-passe)
     const ov = modal(`<div class="modal-h"><div><h2>${esc(x.nome)}</h2><p>${esc(x.email || 'sem email')} · conta criada a ${dataCurta(x.criada_em)}</p></div><button class="btn ghost icon" data-x aria-label="Fechar">${ic('x', 16)}</button></div>
       <div class="modal-b">
         <form class="form" id="fc">
           <div class="fld"><label>Nome</label><input class="inp" name="nome" value="${esc(x.nome)}" required maxlength="80"></div>
-          <div class="fld"><label>Email</label><input class="inp" name="email" type="email" value="${esc(x.email || '')}" placeholder="Necessário para entrar na consola" autocomplete="off"></div>
-          <div class="fld"><label>Perfil na consola</label>${admin ? `<select class="inp" name="perfil">${perfis.map(([v, t]) => `<option value="${esc(v)}" ${v === (d.perfil || '') ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>` : `<input class="inp" value="${esc(nomePerfil)}" disabled>`}</div>
+          <div class="fld"><label>Email</label><input class="inp" name="email" type="email" value="${esc(x.email || '')}" autocomplete="off"></div>
           <div class="fld"><label>Nova palavra-passe <span class="faint">(opcional, mín. 8)</span></label><div class="row" style="flex-wrap:nowrap"><input class="inp mono" name="palavra" minlength="8" autocomplete="new-password" placeholder="Vazio mantém a atual"><button class="btn sm" type="button" id="gerar">Gerar</button></div></div>
           <label class="check"><input type="checkbox" name="ativo" ${x.ativo ? 'checked' : ''}> Conta ativa (pode entrar)</label>
           <label class="check"><input type="checkbox" name="avisar" ${x.email ? 'checked' : 'disabled'}> Avisar por email se mudar a palavra-passe</label>
@@ -216,7 +213,6 @@
     $('#fc', ov).onsubmit = async e => { e.preventDefault(); const f = e.target, palavra = f.palavra.value, b = { id, nome: f.nome.value, ativo: f.ativo.checked };
       if (palavra && !confirm('Mudar a palavra-passe de ' + x.nome + '? As sessões abertas desta conta terminam.')) return;
       if (f.email.value.trim()) b.email = f.email.value;
-      if (f.perfil) b.perfil = f.perfil.value;
       if (palavra) { b.palavra = palavra; b.avisar = f.avisar.checked; }
       try { await api('POST', '/api/gestao/conta', b); reabrir(palavra ? 'Dados e palavra-passe guardados' : 'Dados guardados'); }
       catch (x2) { msg($('#fc-m', ov), x2.message, 'bad'); } };
@@ -381,25 +377,52 @@
   };
 
 
+  /* ---------- Utilizadores da consola (não são clientes: têm base de dados própria) ---------- */
   VISTAS.operadores = async () => {
-    const p=await api('GET','/api/gestao/operadores');if(E.rota!=='operadores')return;
-    const admin=E.quem.administrador;
-    const opcoes=sel=>`<option value="">Sem acesso à consola</option><option value="admin" ${sel==='admin'?'selected':''}>Administrador</option>${p.perfis.map(f=>`<option value="${esc(f.id)}" ${sel===f.id?'selected':''}>${esc(f.nome)}</option>`).join('')}`;
-    $('#view').innerHTML=`<div class="g-duas"><div class="card"><div class="card-h"><h3>Perfis</h3>${admin?'<button class="btn sm" id="novo-perfil">Novo perfil</button>':''}</div><div class="g-lin"><div><b>Administrador</b> <span class="badge plain">do sistema</span><p class="muted">Todos os acessos · não se altera nem se apaga</p></div></div>${p.perfis.map(x=>`<div class="g-lin"><div><b>${esc(x.nome)}</b><p class="muted">${x.acessos.map(k=>ROTAS[k]?.[0]||k).join(' · ')||'Sem acessos'}</p></div>${admin?`<button class="btn sm" data-perfil="${esc(x.id)}">Editar</button>`:''}</div>`).join('')||'<p class="muted">Crie mais perfis para dar acessos parciais à equipa.</p>'}</div>
-    <div class="card"><div class="card-h"><h3>Operadores</h3>${admin?'<button class="btn sm" id="novo-op">Novo operador</button>':''}</div>${p.operadores.map(x=>`<div class="g-lin"><div><b>${esc(x.nome)}</b><p class="muted">${esc(x.email||'sem email')}${!x.ativo?' · Desativado':''}</p></div><div class="row" style="flex-wrap:nowrap"><select class="inp" style="max-width:180px" data-operador="${esc(x.id)}" ${!admin?'disabled':''}>${opcoes(x.admin?'admin':x.perfil)}</select>${admin?`<button class="btn sm" data-editar="${esc(x.id)}">Editar</button>`:''}</div></div>`).join('')}</div></div>`;
-    $$('[data-editar]').forEach(b=>b.onclick=()=>gerirConta(b.dataset.editar));
-    async function editar(id) {
-      const x=p.perfis.find(f=>f.id===id)||{nome:'',acessos:[]};
-      const ov=modal(`<div class="modal-h"><h2>${id?'Editar':'Novo'} perfil</h2><button class="btn" data-x>Fechar</button></div><form class="modal-b" id="fp"><label>Nome<input class="inp" name="nome" required maxlength="80" value="${esc(x.nome)}"></label><div style="display:grid;gap:14px;margin:20px 0">${Object.entries(ROTAS).map(([k,[t]])=>`<label><input type="checkbox" name="acessos" value="${k}" ${x.acessos.includes(k)?'checked':''}> ${t}</label>`).join('')}</div><button class="btn primary">Guardar perfil</button><div role="alert"></div></form>`);
-      $('#fp',ov).onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{await api('POST','/api/gestao/perfis',{id,nome:f.get('nome'),acessos:f.getAll('acessos')});ov.fechar();await VISTAS.operadores();}catch(x){$('[role=alert]',ov).textContent=x.message;}};
+    const p = await api('GET', '/api/gestao/operadores'); if (E.rota !== 'operadores') return;
+    const admin = E.quem.administrador, nomeAcesso = k => (ROTAS[k] || [k])[0];
+    const nomePerfil = id => id === 'admin' ? 'Administrador' : ((p.perfis.find(f => f.id === id) || {}).nome || '—');
+    $('#view').innerHTML = `${E.quem.semUtilizadores ? '<div class="alert warn" style="margin-bottom:16px"><div>Ainda não há utilizadores da consola. Crie o seu com o perfil Administrador para poder entrar com email e palavra-passe.</div></div>' : ''}
+      <div class="g-duas"><div class="card"><div class="card-h"><h3>Utilizadores da consola</h3>${admin ? '<button class="btn sm primary" id="novo-op">Novo utilizador</button>' : ''}</div>
+        ${p.operadores.map(x => `<div class="g-lin"><div><b>${esc(x.nome)}</b>${x.id === p.eu ? ' <span class="badge plain">você</span>' : ''}<p class="muted">${esc(x.email)} · ${esc(nomePerfil(x.perfil))}${x.ativo ? '' : ' · Desativado'}${x.ultima ? ' · última entrada ' + relativo(x.ultima) : ''}</p></div>${admin ? `<button class="btn sm" data-op="${esc(x.id)}">Editar</button>` : ''}</div>`).join('') || '<p class="muted">Nenhum utilizador.</p>'}</div>
+      <div class="card"><div class="card-h"><h3>Perfis</h3>${admin ? '<button class="btn sm" id="novo-perfil">Novo perfil</button>' : ''}</div>
+        <div class="g-lin"><div><b>Administrador</b> <span class="badge plain">do sistema</span><p class="muted">Todos os acessos · não se altera nem se apaga</p></div></div>
+        ${p.perfis.map(x => `<div class="g-lin"><div><b>${esc(x.nome)}</b><p class="muted">${x.acessos.map(nomeAcesso).join(' · ') || 'Sem acessos'}</p></div>${admin ? `<button class="btn sm" data-perfil="${esc(x.id)}">Editar</button>` : ''}</div>`).join('')}</div></div>`;
+    if (!admin) return;
+    const recarregar = async t => { toast(t); E.quem = await api('GET', '/api/gestao/quem'); await VISTAS.operadores(); };
+    function editarPerfil(id) {
+      const x = p.perfis.find(f => f.id === id) || { nome: '', acessos: [] };
+      const ov = modal(`<div class="modal-h"><h2>${id ? 'Editar' : 'Novo'} perfil</h2><button class="btn ghost icon" data-x aria-label="Fechar">${ic('x', 16)}</button></div>
+        <form class="modal-b form" id="fp"><div class="fld full"><label>Nome</label><input class="inp" name="nome" required maxlength="80" value="${esc(x.nome)}"></div>
+          <div class="fld full"><label>Acessos</label>${p.acessos.map(k => `<label class="check"><input type="checkbox" name="acessos" value="${k}" ${x.acessos.includes(k) ? 'checked' : ''}> ${esc(nomeAcesso(k))}</label>`).join('')}</div>
+          <div class="fld full"><div class="row"><button class="btn primary" type="submit">Guardar</button>${id ? '<button class="btn bad" type="button" id="fp-apagar">Apagar perfil</button>' : ''}</div><div id="fp-m"></div></div></form>`);
+      $('#fp', ov).onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target);
+        try { await api('POST', '/api/gestao/perfis', { id, nome: f.get('nome'), acessos: f.getAll('acessos') }); ov.fechar(); await recarregar('Perfil guardado'); } catch (x2) { msg($('#fp-m', ov), x2.message, 'bad'); } };
+      const ap = $('#fp-apagar', ov); if (ap) ap.onclick = async () => { if (!confirm('Apagar o perfil ' + x.nome + '?')) return;
+        try { await api('POST', '/api/gestao/perfis', { id, apagar: true }); ov.fechar(); await recarregar('Perfil apagado'); } catch (x2) { msg($('#fp-m', ov), x2.message, 'bad'); } };
     }
-    if(admin){$('#novo-perfil').onclick=()=>editar();$$('[data-perfil]').forEach(b=>b.onclick=()=>editar(b.dataset.perfil));
-      $$('[data-operador]').forEach(s=>s.onchange=async()=>{s.disabled=true;try{await api('POST','/api/gestao/conta',{id:s.dataset.operador,perfil:s.value});toast('Perfil guardado');}catch(e){toast(e.message,'bad');}finally{await VISTAS.operadores();}});
-      $('#novo-op').onclick=()=>{
-        const ov=modal(`<div class="modal-h"><h2>Novo operador</h2><button class="btn" data-x>Fechar</button></div><form class="modal-b form" id="fo"><label>Nome<input class="inp" name="nome" required maxlength="80" autocomplete="name"></label><label>Email<input class="inp" name="email" type="email" required autocomplete="email"></label><label>Palavra-passe inicial<input class="inp" name="palavra" type="password" required minlength="8" autocomplete="new-password"></label><label>Perfil<select class="inp" name="perfil" required><option value="">Escolha o perfil</option><option value="admin">Administrador</option>${p.perfis.map(f=>`<option value="${esc(f.id)}">${esc(f.nome)}</option>`).join('')}</select></label><button class="btn primary">Criar operador</button><div role="alert"></div></form>`);
-        $('#fo',ov).onsubmit=async e=>{e.preventDefault();try{await api('POST','/api/gestao/operadores',Object.fromEntries(new FormData(e.target)));ov.fechar();await VISTAS.operadores();}catch(x){$('[role=alert]',ov).textContent=x.message;}};
-      };
+    function editarOp(id) {
+      const x = p.operadores.find(o => o.id === id) || { nome: '', email: '', perfil: '', ativo: true };
+      const opcoes = `<option value="">Escolha o perfil</option><option value="admin" ${x.perfil === 'admin' ? 'selected' : ''}>Administrador (todos os acessos)</option>${p.perfis.map(f => `<option value="${esc(f.id)}" ${x.perfil === f.id ? 'selected' : ''}>${esc(f.nome)}</option>`).join('')}`;
+      const ov = modal(`<div class="modal-h"><h2>${id ? esc(x.nome) : 'Novo utilizador da consola'}</h2><button class="btn ghost icon" data-x aria-label="Fechar">${ic('x', 16)}</button></div>
+        <form class="modal-b form" id="fo">
+          <div class="fld"><label>Nome</label><input class="inp" name="nome" required maxlength="80" value="${esc(x.nome)}" autocomplete="off"></div>
+          <div class="fld"><label>Email (para entrar)</label><input class="inp" name="email" type="email" required value="${esc(x.email)}" autocomplete="off"></div>
+          <div class="fld"><label>Perfil</label><select class="inp" name="perfil" required>${opcoes}</select></div>
+          <div class="fld"><label>${id ? 'Nova palavra-passe <span class="faint">(opcional)</span>' : 'Palavra-passe'}</label><div class="row" style="flex-wrap:nowrap"><input class="inp mono" name="palavra" minlength="8" ${id ? 'placeholder="Vazio mantém a atual"' : 'required'} autocomplete="new-password"><button class="btn sm" type="button" id="fo-gerar">Gerar</button></div></div>
+          <label class="check"><input type="checkbox" name="ativo" ${x.ativo ? 'checked' : ''}> Ativo (pode entrar na consola)</label>
+          <div class="fld full"><div class="row"><button class="btn primary" type="submit">Guardar</button>${id && id !== p.eu ? '<button class="btn bad" type="button" id="fo-apagar">Apagar utilizador</button>' : ''}</div><div id="fo-m"></div></div>
+        </form>`);
+      $('#fo-gerar', ov).onclick = () => { $('#fo', ov).palavra.value = gerarPalavra(); };
+      $('#fo', ov).onsubmit = async e => { e.preventDefault(); const f = e.target;
+        const b = { id, nome: f.nome.value, email: f.email.value, perfil: f.perfil.value, ativo: f.ativo.checked }; if (f.palavra.value) b.palavra = f.palavra.value;
+        try { await api('POST', '/api/gestao/operadores', b); ov.fechar(); await recarregar(id ? 'Utilizador guardado' : 'Utilizador criado'); } catch (x2) { msg($('#fo-m', ov), x2.message, 'bad'); } };
+      const ap = $('#fo-apagar', ov); if (ap) ap.onclick = async () => { if (!confirm('Apagar o utilizador da consola ' + x.nome + '? Deixa de poder entrar na consola.')) return;
+        try { await api('POST', '/api/gestao/operadores', { id, apagar: true }); ov.fechar(); await recarregar('Utilizador apagado'); } catch (x2) { msg($('#fo-m', ov), x2.message, 'bad'); } };
     }
+    $('#novo-op').onclick = () => editarOp(); $('#novo-perfil').onclick = () => editarPerfil();
+    $$('[data-op]').forEach(b => b.onclick = () => editarOp(b.dataset.op));
+    $$('[data-perfil]').forEach(b => b.onclick = () => editarPerfil(b.dataset.perfil));
   };
   /* ---------- arranque ---------- */
   async function iniciar() {
