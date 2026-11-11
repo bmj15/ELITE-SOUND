@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="/SISTEMAS/site/pais.js?v=2"></script>
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=12">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=13">
 <script>if (/^\/empresas/.test((window.BXB_CAMINHO || location.pathname))) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
@@ -16,7 +16,7 @@
 <script src="/SISTEMAS/site/artigos.js?v=7"></script>
 <script src="/SISTEMAS/site/ajuda.js?v=4"></script>
 <script>if (document.documentElement.dataset.seg) { document.body.dataset.seg = 'empresa'; document.title = 'BXB Empresas · Pagamentos autorizados e tesouraria'; }</script>
-<script src="/SISTEMAS/site/site.js?v=4"></script>
+<script src="/SISTEMAS/site/site.js?v=5"></script>
 <script>
 (function () {
   'use strict';
@@ -335,7 +335,7 @@
     var a = e.target.closest('a[href*="#"]'); if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return;
     var u = new URL(a.href, location.href); if (u.pathname !== location.pathname || !u.hash) return;
     var el = document.getElementById(u.hash.slice(1)), k = el ? secDe(el) : -1; if (k < 0) return;
-    e.preventDefault(); history.replaceState(null, '', u.hash); document.querySelectorAll('.painel.on').forEach(function (x) { x.classList.remove('on'); }); irSeg(k);
+    e.preventDefault(); history.replaceState(null, '', u.hash); document.querySelectorAll('.painel.on, .sub-m.on').forEach(function (x) { x.classList.remove('on'); }); irSeg(k);
   }, true);
 
   // ---------- carrossel ----------

@@ -44,10 +44,10 @@ var artigosDe = function (cats) { var A = window.ARTIGOS || []; return A.filter(
 var ENT = '/SISTEMAS/entrar.html', abrir = ENT + '?criar=1&tipo=' + seg;
 
 var fora = pagina === 'artigos' || pagina === 'ajuda' || pagina === 'simuladores';
-var lsg = function (href, txt, on) { return '<a href="' + href + '"' + (on ? ' class="on"' : '') + '>' + txt + '</a>'; };
-var segs = lsg('/', 'Particulares', seg === 'particular' && !fora) + lsg('/empresas', 'Empresas', seg === 'empresa' && !fora) + lsg('/artigos', 'Artigos', pagina === 'artigos') + lsg('/simuladores', 'Simuladores', pagina === 'simuladores') + lsg('/ajuda', 'Ajuda', pagina === 'ajuda');
 var chev = '<svg width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>';
-var mega = M.map(function (m) { return '<button type="button" data-m="' + m.id + '">' + m.nome + chev + '</button>'; }).join('');
+var lsg = function (href, txt, on) { return '<a href="' + href + '"' + (on ? ' class="on"' : '') + '>' + txt + '</a>'; };
+var lsd = function (href, txt, on, k) { return '<a href="' + href + '" data-sd="' + k + '" aria-haspopup="true"' + (on ? ' class="on"' : '') + '>' + txt + chev + '</a>'; };
+var segs = lsd('/', 'Particulares', seg === 'particular' && !fora, 'particular') + lsd('/empresas', 'Empresas', seg === 'empresa' && !fora, 'empresa') + lsg('/artigos', 'Artigos', pagina === 'artigos') + lsg('/simuladores', 'Simuladores', pagina === 'simuladores') + lsg('/ajuda', 'Ajuda', pagina === 'ajuda');
 var BAND = {
   br: '<svg viewBox="0 0 28 20" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="28" height="20" fill="#009c3b"/><path d="M14 2.4 25.6 10 14 17.6 2.4 10z" fill="#ffdf00"/><circle cx="14" cy="10" r="4.7" fill="#002776"/><path d="M9.5 9.2c3-.7 6.2-.2 9 1.3" stroke="#fff" stroke-width="1" fill="none"/></svg>',
   pt: '<svg viewBox="0 0 30 20" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="30" height="20" fill="#da291c"/><rect width="12" height="20" fill="#046a38"/><circle cx="12" cy="10" r="4.4" fill="none" stroke="#ffe900" stroke-width="1.5"/><path d="M10.3 7.7h3.4v3.3a1.7 1.7 0 0 1-3.4 0z" fill="#fff" stroke="#da291c" stroke-width=".7"/></svg>'
@@ -60,14 +60,14 @@ var dropEnt = '<div class="drop-ent" id="dropEnt"><h6>Entrar na sua área</h6>' 
   '<a class="op" href="' + ENT + '?tipo=empresa"><i>' + ic('i-carteira', 18) + '</i><div><b>Empresas</b><span>' + T('Pagamentos, tesouraria e equipa', 'Pagamentos, fluxo de caixa e equipe') + '</span></div></a>' +
   '<div class="rod-d">Ainda não é cliente? <a href="' + abrir + '">Abrir conta</a></div></div>';
 var acoes = '<div class="acoes" id="acoes"><button class="btn btn-o" type="button" id="bEnt">' + ic('i-cad', 16) + 'Entrar' + chev + '</button><a class="btn btn-p" href="' + abrir + '" data-abr>Abrir conta</a>' + dropEnt + '</div>';
-var paineis = M.map(function (m) {
-  var ler = artigosDe(m.cats);
-  return '<div class="painel" data-p-m="' + m.id + '"><div class="wrap">' +
-    '<div><h5>' + m.nome + '</h5><ul>' + m.sol.map(function (x) { return '<li><a href="' + x[0] + '">' + x[1] + '<small>' + x[2] + '</small></a></li>'; }).join('') + '</ul></div>' +
-    '<div><h5>Ferramentas e guias</h5><ul>' + m.fer.map(function (x) { return '<li><a href="' + x[0] + '">' + x[1] + '</a></li>'; }).join('') + '</ul></div>' +
-    '<div class="ler"><h5>Leituras úteis</h5><ul>' + ler.map(function (a) { return '<li><a href="/artigos/' + a.id + '">' + esc(a.titulo) + '</a></li>'; }).join('') + '</ul><a class="ver" href="/artigos?c=' + m.cats[0] + '">Ver artigos ›</a></div>' +
-    '<div class="promo"><b>' + (seg === 'empresa' ? 'Controlo sobre cada pagamento' : T('O seu plano em 1 minuto', 'Seu plano em 1 minuto')) + '</b><p>' + (seg === 'empresa' ? 'Abra a área da empresa e convide a equipa.' : T('Crie a conta e veja já o seu mês.', 'Crie a conta e veja agora o seu mês.')) + '</p><a class="btn btn-p" href="' + abrir + '" data-abr>Abrir conta</a></div>' +
-    '</div></div>';
+var ICM = { planear: 'i-graf', dividas: 'i-cartao', poupanca: 'i-alvo', impostos: 'i-recibo', partilhar: 'i-pessoas', pagamentos: 'i-chave', tesouraria: 'i-carteira', resultados: 'i-carrinho', equipa: 'i-pessoas' };
+var subM = ['particular', 'empresa'].map(function (k) {
+  var L = MENU[k], emp = k === 'empresa', ab = ENT + '?criar=1&tipo=' + k;
+  return '<div class="sub-m" data-sm="' + k + '"><div class="wrap"><div class="sub-g" style="--n:' + L.length + '">' + L.map(function (m) {
+    return '<div class="sub-c"><h5><i>' + ic(ICM[m.id] || 'i-graf', 16) + '</i>' + m.nome + '</h5><ul>' + m.sol.map(function (x) { return '<li><a href="' + x[0] + '">' + x[1] + '<small>' + x[2] + '</small></a></li>'; }).join('') + '</ul>' +
+      '<ul class="fer">' + m.fer.map(function (x) { return '<li><a href="' + x[0] + '">' + x[1] + '</a></li>'; }).join('') + '</ul></div>'; }).join('') + '</div>' +
+    '<div class="sub-p"><span class="et">' + (emp ? 'Empresas' : 'Particulares') + '</span><b>' + (emp ? T('Controlo sobre cada pagamento', 'Controle sobre cada pagamento') : T('O seu plano em 1 minuto', 'Seu plano em 1 minuto')) + '</b><p>' + (emp ? T('Abra a área da empresa e convide a equipa.', 'Abra a área da empresa e convide a equipe.') : T('Crie a conta e veja já o seu mês.', 'Crie a conta e veja agora o seu mês.')) + '</p>' +
+    '<a class="btn btn-p" href="' + ab + '">Abrir conta</a><a class="lk" href="' + (emp ? '/empresas' : '/') + '">' + (emp ? 'Ver a página de empresas' : 'Ver a página de particulares') + ' ›</a></div></div></div>';
 }).join('');
 var menuM = '<div class="menu-m" id="menuM"><div class="sg">' + lsg('/', 'Particulares', seg === 'particular') + lsg('/empresas', 'Empresas', seg === 'empresa') + '</div>' +
   M.map(function (m) { return '<details><summary>' + m.nome + '</summary>' + m.sol.concat(m.fer).map(function (x) { return '<a href="' + x[0] + '">' + x[1] + '</a>'; }).join('') + '</details>'; }).join('') +
@@ -78,8 +78,7 @@ var aviso = avisoFechado ? '' : '<div class="aviso" id="aviso"><div class="wrap"
 var cab = aviso + '<header class="nav" id="nav"><div class="wrap barra"><a class="marca" href="' + casa + '"><b>BXB</b>BXB</a><nav class="segs">' + segs + '</nav>' +
   '<button type="button" class="eu-quero" id="bPesq" aria-label="Pesquisar">' + ic('i-lupa', 17) + '<span>Eu quero…</span></button>' + acoes +
   paisB + '<button class="ic-m pq" id="bPesqM" aria-label="Pesquisar">' + ic('i-lupa', 19) + '</button><button class="ic-m" id="hamb" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>' +
-  '<div class="temas-b"><div class="wrap"><nav class="mega" id="mega">' + mega + '</nav></div></div>' +
-  paineis + menuM + '</header>';
+  subM + menuM + '</header>';
 
 var col = function (t, l) { return '<div><h4>' + t + '</h4><ul>' + l.map(function (x) { return '<li><a href="' + x[0] + '">' + x[1] + '</a></li>'; }).join('') + '</ul></div>'; };
 var rod = '<footer><div class="wrap">' +
@@ -97,7 +96,24 @@ document.body.insertAdjacentHTML('beforeend', rod + pesq);
 
 // menus
 var nav = document.getElementById('nav'), mm = document.getElementById('menuM'), dEnt = document.getElementById('dropEnt');
-function fechar() { document.querySelectorAll('.painel.on,[data-m].on,.pais-m.on').forEach(function (e) { e.classList.remove('on'); }); dEnt.classList.remove('on'); }
+function fechar() { document.querySelectorAll('.painel.on,[data-m].on,.pais-m.on').forEach(function (e) { e.classList.remove('on'); }); dEnt.classList.remove('on'); abrirSub(null); }
+var tSub = null;
+function abrirSub(k) { clearTimeout(tSub);
+  document.querySelectorAll('.sub-m').forEach(function (p) { p.classList.toggle('on', p.dataset.sm === k); });
+  document.querySelectorAll('[data-sd]').forEach(function (a) { var on = a.dataset.sd === k; a.classList.toggle('ab', on); a.setAttribute('aria-expanded', on); }); }
+function fecharSub(ms) { clearTimeout(tSub); tSub = setTimeout(function () { abrirSub(null); }, ms || 0); }
+document.querySelectorAll('[data-sd]').forEach(function (a) {
+  a.addEventListener('mouseenter', function () { if (!a.classList.contains('ab')) { document.querySelectorAll('.pais-m.on').forEach(function (e) { e.classList.remove('on'); }); dEnt.classList.remove('on'); } abrirSub(a.dataset.sd); });
+  a.addEventListener('mouseleave', function () { fecharSub(220); });
+  a.addEventListener('focus', function () { abrirSub(a.dataset.sd); });
+  a.addEventListener('keydown', function (e) { if (e.key === 'ArrowDown') { e.preventDefault(); abrirSub(a.dataset.sd); var l = document.querySelector('.sub-m.on a'); if (l) l.focus(); } });
+});
+document.querySelectorAll('.sub-m').forEach(function (p) {
+  p.addEventListener('mouseenter', function () { clearTimeout(tSub); });
+  p.addEventListener('mouseleave', function () { fecharSub(220); });
+  p.addEventListener('focusout', function (e) { var r = e.relatedTarget; if (!r || (!p.contains(r) && !(r.dataset && r.dataset.sd))) fecharSub(0); });
+});
+addEventListener('wheel', function () { if (document.querySelector('.sub-m.on')) fecharSub(0); }, { passive: true });
 document.querySelectorAll('[data-m]').forEach(function (b) {
   b.onclick = function (e) { e.stopPropagation(); var on = b.classList.contains('on'); fechar(); if (!on) { b.classList.add('on'); document.querySelector('[data-p-m="' + b.dataset.m + '"]').classList.add('on'); } };
 });
@@ -105,7 +121,7 @@ var mP = document.getElementById('mPais');
 document.getElementById('bPais').onclick = function (e) { e.stopPropagation(); var on = mP.classList.contains('on'); fechar(); if (!on) mP.classList.add('on'); };
 mP.onclick = function (e) { var b = e.target.closest('[data-pais]'); if (!b) return; if (b.dataset.pais === pais) return fechar(); if (window.BXB_MUDAR_PAIS) BXB_MUDAR_PAIS(b.dataset.pais); };
 document.getElementById('bEnt').onclick = function (e) { e.stopPropagation(); var on = dEnt.classList.contains('on'); fechar(); if (!on) dEnt.classList.add('on'); };
-nav.addEventListener('click', function (e) { if (e.target.closest('.painel a,.drop-ent a,.menu-m a')) { fechar(); mm.classList.remove('on'); } });
+nav.addEventListener('click', function (e) { if (e.target.closest('.painel a,.sub-m a,.drop-ent a,.menu-m a')) { fechar(); mm.classList.remove('on'); } });
 document.addEventListener('click', function (e) { if (!e.target.closest('.painel,.drop-ent,.pais-m')) fechar(); });
 document.getElementById('hamb').onclick = function () { mm.classList.toggle('on'); };
 addEventListener('keydown', function (e) { if (e.key === 'Escape') { fechar(); fecharPesq(); } });

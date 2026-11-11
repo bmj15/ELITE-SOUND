@@ -682,3 +682,29 @@ a:hover .capa.foto-a img{transform:scale(1.07)}
 @media (max-width:980px){.pais-w{margin-left:auto;margin-right:2px}.pais-b{width:36px;height:36px}.pais-w+.ic-m.pq{margin-left:0}}
 /* ilustração do slide: escala e centragem calculadas em inicio.html (ajustarArte) para nunca ficar cortada */
 @media (min-width:901px){.slide .arte{transform-origin:right center;transform:translateY(var(--dy,0px)) scale(var(--esc,1))}}
+
+/* submenus de Particulares e Empresas (substituem a segunda barra): abrem ao passar o rato, com desvanecimento */
+.segs a[data-sd] svg{margin-left:6px;opacity:.55;transition:transform .25s,opacity .2s}
+.segs a[data-sd].ab{color:var(--text)}.segs a[data-sd].ab svg{transform:rotate(180deg);opacity:.9}
+.sub-m{position:absolute;left:0;right:0;top:100%;z-index:60;background:linear-gradient(180deg,rgba(13,16,24,.985),rgba(9,11,17,.985));border-bottom:1px solid rgba(255,255,255,.07);box-shadow:0 60px 90px -40px rgba(0,0,0,.95);opacity:0;visibility:hidden;pointer-events:none;filter:blur(6px);transition:opacity .22s ease,filter .26s ease,visibility 0s .26s}
+.sub-m.on{opacity:1;visibility:visible;pointer-events:auto;filter:none;transition:opacity .22s ease,filter .26s ease}
+.sub-m:before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(167,139,250,.55),rgba(34,211,238,.45),transparent)}
+.sub-m .wrap{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:40px;padding-top:30px;padding-bottom:32px}
+.sub-g{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:28px}
+.sub-c h5{display:flex;align-items:center;gap:10px;margin:0 0 12px;font-size:14.5px;font-weight:700;letter-spacing:-.01em;color:var(--text)}
+.sub-c h5 i{flex:none;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:#d8ccff;background:linear-gradient(135deg,rgba(139,92,246,.35),rgba(34,211,238,.18));border:1px solid rgba(167,139,250,.3)}
+.sub-c ul{list-style:none;margin:0;padding:0}
+.sub-c li a{display:block;padding:8px 10px;margin:0 -10px;border-radius:12px;color:var(--text);font-weight:600;font-size:14px;line-height:1.3;transition:background .15s}
+.sub-c li a:hover,.sub-c li a:focus-visible{background:rgba(255,255,255,.055)}
+.sub-c li a small{display:block;margin-top:3px;color:var(--muted);font-weight:400;font-size:12.5px;line-height:1.4}
+.sub-c .fer{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07)}
+.sub-c .fer a{font-weight:500;font-size:13px;color:var(--roxo2);padding:6px 10px}
+.sub-p{align-self:start;display:flex;flex-direction:column;gap:8px;padding:22px;border-radius:22px;background:radial-gradient(120% 90% at 100% 0%,rgba(34,211,238,.28),transparent 60%),linear-gradient(140deg,rgba(139,92,246,.62),rgba(99,102,241,.36));border:1px solid rgba(196,181,253,.34);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 24px 50px -28px rgba(139,92,246,.9)}
+.sub-p .et{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#e9e3ff;opacity:.8}
+.sub-p b{font-size:19px;letter-spacing:-.02em;line-height:1.2}
+.sub-p p{margin:0 0 6px;color:#ece8ff;font-size:14px}
+.sub-p .btn{align-self:flex-start}
+.sub-p .lk{margin-top:4px;color:#fff;font-weight:600;font-size:13.5px;opacity:.85}.sub-p .lk:hover{opacity:1}
+@media (max-width:1280px){.sub-m .wrap{grid-template-columns:1fr}.sub-p{display:none}}
+@media (max-width:980px){.sub-m{display:none!important}}
+@media (prefers-reduced-motion:reduce){.sub-m,.sub-m.on{transition:none;filter:none}}
