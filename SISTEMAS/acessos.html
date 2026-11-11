@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Acessos ao servidor · Grupo BXB</title>
-<script src="shared/servidor-dados.js?v=3"></script>
+<script src="shared/servidor-dados.js?v=4"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/spap.css?v=29">
@@ -55,8 +55,8 @@
     api('GET', '/api/contas').then(function (r) {
       if (!r.ok) { c.innerHTML = '<div class="alert bad"><div>' + esc(r.j.erro) + '</div></div>'; return; }
       var nomeSis = function (k) { var s = sistemas.find(function (x) { return x.key === k; }); return s ? s.nome : k; };
-      c.innerHTML = '<div class="card flush"><div class="card-h"><h3>Contas</h3><button class="btn sm primary" id="nova">+ Nova conta</button></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Utilizador</th><th>Acesso</th><th></th></tr></thead><tbody>' +
-        r.j.map(function (x) { return '<tr><td><b>' + esc(x.nome) + '</b></td><td class="mono">' + esc(x.utilizador) + '</td><td>' + (x.admin || x.sistemas.indexOf('*') >= 0 ? '<span class="badge acc">administrador · todos os sistemas</span>' : x.sistemas.map(function (k) { return '<span class="badge plain" style="margin:2px">' + esc(nomeSis(k)) + '</span>'; }).join('') || '<span class="faint">nenhum</span>') + '</td><td class="r"><button class="btn sm" data-ed="' + x.id + '">Editar</button>' + (x.id !== S.sessao.id ? ' <button class="btn sm ghost" data-rm="' + x.id + '">Remover</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div></div><div id="form"></div>';
+      c.innerHTML = '<div class="card flush"><div class="card-h"><h3>Contas</h3><button class="btn sm primary" id="nova">+ Nova conta</button></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Email · utilizador</th><th>Acesso</th><th></th></tr></thead><tbody>' +
+        r.j.map(function (x) { return '<tr><td><b>' + esc(x.nome) + '</b>' + (x.tipo ? ' <span class="badge plain">' + (x.tipo === 'empresa' ? 'Empresa' : 'Particular') + '</span>' : '') + '</td><td class="mono">' + esc(x.email || '—') + (x.utilizador && x.utilizador !== x.email ? '<div class="faint">' + esc(x.utilizador) + '</div>' : '') + '</td><td>' + (x.admin || x.sistemas.indexOf('*') >= 0 ? '<span class="badge acc">administrador · todos os sistemas</span>' : x.sistemas.map(function (k) { return '<span class="badge plain" style="margin:2px">' + esc(nomeSis(k)) + '</span>'; }).join('') || '<span class="faint">nenhum</span>') + '</td><td class="r"><button class="btn sm" data-ed="' + x.id + '">Editar</button>' + (x.id !== S.sessao.id ? ' <button class="btn sm ghost" data-rm="' + x.id + '">Remover</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div></div><div id="form"></div>';
       document.getElementById('nova').onclick = function () { form(null); };
       c.querySelectorAll('[data-ed]').forEach(function (b) { b.onclick = function () { form(r.j.find(function (x) { return x.id === b.dataset.ed; })); }; });
       c.querySelectorAll('[data-rm]').forEach(function (b) { b.onclick = function () { if (confirm('Remover esta conta? Deixa de conseguir entrar no servidor.')) api('DELETE', '/api/contas/' + b.dataset.rm).then(carregar); }; });
@@ -83,17 +83,18 @@
     });
   }
   function form(x) {
-    var novo = !x; x = x || { nome: '', utilizador: '', admin: false, sistemas: [] };
+    var novo = !x; x = x || { nome: '', utilizador: '', email: '', admin: false, sistemas: [] };
     var f = document.getElementById('form');
     f.innerHTML = '<div class="card" style="margin-top:16px"><div class="card-h"><h3>' + (novo ? 'Nova conta' : 'Editar ' + esc(x.nome)) + '</h3></div><form class="form" id="fc">' +
       '<div class="fld"><label>Nome</label><input class="inp" name="nome" value="' + esc(x.nome) + '"></div><div class="fld"><label>Utilizador</label><input class="inp mono" name="utilizador" value="' + esc(x.utilizador) + '"></div>' +
+      '<div class="fld"><label>Email (para entrar no site)</label><input class="inp mono" type="email" name="email" value="' + esc(x.email || '') + '"></div>' +
       '<div class="fld"><label>Palavra-passe' + (novo ? ' (mín. 8)' : ' (deixe vazio para manter)') + '</label><input class="inp" type="password" name="palavra" autocomplete="new-password"></div>' +
       '<div class="fld"><label>&nbsp;</label><label class="check"><input type="checkbox" name="admin" ' + (x.admin ? 'checked' : '') + '> Administrador (todos os sistemas e gestão de contas)</label></div>' +
       '<div class="fld full"><label>Sistemas a que tem acesso</label><div class="stack" style="gap:6px">' + sistemas.map(function (s) { return '<label class="check"><input type="checkbox" data-sis="' + esc(s.key) + '" ' + (x.sistemas.indexOf(s.key) >= 0 ? 'checked' : '') + '> ' + esc(s.nome) + '</label>'; }).join('') + '</div><span class="hint">Os planos pessoais são privados: dê a cada pessoa só o seu plano e os sistemas partilhados (ex.: a Casa).</span></div>' +
       '<div class="fld full"><button class="btn primary" type="submit">Guardar</button> <button class="btn ghost" type="button" id="cx">Cancelar</button> <span id="em"></span></div></form></div>';
     document.getElementById('cx').onclick = function () { f.innerHTML = ''; };
     document.getElementById('fc').onsubmit = function (e) { e.preventDefault(); var d = Object.fromEntries(new FormData(e.target));
-      var corpo = { id: x.id, nome: d.nome, utilizador: d.utilizador, palavra: d.palavra || undefined, admin: !!e.target.admin.checked, sistemas: Array.prototype.map.call(e.target.querySelectorAll('[data-sis]:checked'), function (i) { return i.dataset.sis; }) };
+      var corpo = { id: x.id, nome: d.nome, utilizador: d.utilizador, email: d.email, palavra: d.palavra || undefined, admin: !!e.target.admin.checked, sistemas: Array.prototype.map.call(e.target.querySelectorAll('[data-sis]:checked'), function (i) { return i.dataset.sis; }) };
       api('POST', '/api/contas', corpo).then(function (r) { if (!r.ok) { document.getElementById('em').textContent = r.j.erro; return; } carregar(); }); };
   }
 })();

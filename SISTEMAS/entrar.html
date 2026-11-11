@@ -3,51 +3,129 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Entrar · Grupo BXB</title>
-<script src="shared/servidor-dados.js?v=1"></script>
+<title>Entrar · BXB</title>
+<script src="shared/servidor-dados.js?v=4"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="shared/spap.css?v=29">
+<link rel="stylesheet" href="shared/spap.css?v=45">
 <style>
-  body{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(60% 50% at 20% 20%,rgba(139,92,246,.18),transparent 60%),radial-gradient(60% 50% at 80% 80%,rgba(201,162,39,.16),transparent 60%),var(--bg)}
-  .caixa{width:min(440px,100%)}
-  h1{font-size:30px;letter-spacing:-1px;margin:0 0 6px}
+  body{min-height:100vh;margin:0;display:flex;flex-direction:column;background:radial-gradient(55% 45% at 15% 10%,rgba(139,92,246,.20),transparent 60%),radial-gradient(50% 45% at 90% 90%,rgba(34,211,238,.12),transparent 60%),var(--bg)}
+  .topo{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px clamp(16px,4vw,48px)}
+  .marca{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.3px;color:var(--text);text-decoration:none}
+  .marca i{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-style:normal;font-size:13px;background:linear-gradient(135deg,#8b5cf6,#22d3ee);color:#fff}
+  .topo nav{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
+  .topo nav button{border:0;background:none;color:var(--muted);font:600 14px Inter,system-ui,sans-serif;padding:8px 14px;border-radius:9px;cursor:pointer}
+  .topo nav button.on{background:var(--panel3);color:var(--text)}
+  main{flex:1;display:grid;grid-template-columns:1.1fr minmax(340px,440px);gap:clamp(24px,5vw,72px);align-items:center;padding:12px clamp(16px,4vw,48px) 40px;max-width:1200px;width:100%;margin:0 auto;box-sizing:border-box}
+  .heroi h1{font-size:clamp(32px,4.6vw,54px);line-height:1.05;letter-spacing:-1.6px;margin:0 0 16px}
+  .heroi h1 span{background:linear-gradient(90deg,#a78bfa,#22d3ee);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .heroi p{color:var(--muted);font-size:17px;line-height:1.55;max-width:520px;margin:0 0 26px}
+  .pontos{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:560px}
+  .pontos div{display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);font-size:14px}
+  .pontos svg{flex:none;color:#a78bfa}
+  .caixa{padding:28px;border-radius:22px;background:var(--panel);border:1px solid var(--line2);box-shadow:0 30px 80px rgba(0,0,0,.35)}
+  .caixa h2{margin:0 0 4px;font-size:24px;letter-spacing:-.5px}
+  .caixa .sub2{color:var(--muted);margin:0 0 20px;font-size:14px}
+  .seg{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:12px;background:var(--panel2);margin:0 0 20px}
+  .seg button{border:0;background:none;color:var(--muted);font:600 14px Inter,system-ui,sans-serif;padding:10px;border-radius:9px;cursor:pointer}
+  .seg button.on{background:var(--panel3);color:var(--text);box-shadow:0 1px 0 rgba(255,255,255,.04)}
+  .fl{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+  .fl label{font-size:13px;font-weight:600;color:var(--muted)}
+  .fl .inp{padding:12px 14px;font-size:15px}
+  .pw{position:relative}.pw .inp{width:100%;box-sizing:border-box;padding-right:64px}
+  .pw button{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);font:600 12px Inter,system-ui,sans-serif;cursor:pointer;padding:6px}
+  .principal{width:100%;justify-content:center;padding:13px;font-size:15px;margin-top:4px}
+  .linha{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:16px;font-size:14px;color:var(--muted)}
+  .linha a{color:#a78bfa;font-weight:600;text-decoration:none;cursor:pointer}
+  .dois{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .nota{font-size:12px;color:var(--faint);margin-top:14px;line-height:1.5}
+  footer{padding:18px clamp(16px,4vw,48px);color:var(--faint);font-size:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  @media (max-width:900px){main{grid-template-columns:1fr}.heroi{display:none}}
+  @media (max-width:480px){.topo nav{display:none}.caixa{padding:22px 18px;border-radius:18px}.dois{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<div class="caixa card">
-  <div class="muted" style="letter-spacing:.14em;font-size:12px;text-transform:uppercase">Servidor do Grupo BXB</div>
-  <div id="c"></div>
-</div>
+<header class="topo">
+  <a class="marca" href="entrar.html"><i>BXB</i>BXB</a>
+  <nav id="navt"><button type="button" data-t="particular" class="on">Particulares</button><button type="button" data-t="empresa">Empresas</button></nav>
+</header>
+<main>
+  <section class="heroi" id="heroi"></section>
+  <section class="caixa" id="c"></section>
+</main>
+<footer><span>© BXB</span><span>Ligação segura · cada conta só vê os seus dados</span></footer>
 <script>
 (function () {
   'use strict';
-  var S = window.BXBServidor || {}, c = document.getElementById('c');
-  var voltar = new URLSearchParams(location.search).get('voltar') || '/SISTEMAS/index.html';
+  var S = window.BXBServidor || {}, c = document.getElementById('c'), heroi = document.getElementById('heroi');
+  var q = new URLSearchParams(location.search), voltar = q.get('voltar') || '/SISTEMAS/index.html';
   if (!/^\/[^/]/.test(voltar)) voltar = '/SISTEMAS/index.html';
+  var tipo = q.get('tipo') === 'empresa' ? 'empresa' : 'particular', vista = q.get('criar') ? 'criar' : 'entrar';
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (x) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x]; }); };
-  function post(url, corpo) { return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-BXB': '1' }, body: JSON.stringify(corpo) }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }); }
-  function erro(t) { var e = document.getElementById('erro'); e.innerHTML = t ? '<div class="alert bad" style="margin-top:12px"><div>' + esc(t) + '</div></div>' : ''; }
+  function post(url, corpo) { return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-BXB': '1' }, body: JSON.stringify(corpo) }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); }, function () { return { ok: false, j: { erro: 'Sem ligação ao servidor' } }; }); }
+  function erro(t) { var e = document.getElementById('erro'); if (e) e.innerHTML = t ? '<div class="alert bad" style="margin-top:14px"><div>' + esc(t) + '</div></div>' : ''; }
+  var ic = function (d) { return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>'; };
+  var TXT = {
+    particular: { h: 'As suas finanças, <span>sob controlo</span>.', p: 'Rendimentos, despesas, dívidas e objetivos num só lugar, com a projeção do ano e o que pode poupar todos os meses.',
+      pts: [['<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>', 'Projeção do ano'], ['<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>', 'Dívidas e cartões'], ['<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>', 'Objetivos e poupança'], ['<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>', 'Despesas partilhadas']] },
+    empresa: { h: 'A tesouraria da empresa, <span>com assinatura</span>.', p: 'Pagamentos com autorização e alçadas, vendas, comissões, orçamentos e relatórios, com cada ato assinado e registado.',
+      pts: [['<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', 'Autorizações e alçadas'], ['<path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/>', 'Saldos em tempo real'], ['<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>', 'Vendas e resultados'], ['<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>', 'Auditoria encadeada']] } };
+  function pintarHeroi() { var t = TXT[tipo];
+    heroi.innerHTML = '<h1>' + t.h + '</h1><p>' + t.p + '</p><div class="pontos">' + t.pts.map(function (x) { return '<div>' + ic(x[0]) + '<span>' + x[1] + '</span></div>'; }).join('') + '</div>'; }
+  function mudarTipo(t) { tipo = t; document.querySelectorAll('[data-t]').forEach(function (b) { b.classList.toggle('on', b.dataset.t === tipo); }); pintarHeroi(); pintar(); }
+  document.querySelectorAll('#navt [data-t]').forEach(function (b) { b.onclick = function () { mudarTipo(b.dataset.t); }; });
+  var seg = function () { return '<div class="seg"><button type="button" data-t="particular" class="' + (tipo === 'particular' ? 'on' : '') + '">Particulares</button><button type="button" data-t="empresa" class="' + (tipo === 'empresa' ? 'on' : '') + '">Empresas</button></div>'; };
+  var campo = function (rot, nome, extra) { return '<div class="fl"><label>' + rot + '</label><input class="inp" name="' + nome + '" ' + (extra || '') + '></div>'; };
+  var senha = function (rot, nome, auto) { return '<div class="fl"><label>' + rot + '</label><div class="pw"><input class="inp" type="password" name="' + nome + '" autocomplete="' + auto + '" required><button type="button" data-ver>Mostrar</button></div></div>'; };
+  function ligar() {
+    c.querySelectorAll('.seg [data-t]').forEach(function (b) { b.onclick = function () { mudarTipo(b.dataset.t); }; });
+    c.querySelectorAll('[data-ver]').forEach(function (b) { b.onclick = function () { var i = b.previousElementSibling, v = i.type === 'password'; i.type = v ? 'text' : 'password'; b.textContent = v ? 'Esconder' : 'Mostrar'; }; });
+    c.querySelectorAll('[data-vista]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); vista = a.dataset.vista; pintar(); }; });
+  }
+  function pintar() {
+    if (vista === 'criar') {
+      c.innerHTML = '<h2>Criar conta</h2><p class="sub2">' + (tipo === 'empresa' ? 'Abre já o sistema da sua empresa.' : 'Abre já o seu plano pessoal.') + '</p>' + seg() +
+        '<form id="f" autocomplete="on">' + (tipo === 'empresa' ? '<div class="dois">' + campo('Nome da empresa', 'empresa', 'required autocomplete="organization"') + campo('NIF (opcional)', 'nif', 'inputmode="numeric" maxlength="9"') + '</div>' : '') +
+        campo(tipo === 'empresa' ? 'O seu nome' : 'Nome', 'nome', 'required autocomplete="name"') + campo('Email', 'email', 'type="email" required autocomplete="email"') +
+        senha('Palavra-passe (mín. 8 caracteres)', 'palavra', 'new-password') + senha('Repetir palavra-passe', 'palavra2', 'new-password') +
+        '<button class="btn primary principal" type="submit">Criar conta</button></form><div id="erro"></div>' +
+        '<div class="linha"><span>Já tem conta?</span><a data-vista="entrar">Entrar</a></div>' +
+        '<div class="nota">No primeiro acesso ao sistema escolhe um PIN: é pedido para entrar no sistema e para assinar cada operação.</div>';
+      ligar();
+      document.getElementById('f').onsubmit = function (e) { e.preventDefault(); var f = Object.fromEntries(new FormData(e.target)); erro('');
+        if (f.palavra !== f.palavra2) return erro('As palavras-passe não coincidem');
+        var b = e.target.querySelector('[type=submit]'); b.disabled = true;
+        post('/api/registar', { tipo: tipo, nome: f.nome, email: f.email, palavra: f.palavra, empresa: f.empresa, nif: f.nif }).then(function (r) { b.disabled = false; if (!r.ok) return erro(r.j.erro || 'Não foi possível criar a conta'); location.replace(r.j.destino || voltar); }); };
+      return;
+    }
+    c.innerHTML = '<h2>Entrar</h2><p class="sub2">' + (tipo === 'empresa' ? 'Área de empresas' : 'Área de particulares') + '</p>' + seg() +
+      '<form id="f" autocomplete="on">' + campo('Email', 'email', 'type="text" required autocomplete="username" autofocus') + senha('Palavra-passe', 'palavra', 'current-password') +
+      '<button class="btn primary principal" type="submit">Entrar</button></form><div id="erro"></div>' +
+      '<div class="linha"><a data-vista="esqueci">Esqueci-me da palavra-passe</a><a data-vista="criar">Criar conta</a></div>';
+    ligar();
+    var esq = c.querySelector('[data-vista="esqueci"]'); esq.onclick = function (e) { e.preventDefault(); erro(''); document.getElementById('erro').innerHTML = '<div class="alert info" style="margin-top:14px"><div>Peça ao apoio BXB para redefinir a palavra-passe. Por segurança, não é enviada por email.</div></div>'; };
+    document.getElementById('f').onsubmit = function (e) { e.preventDefault(); var f = Object.fromEntries(new FormData(e.target)); erro('');
+      var b = e.target.querySelector('[type=submit]'); b.disabled = true;
+      post('/api/entrar', { email: f.email, palavra: f.palavra, tipo: tipo }).then(function (r) { b.disabled = false; if (!r.ok) return erro(r.j.erro || 'Não foi possível entrar'); location.replace(voltar); }); };
+  }
+  pintarHeroi();
+  document.querySelectorAll('#navt [data-t]').forEach(function (b) { b.classList.toggle('on', b.dataset.t === tipo); });
   if (S.sessao) {
-    c.innerHTML = '<h1>Olá, ' + esc(S.sessao.nome.split(' ')[0]) + '</h1><p class="muted">Já tem sessão iniciada no servidor.</p><div class="row" style="gap:8px;margin-top:16px"><a class="btn primary" href="' + esc(voltar) + '">Continuar</a><button class="btn" id="sair">Sair</button></div>';
+    c.innerHTML = '<h2>Olá, ' + esc(String(S.sessao.nome || '').split(' ')[0]) + '</h2><p class="sub2">Já tem sessão iniciada.</p><button class="btn primary principal" id="cont">Continuar</button><div class="linha"><span>' + esc(S.sessao.email || S.sessao.utilizador || '') + '</span><a id="sair">Sair</a></div>';
+    document.getElementById('cont').onclick = function () { location.replace(voltar); };
     document.getElementById('sair').onclick = function () { post('/api/sair', {}).then(function () { location.reload(); }); };
     return;
   }
   if (S.configurado === false) {
-    c.innerHTML = '<h1>Configurar o servidor</h1><p class="muted">Crie a conta de administrador. Depois pode criar as contas das outras pessoas e escolher os sistemas a que cada uma tem acesso.</p>' +
-      '<form class="form" id="f"><div class="fld full"><label>Nome</label><input class="inp" name="nome" required></div><div class="fld full"><label>Utilizador</label><input class="inp" name="utilizador" autocomplete="username" required></div>' +
-      '<div class="fld full"><label>Palavra-passe (mín. 8 caracteres)</label><input class="inp" type="password" name="palavra" autocomplete="new-password" required></div><div class="fld full"><label>Repetir palavra-passe</label><input class="inp" type="password" name="palavra2" autocomplete="new-password" required></div>' +
-      '<div class="fld full"><button class="btn primary" type="submit">Criar conta e entrar</button></div></form><div id="erro"></div>';
+    c.innerHTML = '<h2>Configurar o servidor</h2><p class="sub2">Crie a conta de administrador.</p><form id="f">' + campo('Nome', 'nome', 'required') + campo('Email', 'email', 'type="email" required autocomplete="email"') +
+      senha('Palavra-passe (mín. 8 caracteres)', 'palavra', 'new-password') + senha('Repetir palavra-passe', 'palavra2', 'new-password') + '<button class="btn primary principal" type="submit">Criar conta e entrar</button></form><div id="erro"></div>';
+    ligar();
     document.getElementById('f').onsubmit = function (e) { e.preventDefault(); var f = Object.fromEntries(new FormData(e.target));
       if (f.palavra !== f.palavra2) return erro('As palavras-passe não coincidem');
-      post('/api/configurar', { nome: f.nome, utilizador: f.utilizador, palavra: f.palavra }).then(function (r) { if (!r.ok) return erro(r.j.erro); location.replace(voltar); }); };
+      post('/api/configurar', { nome: f.nome, utilizador: f.email, palavra: f.palavra }).then(function (r) { if (!r.ok) return erro(r.j.erro); location.replace(voltar); }); };
     return;
   }
-  c.innerHTML = '<h1>Entrar</h1><p class="muted">Use a sua conta do servidor. Depois, dentro de cada sistema, entra com o seu utilizador e PIN.</p>' +
-    '<form class="form" id="f"><div class="fld full"><label>Utilizador</label><input class="inp" name="utilizador" autocomplete="username" required autofocus></div><div class="fld full"><label>Palavra-passe</label><input class="inp" type="password" name="palavra" autocomplete="current-password" required></div>' +
-    '<div class="fld full"><button class="btn primary" type="submit">Entrar</button></div></form><div id="erro"></div>';
-  document.getElementById('f').onsubmit = function (e) { e.preventDefault(); var f = Object.fromEntries(new FormData(e.target));
-    post('/api/entrar', f).then(function (r) { if (!r.ok) return erro(r.j.erro); location.replace(voltar); }); };
+  pintar();
 })();
 </script>
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('spap:theme')||'dark')}catch(e){}</script>

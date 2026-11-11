@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Subsidiária · Gestão</title>
-<script src="../shared/servidor-dados.js?v=3"></script>
+<script src="../shared/servidor-dados.js?v=4"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../shared/spap.css?v=45">
@@ -21,7 +21,7 @@
 <script src="../shared/vendor/qrcode.min.js"></script>
 <script src="../shared/vendor/jsQR.min.js"></script>
 <script src="../shared/spap.js?v=42"></script>
-<script src="../shared/grupo.js?v=5"></script>
+<script src="../shared/grupo.js?v=6"></script>
 <script src="../shared/modelos.js?v=3"></script>
 <script src="../shared/conta-casa.js?v=9"></script>
 <script src="../shared/modelo-planeamento.js?v=149"></script>
@@ -52,9 +52,9 @@
     home: m.home, grupoModulos: sub.nome, alcadaPadrao: m.alcadaPadrao, migrarV3: m.migrarV3, seed: m.seed, modules: m.modules,
     previsao: m.previsao, navVisivel: m.navVisivel, pagamentoDireto: m.pagamentoDireto, perfil: m.perfil, grupoSpap: m.grupoSpap, analiseTexto: m.analiseTexto, analiseOrigem: m.analiseOrigem, movimentoValido: m.movimentoValido, provaExtra: m.provaExtra, analise: m.analise, caixa: m.caixa,
     contaPropria: c => c.categoria === 'TESOURARIA',
-    outroSistema: { href: '../bxb-investimentos/index.html', label: 'Ir para a holding BXB' },
+    outroSistema: sub.independente ? null : { href: '../bxb-investimentos/index.html', label: 'Ir para a holding BXB' },
     // ligação à holding: o que a BXB transfere para a conta desta subsidiária, e o que esta envia para a holding
-    intercompany: { parceiro: 'bxb', nome: 'BXB Investimentos', sigla: 'BXB', href: '../bxb-investimentos/index.html', contaDestino: sub.contaCaixa,
+    intercompany: sub.independente ? null : { parceiro: 'bxb', nome: 'BXB Investimentos', sigla: 'BXB', href: '../bxb-investimentos/index.html', contaDestino: sub.contaCaixa,
       recebidas: d => d.pedidos.filter(p => p.estado === 'EXECUTADO' && p.contaDestino === sub.contaNaHolding && p.valor > 0).map(p => ped(p, 'ic:bxb:' + p.id)),
       enviadas: d => d.pedidos.filter(p => p.estado === 'EXECUTADO' && p.contaDestino === sub.contaHolding && p.valor > 0).map(p => ped(p, 'ic:' + sub.key + ':' + p.id)) },
   });

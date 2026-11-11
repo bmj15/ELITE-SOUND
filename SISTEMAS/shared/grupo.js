@@ -20,7 +20,11 @@ const MODELOS = {
 const r2 = v => Math.round((+v || 0) * 100) / 100;
 const Grupo = global.Grupo = {
   ELITE, MODELOS,
-  lista() { try { const l = JSON.parse(localStorage.getItem(CHAVE)); if (Array.isArray(l) && l.length) return l; } catch (e) { } return [Object.assign({}, ELITE)]; },
+  // registo do grupo + os sistemas próprios da conta (particulares e empresas que criaram conta no site)
+  lista() { let l = null; try { l = JSON.parse(localStorage.getItem(CHAVE)); } catch (e) { }
+    const prop = (((global.BXBServidor || {}).sessao || {}).proprios || []);
+    const base = Array.isArray(l) && l.length ? l : prop.length ? [] : [Object.assign({}, ELITE)];
+    return base.concat(prop.filter(p => !base.some(b => b.key === p.key))); },
   guardar(l) { try { localStorage.setItem(CHAVE, JSON.stringify(l)); } catch (e) { } },
   get(key) { return this.lista().find(s => s.key === key) || null; },
   href(sub, base = '../') { return `${base}subsidiaria/index.html?s=${encodeURIComponent(sub.key)}`; },

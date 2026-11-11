@@ -64,7 +64,14 @@ const gravarContas = l => gravarJSON(FICH_CONTAS, l);
 function hashPalavra(palavra, sal = crypto.randomBytes(16).toString('hex')) { return sal + ':' + crypto.scryptSync(String(palavra), sal, 64).toString('hex'); }
 function confere(palavra, guardado) { const [sal, h] = String(guardado || '').split(':'); if (!sal || !h) return false;
   const a = Buffer.from(h, 'hex'), b = crypto.scryptSync(String(palavra), sal, 64); return a.length === b.length && crypto.timingSafeEqual(a, b); }
-const publica = c => ({ id: c.id, nome: c.nome, utilizador: c.utilizador, admin: !!c.admin, sistemas: c.sistemas || [] });
+const publica = c => ({ id: c.id, nome: c.nome, utilizador: c.utilizador, email: c.email || '', tipo: c.tipo || '', admin: !!c.admin, sistemas: c.sistemas || [], proprios: c.proprios || [] });
+// clientes do site (particulares e empresas que criaram conta): só veem os seus sistemas, não o registo do grupo
+const cliente = c => !!c && !c.admin && (c.tipo === 'particular' || c.tipo === 'empresa');
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const slug = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'conta';
+const iniciais = t => String(t || '').trim().split(/\s+/).filter(Boolean).map(x => x[0]).join('').slice(0, 3).toUpperCase() || 'PF';
+const registos = new Map(); // ip -> { n, desde }: limite de contas novas por hora
+const ipDe = req => String(req.headers['cf-connecting-ip'] || req.socket.remoteAddress || '');
 const sessoes = new Map(); // token -> { conta, expira }
 const falhas = new Map();  // utilizador -> { n, ate }
 function sessaoDe(req) {
@@ -80,7 +87,7 @@ const sistemaDaChave = k => { const m = /^spap:([^:]+)/.exec(k); return m ? m[1]
 // partilhas entre planos pessoais ("spap:partilha:<id>:conta"): acessíveis a quem tem acesso a um dos planos que são membros
 const membroDaPartilha = (c, valor) => { try { const v = typeof valor === 'string' ? JSON.parse(valor) : valor; return ((v && v.membros) || []).some(m => m && m.sistema && (c.sistemas || []).includes(m.sistema)); } catch (e) { return false; } };
 const partilhaGuardada = k => { const r = lerJSON(ficheiroChave(k), null); return r ? r.valor : null; };
-const ve = (c, k) => !!c && (c.admin || (c.sistemas || []).includes('*') || k === 'spap:grupo' || (c.sistemas || []).includes(sistemaDaChave(k)) || (sistemaDaChave(k) === 'partilha' && membroDaPartilha(c, partilhaGuardada(k))));
+const ve = (c, k) => !!c && (c.admin || (c.sistemas || []).includes('*') || (k === 'spap:grupo' && !cliente(c)) || (c.sistemas || []).includes(sistemaDaChave(k)) || (sistemaDaChave(k) === 'partilha' && membroDaPartilha(c, partilhaGuardada(k))));
 // numa partilha nova, quem a cria tem de ser membro; numa existente, tem de já ser membro (não se entra numa partilha alheia)
 const grava = (c, k, novo) => !!c && (c.admin || (c.sistemas || []).includes('*') || (k !== 'spap:grupo' && (c.sistemas || []).includes(sistemaDaChave(k))) || (k === 'spap:grupo' && (c.sistemas || []).includes('bxb'))
   || (sistemaDaChave(k) === 'partilha' && (() => { const g = partilhaGuardada(k); return g != null ? membroDaPartilha(c, g) : membroDaPartilha(c, novo); })()));
@@ -113,15 +120,41 @@ async function api(req, res, caminho) {
     if (lista.length) return json(409, { erro: 'O servidor já está configurado' });
     const b = await lerCorpo(req);
     if (!b.nome || !b.utilizador || String(b.palavra || '').length < 8) return json(400, { erro: 'Indique o nome, o utilizador e uma palavra-passe com pelo menos 8 caracteres' });
-    const nova = { id: 'c' + crypto.randomBytes(6).toString('hex'), nome: String(b.nome).trim(), utilizador: String(b.utilizador).trim().toLowerCase(), hash: hashPalavra(b.palavra), admin: true, sistemas: ['*'], criadaEm: new Date().toISOString() };
+    const nova = { id: 'c' + crypto.randomBytes(6).toString('hex'), nome: String(b.nome).trim(), utilizador: String(b.utilizador).trim().toLowerCase(), email: EMAIL.test(String(b.utilizador).trim().toLowerCase()) ? String(b.utilizador).trim().toLowerCase() : '', hash: hashPalavra(b.palavra), admin: true, sistemas: ['*'], criadaEm: new Date().toISOString() };
     gravarContas([nova]); abrirSessao(res, nova); return json(200, { sessao: publica(nova) });
   }
   if (caminho === '/api/entrar' && req.method === 'POST') {
-    const b = await lerCorpo(req), u = String(b.utilizador || '').trim().toLowerCase(), f = falhas.get(u);
+    const b = await lerCorpo(req), u = String(b.email || b.utilizador || '').trim().toLowerCase(), f = falhas.get(u);
     if (f && f.ate > Date.now()) return json(429, { erro: 'Demasiadas tentativas. Tente de novo dentro de alguns minutos.' });
-    const conta = lista.find(x => x.utilizador === u && x.ativo !== false);
-    if (!conta || !confere(b.palavra, conta.hash)) { const n = (f && f.ate && f.ate <= Date.now() ? 0 : (f ? f.n : 0)) + 1; falhas.set(u, { n, ate: n >= 5 ? Date.now() + 5 * 60000 : 0 }); return json(401, { erro: 'Utilizador ou palavra-passe incorretos' }); }
+    const conta = lista.find(x => x.ativo !== false && ((x.email && x.email === u) || x.utilizador === u));
+    if (!conta || !confere(b.palavra, conta.hash)) { const n = (f && f.ate && f.ate <= Date.now() ? 0 : (f ? f.n : 0)) + 1; falhas.set(u, { n, ate: n >= 5 ? Date.now() + 5 * 60000 : 0 }); return json(401, { erro: 'Email ou palavra-passe incorretos' }); }
+    if (cliente(conta) && b.tipo && b.tipo !== conta.tipo) return json(401, { erro: conta.tipo === 'empresa' ? 'Esta conta é de empresa: entre no separador Empresas.' : 'Esta conta é de particular: entre no separador Particulares.' });
     falhas.delete(u); abrirSessao(res, conta); return json(200, { sessao: publica(conta) });
+  }
+  // criar conta no site: um particular recebe um plano pessoal novo; uma empresa recebe um sistema de empresa novo.
+  // Cada conta só vê os seus dados. Dentro do sistema, o PIN (para assinar) define-se no primeiro acesso.
+  if (caminho === '/api/registar' && req.method === 'POST') {
+    if (!lista.length) return json(409, { erro: 'O servidor ainda não está configurado' });
+    const ip = ipDe(req), r0 = registos.get(ip), agora = Date.now();
+    if (r0 && agora - r0.desde < 3600000 && r0.n >= 5) return json(429, { erro: 'Demasiadas contas criadas a partir deste endereço. Tente mais tarde.' });
+    const b = await lerCorpo(req), tipo = b.tipo === 'empresa' ? 'empresa' : 'particular';
+    const nome = String(b.nome || '').trim().slice(0, 80), email = String(b.email || '').trim().toLowerCase(), empresa = String(b.empresa || '').trim().slice(0, 80), nif = String(b.nif || '').replace(/\s+/g, '').slice(0, 12);
+    if (!nome) return json(400, { erro: 'Indique o seu nome' });
+    if (!EMAIL.test(email) || email.length > 120) return json(400, { erro: 'Indique um email válido' });
+    if (String(b.palavra || '').length < 8) return json(400, { erro: 'A palavra-passe tem de ter pelo menos 8 caracteres' });
+    if (tipo === 'empresa' && !empresa) return json(400, { erro: 'Indique o nome da empresa' });
+    if (nif && !/^\d{9}$/.test(nif)) return json(400, { erro: 'O NIF tem 9 dígitos' });
+    if (lista.some(x => x.email === email || x.utilizador === email)) return json(409, { erro: 'Já existe uma conta com esse email' });
+    const rnd = crypto.randomBytes(3).toString('hex'), nomeSis = tipo === 'empresa' ? empresa : nome;
+    const sub = { key: (tipo === 'empresa' ? 'e-' : 'p-') + slug(nomeSis) + '-' + rnd, nome: tipo === 'empresa' ? empresa : nome + ' (pessoal)', sigla: iniciais(nomeSis), nif, setor: '',
+      modelo: tipo === 'empresa' ? 'servicos' : 'planeamento', cor1: tipo === 'empresa' ? '#0ea5e9' : '#8b5cf6', cor2: tipo === 'empresa' ? '#22d3ee' : '#ec4899', participacao: 0, ativa: true,
+      criadaEm: new Date().toISOString().slice(0, 10), contaCaixa: 'CAIXA', contaOperacional: 'OPERACIONAL', contaHolding: 'HOLDING', independente: true, tipo,
+      utilizadores: [{ id: 'u_' + crypto.randomBytes(4).toString('hex'), nome, username: email.split('@')[0].slice(0, 30), role: 'ADMIN', limite: 0 }] };
+    const nova = { id: 'c' + crypto.randomBytes(6).toString('hex'), nome, email, utilizador: email, hash: hashPalavra(b.palavra), admin: false, tipo, sistemas: [sub.key], proprios: [sub], criadaEm: new Date().toISOString() };
+    const l = contas(); if (l.some(x => x.email === email || x.utilizador === email)) return json(409, { erro: 'Já existe uma conta com esse email' });
+    l.push(nova); gravarContas(l);
+    registos.set(ip, r0 && agora - r0.desde < 3600000 ? { n: r0.n + 1, desde: r0.desde } : { n: 1, desde: agora });
+    abrirSessao(res, nova); return json(200, { sessao: publica(nova), destino: '/SISTEMAS/subsidiaria/index.html?s=' + encodeURIComponent(sub.key) });
   }
   if (caminho === '/api/sair' && req.method === 'POST') { if (s) sessoes.delete(s.token); res.setHeader('Set-Cookie', 'bxb_sessao=; Path=/; Max-Age=0'); return json(200, { ok: true }); }
 
@@ -184,12 +217,16 @@ async function api(req, res, caminho) {
     if (!c.admin) return json(403, { erro: 'Só administradores' });
     if (req.method === 'GET') return json(200, contas().map(publica));
     if (req.method === 'POST') {
-      const b = await lerCorpo(req), l = contas(), u = String(b.utilizador || '').trim().toLowerCase();
+      const b = await lerCorpo(req), l = contas(), u = String(b.utilizador || '').trim().toLowerCase(), em = String(b.email || '').trim().toLowerCase();
       if (!b.nome || !u) return json(400, { erro: 'Indique o nome e o utilizador' });
       if (l.some(x => x.utilizador === u && x.id !== b.id)) return json(409, { erro: 'Esse utilizador já existe' });
+      if (em && !EMAIL.test(em)) return json(400, { erro: 'Email inválido' });
+      if (em && l.some(x => x.id !== b.id && (x.email === em || x.utilizador === em))) return json(409, { erro: 'Esse email já está noutra conta' });
       let x = b.id ? l.find(y => y.id === b.id) : null;
       if (!x) { if (String(b.palavra || '').length < 8) return json(400, { erro: 'A palavra-passe tem de ter pelo menos 8 caracteres' }); x = { id: 'c' + crypto.randomBytes(6).toString('hex'), criadaEm: new Date().toISOString() }; l.push(x); }
-      Object.assign(x, { nome: String(b.nome).trim(), utilizador: u, admin: !!b.admin, sistemas: Array.isArray(b.sistemas) ? b.sistemas.map(String) : [] });
+      Object.assign(x, { nome: String(b.nome).trim(), utilizador: u, email: em, admin: !!b.admin, sistemas: Array.isArray(b.sistemas) ? b.sistemas.map(String) : [] });
+      // os sistemas próprios de um cliente continuam acessíveis a ele
+      (x.proprios || []).forEach(p => { if (!x.sistemas.includes(p.key)) x.sistemas.push(p.key); });
       if (b.palavra) { if (String(b.palavra).length < 8) return json(400, { erro: 'A palavra-passe tem de ter pelo menos 8 caracteres' }); x.hash = hashPalavra(b.palavra); }
       if (!l.some(y => y.admin)) return json(400, { erro: 'Tem de existir pelo menos um administrador' });
       gravarContas(l); return json(200, publica(x));

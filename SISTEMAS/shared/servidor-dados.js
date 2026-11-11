@@ -44,7 +44,7 @@ dados = dados.json || {};
 // primeira utilização: o servidor está vazio e este navegador tem dados dos sistemas → enviar primeiro (página Acessos);
 // até lá os sistemas não abrem, para não criarem dados novos vazios no servidor
 const locais = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('spap:') && !LOCAIS.has(k)) locais.push(k); }
-if (!Object.keys(dados).length && locais.length) {
+if (!Object.keys(dados).length && locais.length && !sessao.tipo) {
   Storage.prototype.getItem = function (k) { return nossa(this, k) ? null : real.get.call(this, k); };
   Storage.prototype.setItem = function (k, v) { if (!nossa(this, k)) real.set.call(this, k, v); };
   Storage.prototype.removeItem = function (k) { if (!nossa(this, k)) real.rem.call(this, k); };
