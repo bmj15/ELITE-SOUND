@@ -50,7 +50,7 @@ var BAND = {
 };
 var NOME_P = { br: 'Brasil', pt: 'Portugal' };
 var paisB = '<div class="pais-w" id="paisW"><button type="button" class="pais-b" id="bPais" aria-label="País: ' + NOME_P[pais] + '. Mudar de país" aria-haspopup="true">' + BAND[pais] + '</button>' +
-  '<div class="pais-m" id="mPais" role="menu"><h6>' + T('Escolha o país', 'Escolha o país') + '</h6>' + ['br', 'pt'].map(function (k) { return '<button type="button" role="menuitemradio" aria-checked="' + (k === pais) + '" data-pais="' + k + '"' + (k === pais ? ' class="on"' : '') + '><i>' + BAND[k] + '</i>' + NOME_P[k] + (k === pais ? '<svg class="ok" width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="m5 12 5 5 9-10"/></svg>' : '') + '</button>'; }).join('') + '</div></div>';
+  '<div class="pais-m" id="mPais" role="menu"><h6>' + T('Escolha o país', 'Escolha o país') + '</h6>' + ['br', 'pt'].map(function (k) { return '<button type="button" role="menuitemradio" aria-checked="' + (k === pais) + '" data-pais="' + k + '"' + (k === pais ? ' class="on"' : '') + '><i>' + BAND[k] + '</i><span><b>' + NOME_P[k] + '</b><small>' + (k === 'br' ? 'Real · R$' : 'Euro · €') + '</small></span>' + (k === pais ? '<svg class="ok" width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="m5 12 5 5 9-10"/></svg>' : '') + '</button>'; }).join('') + '</div></div>';
 var dropEnt = '<div class="drop-ent" id="dropEnt"><h6>Entrar na sua área</h6>' +
   '<a class="op" href="' + ENT + '?tipo=particular"><i>' + ic('i-casa', 18) + '</i><div><b>Particulares</b><span>Plano pessoal e partilhas</span></div></a>' +
   '<a class="op" href="' + ENT + '?tipo=empresa"><i>' + ic('i-carteira', 18) + '</i><div><b>Empresas</b><span>' + T('Pagamentos, tesouraria e equipa', 'Pagamentos, fluxo de caixa e equipe') + '</span></div></a>' +
@@ -58,11 +58,12 @@ var dropEnt = '<div class="drop-ent" id="dropEnt"><h6>Entrar na sua área</h6>' 
 var acoes = '<div class="acoes" id="acoes"><button class="btn btn-o" type="button" id="bEnt">' + ic('i-cad', 16) + 'Entrar' + chev + '</button><a class="btn btn-p" href="' + abrir + '" data-abr>Abrir conta</a>' + dropEnt + '</div>';
 var subM = ['particular', 'empresa'].map(function (k) {
   var L = SUB[k], d = (window.ARTIGOS || []).filter(function (x) { return x.id === L.dest; })[0];
-  return '<div class="sub-m" data-sm="' + k + '"><div class="wrap">' +
-    '<div class="sub-f"><h6>Simuladores</h6><div class="sub-t">' + L.fer.map(function (x) { return '<a class="sub-a" href="' + x[0] + '"><i>' + ic(x[1], 18) + '</i><span><b>' + x[2] + '</b><small>' + x[3] + '</small></span></a>'; }).join('') +
-    '</div><a class="ver" href="/simuladores">Todos os simuladores ›</a></div>' +
-    '<div class="sub-l"><h6>Guias</h6><div class="sub-gr">' + L.grupos.map(function (g) { return '<div><b>' + g[0] + '</b>' + g[1].map(function (x) { return '<a href="' + A_ + x[0] + '">' + x[1] + '</a>'; }).join('') + '</div>'; }).join('') +
-    '</div><a class="ver" href="/artigos' + (k === 'empresa' ? '?c=empresas' : '') + '">Todos os artigos ›</a></div>' +
+  var col = function (tit, itens) { return '<div class="sub-col"><b>' + tit + '</b>' + itens.join('') + '</div>'; };
+  return '<div class="sub-m" data-sm="' + k + '"><div class="wrap"><div class="sub-cols">' +
+    col('Simuladores', L.fer.map(function (x) { return '<a href="' + x[0] + '">' + x[2] + '</a>'; }).concat('<a class="ver" href="/simuladores">Todos os simuladores ›</a>')) +
+    L.grupos.map(function (g, i) { var it = g[1].map(function (x) { return '<a href="' + A_ + x[0] + '">' + x[1] + '</a>'; });
+      if (i === L.grupos.length - 1) it.push('<a class="ver" href="/artigos' + (k === 'empresa' ? '?c=empresas' : '') + '">Todos os artigos ›</a>');
+      return col(g[0], it); }).join('') + '</div>' +
     (d ? '<a class="sub-d" href="' + A_ + d.id + '">' + (window.capaArtigo ? capaArtigo(d, '280px') : '') + '<span class="tg">Em destaque · ' + d.min + ' min</span><b>' + esc(d.titulo) + '</b></a>' : '') +
     '</div></div>';
 }).join('');
@@ -85,7 +86,7 @@ var rod = '<footer><div class="wrap">' +
   col('Particulares', [['/#plano', 'Plano pessoal'], ['/#dividas', 'Sair das dívidas'], ['/#objetivos', 'Objetivos de poupança'], ['/artigos?c=impostos', T('Recibos e IRS', 'Imposto de Renda')], ['/#partilhar', T('Despesas partilhadas', 'Despesas compartilhadas')]]) +
   col('Empresas', [['/empresas#pagamentos', 'Autorização de pagamentos'], ['/empresas#tesouraria', T('Tesouraria', 'Fluxo de caixa')], ['/empresas#resultados', 'Vendas e resultados'], ['/empresas#equipa', T('Equipa', 'Equipe')]]) +
   col('Ferramentas', [['/simuladores', 'Simuladores'], ['/artigos', 'Artigos'], ['/ajuda', 'Centro de ajuda'], [T('/artigos/proteger-a-sua-conta', '/artigos/proteger-suas-contas'), 'Segurança online']]) +
-  col('Área de cliente', [[ENT + '?tipo=particular', 'Entrar · Particulares'], [ENT + '?tipo=empresa', 'Entrar · Empresas'], [abrir, 'Abrir conta'], ['/SISTEMAS/conta.html', T('A minha conta', 'Minha conta')]]) +
+  col('Área de cliente', [[ENT + '?tipo=particular', 'Particulares'], [ENT + '?tipo=empresa', 'Empresas'], [abrir, 'Abrir conta'], ['/SISTEMAS/conta.html', T('A minha conta', 'Minha conta')]]) +
   '</div><div class="base"><span>© ' + new Date().getFullYear() + ' BXB · ' + T('Planeamento financeiro e tesouraria', 'Planejamento financeiro e fluxo de caixa') + ' · ' + NOME_P[pais] + '</span><span>' + T('A BXB nunca pede a palavra-passe ou o PIN por email, SMS ou telefone.', 'A BXB nunca pede a senha ou o PIN por e-mail, SMS, WhatsApp ou telefone.') + '</span></div></div></footer>';
 var pesq = '<div class="pesq" id="pesq" role="dialog" aria-label="Pesquisar"><div class="cx"><div class="lin">' + ic('i-lupa', 20) + '<input id="pesqI" placeholder="O que procura?" autocomplete="off"><button class="fechar" type="button" id="pesqF">Esc</button></div><div class="res" id="pesqR"></div></div></div>';
 

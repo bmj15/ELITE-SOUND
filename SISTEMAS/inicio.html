@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="/SISTEMAS/site/pais.js?v=2"></script>
-<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=15">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=16">
 <script>if (/^\/empresas/.test((window.BXB_CAMINHO || location.pathname))) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
@@ -16,7 +16,7 @@
 <script src="/SISTEMAS/site/artigos.js?v=7"></script>
 <script src="/SISTEMAS/site/ajuda.js?v=4"></script>
 <script>if (document.documentElement.dataset.seg) { document.body.dataset.seg = 'empresa'; document.title = 'BXB Empresas · Pagamentos autorizados e tesouraria'; }</script>
-<script src="/SISTEMAS/site/site.js?v=7"></script>
+<script src="/SISTEMAS/site/site.js?v=8"></script>
 <script>
 (function () {
   'use strict';
@@ -80,7 +80,7 @@
       { tag: 'Poupança', h: 'Um fundo para os imprevistos.', p: 'Saiba quanto deve ter de parte e em quantos meses lá chega, ao ritmo que consegue poupar.', c1: ['Calcular o meu fundo', '/simuladores#emergencia'], arte: 'objetivo' },
       { tag: 'Impostos', h: 'O IRS sem surpresas.', p: 'Recibos, deduções do e-Fatura e uma estimativa do reembolso muito antes da entrega da declaração.', c1: ['Ler o guia', '/artigos/deducoes-irs-e-fatura'], arte: 'irs' }
     ],
-    movel: { sob: 'No telemóvel', h: 'O seu plano, <b>sempre à mão</b>', p: 'O site adapta-se ao ecrã do telemóvel. Veja quanto sobra, registe uma despesa ou acompanhe um objetivo onde estiver, sem instalar nada.',
+    movel: { sob: 'No telemóvel', h: 'O seu plano, <b>sempre à mão</b>', p: 'A sua área funciona no ecrã do telemóvel. Veja quanto sobra, registe uma despesa ou acompanhe um objetivo onde estiver, sem instalar nada.',
       pts: ['O mês inteiro num relance', 'Despesas registadas em segundos', 'Simuladores sem registo'], c1: ['Abrir conta', ABRIR], c2: ['Ver simuladores', '/simuladores'],
       cards: [['i-carteira', 'Sobra este mês', DIN(412.3), '▲ 18% face à média'], ['i-alvo', 'Objetivo · Férias', '68%', 'Faltam 4 meses']] },
     quero: [
@@ -117,7 +117,7 @@
       { tag: 'Equipa', h: 'Toda a equipa, cada um no seu papel.', p: 'Convide os colaboradores pelo email e defina o papel e a alçada de cada um.', c1: ['Abrir conta de empresa', ABRIR], arte: 'equipa' },
       { tag: 'Guia', h: 'A tesouraria a 13 semanas.', p: 'Antecipe faltas de liquidez com uma previsão semanal simples de entradas e saídas.', c1: ['Ler o guia', '/artigos/tesouraria-pme-13-semanas'], arte: 'tesouraria' }
     ],
-    movel: { sob: 'No telemóvel', h: 'A empresa, <b>na palma da mão</b>', p: 'O site adapta-se ao ecrã do telemóvel. Aprove um pagamento, consulte a tesouraria ou veja as vendas da semana onde estiver.',
+    movel: { sob: 'No telemóvel', h: 'A empresa, <b>na palma da mão</b>', p: 'A área da empresa funciona no ecrã do telemóvel. Aprove um pagamento com o PIN, consulte a tesouraria ou a equipa onde estiver.',
       pts: ['Pagamentos aprovados onde estiver', 'Saldo e previsão de tesouraria', 'Avisos de pagamentos pendentes'], c1: ['Abrir conta de empresa', ABRIR], c2: ['Ver simuladores', '/simuladores#pmr'],
       cards: [['i-chave', 'Pagamento autorizado', '2 de 2', 'Fornecedor · 1 240,00 €'], ['i-graf', 'Saldo previsto · 30 dias', '18 420 €', '▲ dentro do plano']] },
     quero: [
@@ -155,7 +155,7 @@
         { tag: 'Reserva', h: 'Uma reserva para os imprevistos.', p: 'Saiba quanto ter guardado e em quantos meses chega lá, no ritmo que consegue economizar.', c1: ['Calcular minha reserva', '/simuladores#emergencia'], arte: 'objetivo' },
         { tag: 'Impostos', h: 'Imposto de Renda sem surpresas.', p: 'Comprovantes, deduções e uma estimativa da restituição muito antes do prazo de entrega da declaração.', c1: ['Ler o guia', A + 'imposto-de-renda-deducoes'], arte: 'irs' }
       ],
-      movel: { sob: 'No celular', h: 'Seu plano, <b>sempre à mão</b>', p: 'O site se adapta à tela do celular. Veja quanto sobra, registre uma despesa ou acompanhe um objetivo onde estiver, sem instalar nada.',
+      movel: { sob: 'No celular', h: 'Seu plano, <b>sempre à mão</b>', p: 'Sua área funciona na tela do celular. Veja quanto sobra, registre uma despesa ou acompanhe um objetivo onde estiver, sem instalar nada.',
         pts: ['O mês inteiro de relance', 'Despesas registradas em segundos', 'Simuladores sem cadastro'], c1: ['Abrir conta', ABRIR], c2: ['Ver simuladores', '/simuladores'],
         cards: [['i-carteira', 'Sobra este mês', DIN(1240), '▲ 18% acima da média'], ['i-alvo', 'Objetivo · Viagem', '68%', 'Faltam 4 meses']] },
       quero: [
@@ -192,7 +192,7 @@
         { tag: 'Equipe', h: 'Toda a equipe, cada um no seu papel.', p: 'Convide os colaboradores pelo e-mail e defina o papel e a alçada de cada um.', c1: ['Abrir conta de empresa', ABRIR], arte: 'equipa' },
         { tag: 'Guia', h: 'Fluxo de caixa em 13 semanas.', p: 'Antecipe a falta de caixa com uma previsão semanal simples de entradas e saídas.', c1: ['Ler o guia', A + 'fluxo-de-caixa-13-semanas'], arte: 'tesouraria' }
       ],
-      movel: { sob: 'No celular', h: 'A empresa, <b>na palma da mão</b>', p: 'O site se adapta à tela do celular. Aprove um pagamento, consulte o caixa ou veja as vendas da semana onde estiver.',
+      movel: { sob: 'No celular', h: 'A empresa, <b>na palma da mão</b>', p: 'A área da empresa funciona na tela do celular. Aprove um pagamento com o PIN, consulte o fluxo de caixa ou a equipe onde estiver.',
         pts: ['Pagamentos aprovados onde estiver', 'Saldo e previsão de caixa', 'Avisos de pagamentos pendentes'], c1: ['Abrir conta de empresa', ABRIR], c2: ['Ver simuladores', '/simuladores#pmr'],
         cards: [['i-chave', 'Pagamento autorizado', '2 de 2', 'Fornecedor · ' + DIN(8400)], ['i-graf', 'Saldo previsto · 30 dias', DIN(126800, 0), '▲ dentro do plano']] },
       quero: [
@@ -237,7 +237,7 @@
   if (!embutido) { var M = D.movel;
     h += '<section class="hp-sec tela movel" id="movel"><div class="wrap"><div class="mv"><div class="mv-txt"><p class="sobre-t">' + M.sob + '</p><h2 class="tit mv-h">' + M.h + '</h2><p class="mv-p">' + M.p + '</p><ul class="mv-pts">' + M.pts.map(function (t) { return '<li>' + ok + t + '</li>'; }).join('') + '</ul>' +
       '<div class="ctas"><a class="btn btn-p" href="' + M.c1[1] + '">' + M.c1[0] + ' ' + ic('i-seta', 16) + '</a><a class="btn btn-s" href="' + M.c2[1] + '">' + M.c2[0] + '</a></div></div>' +
-      '<div class="mv-cena" aria-hidden="true"><div class="mv-brilho"></div><div class="tel"><div class="tel-ecra"><iframe title="BXB no telemóvel" tabindex="-1" data-src="' + (emp ? '/empresas' : '/') + '"></iframe><span class="dedo"></span></div><i class="tel-ilha"></i></div>' +
+      '<div class="mv-cena" aria-hidden="true"><div class="mv-brilho"></div><div class="tel"><div class="tel-ecra"><div class="app-m"></div><span class="dedo"></span></div><i class="tel-ilha"></i></div>' +
       M.cards.map(function (k, n) { return '<div class="mv-c c' + (n + 1) + '"><i>' + ic(k[0], 18) + '</i><div><span>' + k[1] + '</span><b>' + k[2] + '</b><small>' + k[3] + '</small></div></div>'; }).join('') + '</div></div></div></section>'; }
   h += '<section class="hp-sec tela" id="simuladores"><div class="wrap"><div class="cab-s"><div><p class="sobre-t">Simuladores</p><h2 class="tit">Faça as contas <b>antes de decidir</b></h2></div><a class="lk-s" href="/simuladores">Ver todos</a></div><div class="sim4">' +
     D.sims.map(function (s) { var href = s[0] === 'guia' ? '/artigos/tesouraria-pme-13-semanas' : '/simuladores' + (s[0] ? '#' + s[0] : '');
@@ -400,45 +400,119 @@
   moverD(0); addEventListener('resize', function () { moverD(pos); });
 
 
-  // ---------- telemóvel a flutuar: o site real, navegado por um dedo ----------
+  // ---------- telemóvel a flutuar: uma parte do sistema (dados de exemplo), usada por um dedo ----------
   (function () {
     var sec = document.getElementById('movel'); if (!sec) return;
-    var fr = sec.querySelector('iframe'), ecra = sec.querySelector('.tel-ecra'), dedo = sec.querySelector('.dedo'), W = 390, H = 844;
-    var corre = false, gen = 0, visto = false;
-    function escala() { var s = ecra.clientWidth / W; fr.style.transform = 'scale(' + s + ')'; }
+    var app = sec.querySelector('.app-m'), ecra = sec.querySelector('.tel-ecra'), dedo = sec.querySelector('.dedo'), W = 390;
+    var corre = false, gen = 0;
+    var svg = function (d, s) { return '<svg width="' + (s || 22) + '" height="' + (s || 22) + '" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="' + d + '"/></svg>'; };
+    var MAIS = svg('M5 12h.01M12 12h.01M19 12h.01', 24), PLUS = svg('M12 5v14M5 12h14', 26), VOLTA = svg('m15 18-6-6 6-6', 22), APAGA = svg('M21 5H8l-6 7 6 7h13zM16 9l-5 6M11 9l5 6', 22);
+    var lin = function (ico, t, s, v, cls) { return '<div class="am-lin' + (cls ? ' ' + cls : '') + '"><i>' + ic(ico, 18) + '</i><div class="t"><b>' + t + '</b><small>' + s + '</small></div><span class="v">' + v + '</span></div>'; };
+    var barrasM = function (hs) { return '<div class="am-graf">' + hs.map(function (h, i) { return '<i' + (i >= hs.length - 2 ? ' class="n"' : '') + ' style="height:' + h + '%"></i>'; }).join('') + '</div>'; };
+    var teclas = function () { return '<div class="am-teclas">' + ['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', APAGA].map(function (k, i) { return '<span data-k="' + (i === 11 ? 'x' : k) + '">' + k + '</span>'; }).join('') + '</div>'; };
+    var tab = function (id, ico, t) { return '<span class="am-tab" data-tab="' + id + '">' + ico + t + '</span>'; };
+    var SOBRA = BR ? 1240 : 412.3, GASTO = BR ? 86.4 : 23.4;
+
+    function particular() {
+      return '<div class="am-cab"><span class="lg">B</span><div><b>Olá, Ana</b><small>Plano pessoal</small></div><span class="av">AM</span></div><div class="am-telas">' +
+        // painel
+        '<div class="am-tela" data-t="painel"><div class="am-cont"><div class="am-kpi"><small>Sobra este mês</small><b data-sobra>' + DIN(SOBRA) + '</b><em>▲ ' + T('18% face à média', '18% acima da média') + '</em>' + spark + '</div>' +
+        '<div class="am-duo"><div class="am-mini"><small>' + T('Rendimento', 'Renda') + '</small><b>' + DIN(BR ? 6850 : 1640) + '</b></div><div class="am-mini"><small>Despesas</small><b data-desp>' + DIN(BR ? 5610 : 1227.7) + '</b></div></div>' +
+        '<p class="am-sec">Pagamentos do mês</p>' +
+        (BR ? [['i-casa', 'Aluguel', '05 nov · Pix agendado', 1800], ['i-recibo', 'Conta de luz', '10 nov · boleto', 214.9], ['i-cartao', 'Fatura do cartão', '15 nov', 980], ['i-graf', 'Internet', '20 nov · débito automático', 119.9]]
+          : [['i-casa', 'Renda', '05 nov · transferência', 650], ['i-recibo', 'Eletricidade', '10 nov · débito direto', 58.4], ['i-cartao', 'Crédito automóvel', '15 nov', 189], ['i-graf', 'Internet', '20 nov · débito direto', 39.9]]).map(function (x) { return lin(x[0], x[1], x[2], DIN(x[3])); }).join('') +
+        '<p class="am-sec">Últimos 8 meses</p>' + barrasM([45, 62, 38, 70, 55, 82, 66, 74]) + '</div></div>' +
+        // dívidas
+        '<div class="am-tela" data-t="dividas"><div class="am-cont"><h3 class="am-h">' + T('Plano de pagamento', 'Plano de quitação') + '</h3>' +
+        '<div class="am-chips"><span class="am-chip on" data-est="a">' + T('Taxa mais alta', 'Juros mais altos') + '</span><span class="am-chip" data-est="b">Saldo menor</span></div>' +
+        '<div class="am-fim"><small>Sem dívidas em</small><b data-fim>mar. 2028</b><span data-jur>' + T('Juros totais ', 'Juros totais ') + DIN(BR ? 6420 : 1385) + '</span></div>' +
+        [[T('Cartão de crédito', 'Cartão de crédito'), BR ? 4900 : 1820, 78, T('TAN 15,9%', '12,9% ao mês')], [T('Crédito pessoal', 'Empréstimo pessoal'), BR ? 12300 : 4300, 46, T('TAN 8,5%', '3,1% ao mês')], [T('Crédito automóvel', 'Financiamento do carro'), BR ? 38600 : 9950, 22, T('TAN 6,9%', '1,6% ao mês')]].map(function (x, i) {
+          return '<div class="am-div" data-o="' + i + '"><div class="l"><b>' + x[0] + '</b><span>' + d0(x[1]) + '</span></div><div class="am-bar"><i style="width:' + x[2] + '%"></i></div><small>' + x[3] + '</small></div>'; }).join('') + '</div></div>' +
+        // objetivos
+        '<div class="am-tela" data-t="obj"><div class="am-cont"><h3 class="am-h">Objetivos</h3><div class="am-anel" style="--p:0" data-p="64"><span><b>64%</b><small>' + T('Fundo de emergência', 'Reserva de emergência') + '</small></span></div>' +
+        '<p class="am-cen">' + d0(BR ? 15360 : 4610) + ' de ' + d0(BR ? 24000 : 7200) + ' · ' + T('completo em mar. 2027', 'completa em mar. 2027') + '</p>' +
+        [[T('Férias', 'Viagem'), 68, 'i-alvo'], ['Carro novo', 22, 'i-carteira'], [T('Entrada da casa', 'Entrada do apartamento'), 9, 'i-casa']].map(function (x) {
+          return '<div class="am-lin"><i>' + ic(x[2], 18) + '</i><div class="t"><b>' + x[0] + '</b><div class="am-bar"><i style="width:' + x[1] + '%"></i></div></div><span class="v">' + x[1] + '%</span></div>'; }).join('') + '</div></div>' +
+        '<div class="am-veu"></div><div class="am-sheet"><span class="am-pega"></span><h4>Nova despesa</h4><div class="am-valor" data-valor>' + DIN(0) + '</div>' +
+        '<div class="am-chips c"><span class="am-chip on">' + T('Supermercado', 'Mercado') + '</span><span class="am-chip">Transporte</span><span class="am-chip">Lazer</span></div>' + teclas() + '<span class="am-btn" data-guardar>' + T('Guardar', 'Salvar') + '</span></div>' +
+        '<div class="am-toast">' + ic('i-ok', 16) + T('Despesa registada', 'Despesa registrada') + '</div></div>' +
+        '<nav class="am-tabs">' + tab('painel', ic('i-casa', 22), 'Painel') + tab('dividas', ic('i-cartao', 22), 'Dívidas') + '<span class="am-fab" data-fab>' + PLUS + '</span>' + tab('obj', ic('i-alvo', 22), 'Objetivos') + tab('mais', MAIS, 'Mais') + '</nav>';
+    }
+    function empresa() {
+      return '<div class="am-cab"><span class="lg">B</span><div><b>Loja Aurora</b><small>Ana M. · Responsável</small></div><span class="av">AM</span></div><div class="am-telas">' +
+        '<div class="am-tela" data-t="inicio"><div class="am-cont"><div class="am-kpi"><small>Saldo disponível</small><b>' + DIN(BR ? 186940.15 : 28940.15) + '</b><em>' + T('Cativo ', 'Bloqueado ') + DIN(BR ? 18500 : 3200) + ' em pedidos</em>' + spark + '</div>' +
+        '<div class="am-duo"><div class="am-mini"><small>' + T('Recebimentos · 30 dias', 'A receber · 30 dias') + '</small><b>' + DIN(BR ? 96400 : 14820) + '</b></div><div class="am-mini"><small>Pagamentos · 30 dias</small><b>' + DIN(BR ? 81200 : 12460) + '</b></div></div>' +
+        '<p class="am-sec">' + T('Tesouraria · 8 semanas', 'Fluxo de caixa · 8 semanas') + '</p>' + barrasM([52, 48, 66, 58, 74, 69, 80, 88]) +
+        '<p class="am-sec">' + T('Por aprovar', 'Aguardando aprovação') + '</p>' + lin('i-chave', 'PP-0142 · Fornecedor', T('a aguardar a 2.ª aprovação', 'aguardando a 2.ª aprovação'), DIN(BR ? 18500 : 3200)) + '</div></div>' +
+        '<div class="am-tela" data-t="pedidos"><div class="am-cont"><h3 class="am-h">Pedidos de pagamento</h3>' +
+        lin('i-chave', 'PP-0142 · Fornecedor', '<span class="am-est w" data-est142>' + T('A aguardar 2.ª', 'Aguardando 2.ª') + '</span>', DIN(BR ? 18500 : 3200), 'p142') +
+        lin('i-pessoas', 'PP-0141 · Salários', '<span class="am-est ok">' + T('Executado', 'Pago via Pix') + '</span>', DIN(BR ? 74300 : 12480)) +
+        lin('i-casa', T('PP-0140 · Renda da loja', 'PP-0140 · Aluguel da loja'), '<span class="am-est ok">' + T('Executado', 'Pago') + '</span>', DIN(BR ? 9800 : 1900)) +
+        lin('i-recibo', T('PP-0139 · Contabilidade', 'PP-0139 · Contador'), '<span class="am-est ok">' + T('Executado', 'Pago') + '</span>', DIN(BR ? 1450 : 320)) + '</div></div>' +
+        '<div class="am-tela" data-t="det"><div class="am-cont"><span class="am-volta">' + VOLTA + 'Pedidos</span><h3 class="am-h">PP-0142 · Fornecedor</h3><div class="am-montante">' + DIN(BR ? 18500 : 3200) + '</div>' +
+        '<div class="am-passos"><div class="ok"><i>' + ic('i-ok', 14) + '</i><div><b>' + T('Pedido com fatura', 'Pedido com nota fiscal') + '</b><small>Sara P. · 09:12</small></div></div><div class="ok"><i>' + ic('i-ok', 14) + '</i><div><b>1.ª aprovação</b><small>' + T('Rui C.', 'Rafael C.') + ' · 09:40</small></div></div><div data-passo2><i>2</i><div><b>2.ª aprovação</b><small>' + T('Acima de ', 'Acima de ') + d0(BR ? 15000 : 2500) + ' · a sua</small></div></div></div>' +
+        '<span class="am-btn" data-aprovar>' + ic('i-chave', 18) + 'Aprovar com PIN</span></div></div>' +
+        '<div class="am-tela" data-t="equipa"><div class="am-cont"><h3 class="am-h">' + T('Equipa', 'Equipe') + '</h3>' +
+        [['AM', 'Ana M.', 'Responsável'], ['RC', T('Rui C.', 'Rafael C.'), 'Aprova até ' + d0(BR ? 30000 : 5000)], ['SP', 'Sara P.', T('Tesouraria', 'Financeiro')], ['JL', 'João L.', 'Convite enviado']].map(function (x) {
+          return '<div class="am-lin"><i class="ini">' + x[0] + '</i><div class="t"><b>' + x[1] + '</b><small>' + x[2] + '</small></div></div>'; }).join('') + '</div></div>' +
+        '<div class="am-veu"></div><div class="am-sheet"><span class="am-pega"></span><h4>Assinar com PIN</h4><p class="am-cen">PP-0142 · ' + DIN(BR ? 18500 : 3200) + '</p><div class="am-dots"><i></i><i></i><i></i><i></i></div>' + teclas() +
+        '<div class="am-feito"><span>' + ic('i-ok', 34) + '</span><b>Pagamento aprovado</b><small>' + T('2 de 2 aprovações · assinado com PIN e rubrica', '2 de 2 aprovações · assinado com PIN e rubrica') + '</small></div></div></div>' +
+        '<nav class="am-tabs">' + tab('inicio', ic('i-graf', 22), 'Início') + tab('pedidos', ic('i-chave', 22), 'Pedidos') + tab('equipa', ic('i-pessoas', 22), T('Equipa', 'Equipe')) + tab('mais', MAIS, 'Mais') + '</nav>';
+    }
+    function montar() { app.innerHTML = '<div class="am-st"><b>9:41</b><span>' + svg('M2 18h2M7 15v3M12 11v7M17 7v11', 16) + '</span></div>' + (emp ? empresa() : particular()); tela(emp ? 'inicio' : 'painel'); }
+    function tela(id) { app.querySelectorAll('.am-tela').forEach(function (t) { var on = t.dataset.t === id; t.classList.toggle('on', on); if (on) t.querySelector('.am-cont').scrollTop = 0; });
+      app.querySelectorAll('.am-tab').forEach(function (t) { t.classList.toggle('on', t.dataset.tab === id || (id === 'det' && t.dataset.tab === 'pedidos')); });
+      if (id === 'obj') { var a = app.querySelector('.am-anel'); setTimeout(function () { a.style.setProperty('--p', a.dataset.p); }, 120); } }
+    function escala() { app.style.transform = 'scale(' + (ecra.clientWidth / W) + ')'; }
     escala(); addEventListener('resize', escala);
     var esp = function (ms, g) { return new Promise(function (r, f) { setTimeout(function () { g === gen ? r() : f('parou'); }, ms); }); };
-    function janela() { try { return fr.contentWindow; } catch (e) { return null; } }
-    function rolar(w, para, dur, g) { return new Promise(function (r, f) { var de = w.scrollY, t0 = performance.now();
-      (function passo(t) { if (g !== gen) return f('parou'); var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 4); w.scrollTo({ top: de + (para - de) * e, behavior: 'instant' }); if (p < 1) requestAnimationFrame(passo); else r(); })(t0); }); }
     function poe(x, y, dur) { dedo.style.transition = 'left ' + dur + 'ms cubic-bezier(.3,.7,.2,1), top ' + dur + 'ms cubic-bezier(.3,.7,.2,1), opacity .3s, scale .18s'; dedo.style.left = x + '%'; dedo.style.top = y + '%'; }
-    async function deslizar(w, delta, g) { poe(58, 74, 0); dedo.classList.add('ve'); await esp(260, g); dedo.classList.add('carrega');
-      var max = w.document.documentElement.scrollHeight - H, para = Math.max(0, Math.min(max, w.scrollY + delta));
-      poe(58, delta > 0 ? 36 : 86, 520); var r = rolar(w, para, 1300, g); await esp(420, g); dedo.classList.remove('carrega', 've'); await r; }
-    async function irA(w, sel, g, folga) { var el = w.document.querySelector(sel); if (!el) return; var y = el.getBoundingClientRect().top + w.scrollY - (folga || 90); await deslizar(w, y - w.scrollY, g); }
-    async function tocar(w, sel, g) { var el = w.document.querySelector(sel); if (!el) return; var b = el.getBoundingClientRect();
-      if (b.top < 60 || b.bottom > H - 40) return; poe(Math.min(92, (b.left + b.width / 2) / W * 100), (b.top + b.height / 2) / H * 100, 0);
-      await esp(30, g); dedo.classList.add('ve'); await esp(380, g); dedo.classList.add('carrega'); await esp(160, g); el.click(); dedo.classList.remove('carrega'); await esp(320, g); dedo.classList.remove('ve'); }
-    async function lateral(w, sel, g) { var el = w.document.querySelector(sel); if (!el) return; var b = el.getBoundingClientRect(); var y = (b.top + Math.min(b.height, 260) / 2) / H * 100;
-      poe(80, y, 0); dedo.classList.add('ve'); await esp(260, g); dedo.classList.add('carrega'); poe(24, y, 520); el.scrollBy({ left: el.clientWidth * .88, behavior: 'smooth' }); await esp(560, g); dedo.classList.remove('carrega', 've'); await esp(500, g);
-      poe(24, y, 0); dedo.classList.add('ve'); await esp(200, g); dedo.classList.add('carrega'); poe(80, y, 520); el.scrollBy({ left: -el.clientWidth * 2, behavior: 'smooth' }); await esp(560, g); dedo.classList.remove('carrega', 've'); }
-    async function ciclo(g) { var w = janela(); if (!w || !w.document.body) return;
-      w.scrollTo({ top: 0, behavior: 'instant' }); await esp(1400, g);
-      await deslizar(w, 360, g); await esp(900, g);
-      await irA(w, '#queroT', g, 120); await esp(700, g);
-      await tocar(w, '#queroT button:nth-child(2)', g); await esp(1500, g);
-      await tocar(w, '#queroC .vals button:nth-child(3)', g); await esp(1600, g);
-      await irA(w, '#destaques', g, 20); await esp(700, g);
-      await lateral(w, '#destC', g); await esp(900, g);
-      await irA(w, '#movel, #simuladores', g, 20); await esp(1200, g);
-      await deslizar(w, 520, g); await esp(1200, g);
-      await tocar(w, '#queroT button:nth-child(1)', g).catch(function () { });
-      dedo.classList.remove('ve'); await rolar(w, 0, 1600, g); await esp(1600, g); }
-    async function correr() { var g = gen; try { while (g === gen) await ciclo(g); } catch (e) { } }
-    function ligar(on) { if (on === corre) return; corre = on; gen++; dedo.classList.remove('ve', 'carrega'); if (on && !reduz) { if (fr.dataset.ok) correr(); } }
-    fr.addEventListener('load', function () { fr.dataset.ok = 1; var w = janela(); try { w.document.documentElement.classList.add('embutido'); } catch (e) { } if (corre && !reduz) { gen++; correr(); } });
-    function avaliar() { var r = sec.getBoundingClientRect(), on = !document.hidden && getComputedStyle(sec).display !== 'none' && r.top < innerHeight * .65 && r.bottom > innerHeight * .35;
-      if (on && !visto) { visto = true; fr.src = fr.dataset.src; } ligar(on); }
+    function sitio(el) { var e = ecra.getBoundingClientRect(), b = el.getBoundingClientRect(); return [(b.left + b.width / 2 - e.left) / e.width * 100, (b.top + b.height / 2 - e.top) / e.height * 100]; }
+    // tocar num elemento; fica = o dedo continua visível (teclado)
+    async function tocar(sel, g, acao, fica) { var el = typeof sel === 'string' ? app.querySelector(sel) : sel; if (!el) return; var p = sitio(el);
+      if (dedo.classList.contains('ve')) { poe(p[0], p[1], 300); await esp(320, g); } else { poe(p[0], p[1], 0); await esp(30, g); dedo.classList.add('ve'); await esp(380, g); }
+      dedo.classList.add('carrega'); el.classList.add('toque'); await esp(150, g); if (acao) acao(el); dedo.classList.remove('carrega');
+      setTimeout(function () { el.classList.remove('toque'); }, 320); await esp(fica ? 120 : 300, g); if (!fica) dedo.classList.remove('ve'); }
+    function rolarEl(el, para, dur, g) { return new Promise(function (r, f) { var de = el.scrollTop, t0 = performance.now();
+      (function passo() { if (g !== gen) return f('parou'); var p = Math.min(1, (performance.now() - t0) / dur), e = 1 - Math.pow(1 - p, 4); el.scrollTop = de + (para - de) * e; if (p < 1) setTimeout(passo, 16); else r(); })(); }); }
+    async function deslizar(delta, g) { var el = app.querySelector('.am-tela.on .am-cont'); if (!el) return; poe(58, delta > 0 ? 74 : 40, 0); dedo.classList.add('ve'); await esp(260, g); dedo.classList.add('carrega');
+      poe(58, delta > 0 ? 38 : 76, 520); var r = rolarEl(el, Math.max(0, Math.min(el.scrollHeight - el.clientHeight, el.scrollTop + delta)), 1200, g); await esp(420, g); dedo.classList.remove('carrega', 've'); await r; }
+    var abrir = function (on) { app.querySelector('.am-veu').classList.toggle('on', on); app.querySelector('.am-sheet').classList.toggle('on', on); };
+    async function cicloP(g) {
+      montar(); await esp(1500, g);
+      await deslizar(300, g); await esp(900, g); await deslizar(-300, g); await esp(500, g);
+      await tocar('[data-tab="dividas"]', g, function () { tela('dividas'); }); await esp(1400, g);
+      await tocar('[data-est="b"]', g, function (el) { app.querySelectorAll('[data-est]').forEach(function (c) { c.classList.toggle('on', c === el); });
+        app.querySelector('[data-fim]').textContent = 'jun. 2028'; app.querySelector('[data-jur]').textContent = 'Juros totais ' + DIN(BR ? 7180 : 1512); app.querySelector('.am-div[data-o="0"]').parentNode.classList.add('troca'); }); await esp(1800, g);
+      await tocar('[data-est="a"]', g, function (el) { app.querySelectorAll('[data-est]').forEach(function (c) { c.classList.toggle('on', c === el); });
+        app.querySelector('[data-fim]').textContent = 'mar. 2028'; app.querySelector('[data-jur]').textContent = 'Juros totais ' + DIN(BR ? 6420 : 1385); }); await esp(1200, g);
+      await tocar('[data-tab="obj"]', g, function () { tela('obj'); }); await esp(2200, g);
+      await tocar('[data-fab]', g, function () { abrir(true); }); await esp(700, g);
+      var dig = (GASTO * 100).toFixed(0), txt = '';
+      for (var i = 0; i < dig.length; i++) { (function (d) { txt += d; })(dig[i]); var cents = +txt; await tocar(app.querySelector('.am-sheet [data-k="' + dig[i] + '"]'), g, (function (c) { return function () { app.querySelector('[data-valor]').textContent = DIN(c / 100); }; })(cents), true); }
+      await esp(300, g); await tocar('[data-guardar]', g, function () { abrir(false); app.querySelector('.am-toast').classList.add('on'); }); await esp(1300, g);
+      app.querySelector('.am-toast').classList.remove('on');
+      await tocar('[data-tab="painel"]', g, function () { tela('painel'); var s = app.querySelector('[data-sobra]'); s.textContent = DIN(SOBRA - GASTO); s.classList.add('muda');
+        app.querySelector('[data-desp]').textContent = DIN((BR ? 5610 : 1227.7) + GASTO); }); await esp(2600, g);
+    }
+    async function cicloE(g) {
+      montar(); await esp(1500, g);
+      await deslizar(320, g); await esp(1000, g);
+      await tocar('[data-tab="pedidos"]', g, function () { tela('pedidos'); }); await esp(1200, g);
+      await tocar('.p142', g, function () { tela('det'); }); await esp(1400, g);
+      await tocar('[data-aprovar]', g, function () { abrir(true); }); await esp(700, g);
+      var dots = app.querySelectorAll('.am-dots i');
+      for (var i = 0; i < 4; i++) await tocar(app.querySelector('.am-sheet [data-k="' + [7, 3, 9, 1][i] + '"]'), g, (function (k) { return function () { dots[k].classList.add('on'); }; })(i), true);
+      dedo.classList.remove('ve'); await esp(250, g); app.querySelector('.am-sheet').classList.add('feito'); await esp(1700, g); abrir(false);
+      var p2 = app.querySelector('[data-passo2]'); p2.classList.add('ok'); p2.querySelector('i').innerHTML = ic('i-ok', 14); app.querySelector('[data-aprovar]').classList.add('feito'); app.querySelector('[data-aprovar]').innerHTML = ic('i-ok', 18) + 'Aprovado · 2 de 2';
+      await esp(1500, g);
+      await tocar('.am-volta', g, function () { tela('pedidos'); var e = app.querySelector('[data-est142]'); e.className = 'am-est ok'; e.textContent = T('Aprovado', 'Aprovado'); }); await esp(1500, g);
+      await tocar('[data-tab="equipa"]', g, function () { tela('equipa'); }); await esp(2200, g);
+    }
+    async function correr() { var g = gen; try { while (g === gen) await (emp ? cicloE(g) : cicloP(g)); } catch (e) { } }
+    function ligar(on) { if (on === corre) return; corre = on; gen++; dedo.classList.remove('ve', 'carrega'); if (on && !reduz) correr(); }
+    montar();
+    function avaliar() { var r = sec.getBoundingClientRect(), on = !document.hidden && getComputedStyle(sec).display !== 'none' && r.top < innerHeight * .65 && r.bottom > innerHeight * .35; ligar(on); }
     if ('IntersectionObserver' in window) new IntersectionObserver(avaliar, { threshold: [0, .35, .6] }).observe(sec);
     new MutationObserver(avaliar).observe(sec, { attributes: true, attributeFilter: ['class'] });
     var tAv = null; addEventListener('scroll', function () { clearTimeout(tAv); tAv = setTimeout(avaliar, 120); }, { passive: true });
