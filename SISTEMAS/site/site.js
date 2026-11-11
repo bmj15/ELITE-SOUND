@@ -9,7 +9,8 @@ var pagina = document.body.dataset.pagina || '';
 var pais = window.BXB_PAIS || 'pt', T = window.BXB_T || function (a) { return a; };
 var ss = function (k, v) { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) { return null; } };
 // segmento: pela página (/empresas) ou pelo último visitado
-var seg = document.body.dataset.seg || (/^\/empresas/.test(location.pathname) ? 'empresa' : /^\/(particulares)?$/.test(location.pathname) ? 'particular' : ss('bxb:seg') || 'particular');
+var cam = window.BXB_CAMINHO || location.pathname;
+var seg = document.body.dataset.seg || (/^\/empresas/.test(cam) ? 'empresa' : /^\/(particulares)?$/.test(cam) ? 'particular' : ss('bxb:seg') || 'particular');
 ss('bxb:seg', seg); document.body.classList.toggle('emp', seg === 'empresa');
 var casa = seg === 'empresa' ? '/empresas' : '/';
 
@@ -114,7 +115,7 @@ var P = document.getElementById('pesq'), PI = document.getElementById('pesqI'), 
 var PAGS = [['/simuladores', 'Simuladores', T('Fundo de emergência, dívidas, poupança, margem e recebimentos', 'Reserva de emergência, dívidas, poupança, margem e recebimentos')], ['/ajuda', 'Centro de ajuda', 'Perguntas frequentes por tema'], ['/artigos', 'Artigos', 'Poupança, crédito, impostos e empresas'],
   [ENT + '?criar=1&tipo=particular', 'Abrir conta particular', 'Plano pessoal'], [ENT + '?criar=1&tipo=empresa', 'Abrir conta de empresa', T('Pagamentos, tesouraria e equipa', 'Pagamentos, fluxo de caixa e equipe')], [ENT, 'Entrar', T('Aceder à sua área', 'Acessar a sua área')]];
 var norm = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
-function carregarAjuda(cb) { if (window.AJUDA) return cb(); var s = document.createElement('script'); s.src = '/SISTEMAS/site/ajuda.js?v=3'; s.onload = cb; s.onerror = cb; document.head.appendChild(s); }
+function carregarAjuda(cb) { if (window.AJUDA) return cb(); var s = document.createElement('script'); s.src = '/SISTEMAS/site/ajuda.js?v=4'; s.onload = cb; s.onerror = cb; document.head.appendChild(s); }
 function pesquisar() {
   var q = norm(PI.value.trim());
   if (!q) { PR.innerHTML = '<h6>Pesquisas frequentes</h6><div class="chips">' + T(['IRS', 'Fundo de emergência', 'Cartão de crédito', 'Dupla aprovação', 'Palavra-passe', 'Tesouraria'], ['Imposto de Renda', 'Reserva de emergência', 'Cartão de crédito', 'Dupla aprovação', 'Senha', 'Fluxo de caixa']).map(function (c) { return '<button type="button">' + c + '</button>'; }).join('') + '</div>';

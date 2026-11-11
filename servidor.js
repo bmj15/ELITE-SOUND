@@ -373,8 +373,10 @@ function atender(req, res) {
   if (caminho.startsWith('/api/')) return api(req, res, caminho).catch(e => { try { enviar(400, JSON.stringify({ erro: e.message }), 'application/json; charset=utf-8'); } catch (e2) { } });
   if (req.method !== 'GET' && req.method !== 'HEAD') return enviar(405, 'Método não permitido');
   if (caminho === '/entrar') { res.writeHead(302, { Location: '/SISTEMAS/entrar.html', 'X-Servidor': ASSINATURA }); return res.end(); }
-  // páginas públicas do site com endereços simples
-  if (caminho === '/' || caminho === '/index.html') caminho = '/SISTEMAS/inicio.html';
+  // páginas públicas do site com endereços simples; o país vem à frente: /pt-br/... ou /pt-pt/... (lido no navegador por pais.js)
+  const comPais = caminho.match(/^\/pt-(br|pt)(?=\/|$)/);
+  if (comPais) caminho = caminho.slice(comPais[0].length) || '/';
+  if (caminho === '/'|| caminho === '/index.html') caminho = '/SISTEMAS/inicio.html';
   else if (caminho === '/artigos' || caminho === '/artigos/') caminho = '/SISTEMAS/site/artigos.html';
   else if (/^\/artigos\/[a-z0-9-]+\/?$/.test(caminho)) caminho = '/SISTEMAS/site/artigo.html';
   else if (caminho === '/empresas' || caminho === '/empresas/' || caminho === '/particulares') caminho = '/SISTEMAS/inicio.html';

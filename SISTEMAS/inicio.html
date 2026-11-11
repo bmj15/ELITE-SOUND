@@ -7,23 +7,23 @@
 <meta name="description" content="Planeamento financeiro pessoal e gestão de tesouraria para empresas, com autorizações assinadas.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<script src="/SISTEMAS/site/pais.js?v=1"></script>
+<script src="/SISTEMAS/site/pais.js?v=2"></script>
 <link rel="stylesheet" href="/SISTEMAS/site/site.css?v=12">
-<script>if (/^\/empresas/.test(location.pathname)) document.documentElement.dataset.seg = 'empresa';</script>
+<script>if (/^\/empresas/.test((window.BXB_CAMINHO || location.pathname))) document.documentElement.dataset.seg = 'empresa';</script>
 </head>
 <body data-pagina="inicio">
 <main id="hp"></main>
-<script src="/SISTEMAS/site/artigos.js?v=6"></script>
-<script src="/SISTEMAS/site/ajuda.js?v=2"></script>
+<script src="/SISTEMAS/site/artigos.js?v=7"></script>
+<script src="/SISTEMAS/site/ajuda.js?v=4"></script>
 <script>if (document.documentElement.dataset.seg) { document.body.dataset.seg = 'empresa'; document.title = 'BXB Empresas · Pagamentos autorizados e tesouraria'; }</script>
-<script src="/SISTEMAS/site/site.js?v=3"></script>
+<script src="/SISTEMAS/site/site.js?v=4"></script>
 <script>
 (function () {
   'use strict';
   var esc = Site.esc, ic = Site.ic, emp = Site.seg === 'empresa';
   var embutido = window.top !== window.self; if (embutido) document.documentElement.classList.add('embutido');
   var ENT = '/SISTEMAS/entrar.html', ABRIR = ENT + '?criar=1&tipo=' + (emp ? 'empresa' : 'particular');
-  var eur0 = function (v) { return Math.round(v).toLocaleString('pt-PT') + ' €'; };
+  var eur0 = function (v) { return window.BXB_DIN ? BXB_DIN(Math.round(v), 0) : Math.round(v).toLocaleString('pt-PT') + ' €'; };
   var meses = function (n) { n = Math.ceil(n); var a = Math.floor(n / 12), m = n % 12; return (a ? a + (a > 1 ? ' anos' : ' ano') : '') + (a && m ? ' e ' : '') + (m ? m + (m > 1 ? ' meses' : ' mês') : ''); };
   var ok = ic('i-ok', 16);
 
@@ -82,7 +82,7 @@
     ],
     movel: { sob: 'No telemóvel', h: 'O seu plano, <b>sempre à mão</b>', p: 'O site adapta-se ao ecrã do telemóvel. Veja quanto sobra, registe uma despesa ou acompanhe um objetivo onde estiver, sem instalar nada.',
       pts: ['O mês inteiro num relance', 'Despesas registadas em segundos', 'Simuladores sem registo'], c1: ['Abrir conta', ABRIR], c2: ['Ver simuladores', '/simuladores'],
-      cards: [['i-carteira', 'Sobra este mês', '412,30 €', '▲ 18% face à média'], ['i-alvo', 'Objetivo · Férias', '68%', 'Faltam 4 meses']] },
+      cards: [['i-carteira', 'Sobra este mês', DIN(412.3), '▲ 18% face à média'], ['i-alvo', 'Objetivo · Férias', '68%', 'Faltam 4 meses']] },
     quero: [
       { id: 'dividas', t: 'Quero sair das dívidas', ico: 'i-cartao', tg: 'Simulação rápida', lb: 'Plano para sair das dívidas', h: 'Quanto deve?', pts: ['Compare várias estratégias de pagamento', 'Veja a data em que fica sem dívidas', 'Saiba quanto poupa com cada reforço'],
         vals: [1000, 2500, 5000, 10000, 20000], def: 5000, un: '€', res: function (v) { var r = 0.10 / 12, P = Math.max(30, v * 0.03), n = -Math.log(1 - r * v / P) / Math.log(1 + r), n2 = -Math.log(1 - r * v / (P + 50)) / Math.log(1 + r);
@@ -144,6 +144,82 @@
     ],
     ajuda: [['i-ajuda', 'Tem dúvidas?', 'Encontre resposta às suas perguntas no centro de ajuda', 'Tirar dúvidas', '/ajuda?t=empresas'], ['i-user', 'Já é cliente?', 'Entre na área da empresa com o seu email e palavra-passe', 'Entrar', ENT + '?tipo=empresa'], ['i-escudo', 'Pedido de pagamento suspeito?', 'Saiba como a dupla aprovação trava fraudes por email', 'Ler o artigo', '/artigos/dupla-aprovacao-pagamentos']]
   };
+
+  // ---------- Brasil: textos, valores em reais e links para os artigos brasileiros ----------
+  if (BR) {
+    var A = '/artigos/'; document.title = emp ? 'BXB Empresas · Pagamentos autorizados e fluxo de caixa' : 'BXB · Planejamento financeiro e fluxo de caixa';
+    Object.assign(P, {
+      slides: [
+        { tag: 'Plano pessoal', h: 'Seu dinheiro, com um plano.', p: 'Renda, despesas, dívidas, objetivos e Imposto de Renda num só lugar. Veja quanto sobra em cada mês e o que fazer com isso.', c1: ['Abrir conta', ABRIR], c2: ['Já sou cliente', ENT + '?tipo=particular'], arte: 'painel' },
+        { tag: 'Dívidas', h: 'Saia das dívidas mais cedo.', p: 'Junte cartões, empréstimos e financiamentos, compare estratégias de pagamento e veja a data em que fica sem dívidas.', c1: ['Simular uma dívida', '/simuladores#divida'], arte: 'dividas' },
+        { tag: 'Reserva', h: 'Uma reserva para os imprevistos.', p: 'Saiba quanto ter guardado e em quantos meses chega lá, no ritmo que consegue economizar.', c1: ['Calcular minha reserva', '/simuladores#emergencia'], arte: 'objetivo' },
+        { tag: 'Impostos', h: 'Imposto de Renda sem surpresas.', p: 'Comprovantes, deduções e uma estimativa da restituição muito antes do prazo de entrega da declaração.', c1: ['Ler o guia', A + 'imposto-de-renda-deducoes'], arte: 'irs' }
+      ],
+      movel: { sob: 'No celular', h: 'Seu plano, <b>sempre à mão</b>', p: 'O site se adapta à tela do celular. Veja quanto sobra, registre uma despesa ou acompanhe um objetivo onde estiver, sem instalar nada.',
+        pts: ['O mês inteiro de relance', 'Despesas registradas em segundos', 'Simuladores sem cadastro'], c1: ['Abrir conta', ABRIR], c2: ['Ver simuladores', '/simuladores'],
+        cards: [['i-carteira', 'Sobra este mês', DIN(1240), '▲ 18% acima da média'], ['i-alvo', 'Objetivo · Viagem', '68%', 'Faltam 4 meses']] },
+      quero: [
+        { id: 'dividas', t: 'Quero sair das dívidas', ico: 'i-cartao', tg: 'Simulação rápida', lb: 'Plano para sair das dívidas', h: 'Quanto você deve?', pts: ['Compare estratégias de pagamento', 'Veja a data em que fica sem dívidas', 'Saiba quanto economiza com cada valor extra'],
+          vals: [2000, 5000, 10000, 20000, 50000], def: 10000, un: 'R$', res: function (v) { var r = 0.03, P = Math.max(100, v * 0.05), n = -Math.log(1 - r * v / P) / Math.log(1 + r), n2 = -Math.log(1 - r * v / (P + 200)) / Math.log(1 + r);
+            return 'Com uma parcela de <b>' + eur0(P) + '</b> por mês, a dívida fica quitada em <b>' + meses(n) + '</b>. Com mais ' + eur0(200) + ' por mês, em ' + meses(n2) + '.<br><small style="color:#aab">Exemplo com juros de 3% ao mês.</small>'; }, cta: ['Simular com meus valores', '/simuladores#divida'] },
+        { id: 'poupar', t: 'Quero guardar dinheiro', ico: 'i-alvo', tg: 'Simulação rápida', lb: 'Objetivo de economia', h: 'Quanto quer juntar?', pts: ['Defina o valor e a data', 'O plano divide o que sobra entre os objetivos', 'Acompanhe o progresso todo mês'],
+          vals: [2000, 5000, 10000, 20000, 50000], def: 10000, un: 'R$', res: function (v) { return 'Para juntar <b>' + eur0(v) + '</b>: <b>' + eur0(v / 12) + '</b> por mês em 1 ano, ' + eur0(v / 24) + ' em 2 anos ou ' + eur0(v / 36) + ' em 3 anos.'; }, cta: ['Simular meu objetivo', '/simuladores#objetivo'] },
+        { id: 'emergencia', t: 'Quero uma reserva de emergência', ico: 'i-escudo', tg: 'Simulação rápida', lb: 'Reserva de emergência', h: 'Quanto você gasta por mês?', pts: ['Despesas essenciais: moradia, contas, mercado e transporte', 'De 3 a 12 meses, conforme a estabilidade da renda', 'Guardada à parte, com liquidez diária'],
+          vals: [2000, 3000, 4000, 6000, 8000], def: 4000, un: 'R$', res: function (v) { return 'Reserva recomendada: <b>' + eur0(v * 6) + '</b> (6 meses). Com renda variável, ' + eur0(v * 12) + ' (12 meses).'; }, cta: ['Calcular com a minha situação', '/simuladores#emergencia'] },
+        { id: 'irs', t: 'Quero preparar o Imposto de Renda', ico: 'i-recibo', tg: 'Guias', lb: 'Impostos', h: 'Chegue à declaração preparado', pts: ['Guarde os comprovantes de saúde e educação ao longo do ano', 'Compare o modelo completo e o simplificado', 'MEI e autônomo sem surpresas'],
+          lado: [['Imposto de Renda: o que pode deduzir', A + 'imposto-de-renda-deducoes'], ['MEI ou autônomo: impostos e contribuições', A + 'mei-ou-autonomo'], ['Todos os artigos sobre impostos', '/artigos?c=impostos']] },
+        { id: 'partilhar', t: 'Quero dividir despesas', ico: 'i-pessoas', tg: 'Por convite', lb: 'Despesas compartilhadas', h: 'Contas a dois, sem brigas', pts: ['Convide a outra pessoa pelo e-mail', 'Uma planilha comum com o acerto do mês', 'Aluguel, mercado ou um objetivo em conjunto'],
+          lado: [['Como funcionam as despesas compartilhadas', '/ajuda?p=partilhar-despesas'], ['Guia: despesas compartilhadas a dois', A + 'despesas-compartilhadas-a-dois'], ['Abrir conta', ABRIR]] }
+      ],
+      dest: [
+        { id: 'dividas', foto: ['1563013544-824ae1b704d3', 'Mãos usando um cartão junto a um notebook'], cat: 'credito', ico: 'i-cartao', h: 'Plano para sair das dívidas', p: 'Junte cartões, empréstimos e financiamentos, compare estratégias de pagamento e veja quanto economiza em juros com cada valor extra.', l: ['Simular uma dívida', '/simuladores#divida'] },
+        { id: 'objetivos', foto: ['1522199710521-72d69614c702', 'Mala de viagem aberta ao lado de um notebook'], cat: 'poupanca', ico: 'i-alvo', h: 'Objetivos de economia', p: 'Viagem, carro ou a entrada do apartamento: o que sobra em cada mês é dividido entre seus objetivos, por prioridade.', l: ['Simular um objetivo', '/simuladores#objetivo'] },
+        { id: 'partilhar', foto: ['1758523417851-80ae1a8531fb', 'Casal na cozinha com compras do mercado'], cat: 'casa', ico: 'i-pessoas', h: 'Despesas compartilhadas', p: 'Aluguel, mercado ou um objetivo a dois, com uma planilha comum e o acerto do mês feito por você.', l: ['Saber como funciona', '/ajuda?p=partilhar-despesas'] },
+        { id: 'irs', foto: ['1740592909790-c56aef6d5ae6', 'Notas e moedas de real'], cat: 'impostos', ico: 'i-recibo', h: 'Comprovantes e Imposto de Renda', p: 'Informes de rendimentos, recibos de saúde e educação e uma estimativa da restituição ou do imposto a pagar.', l: ['Ver guias de impostos', '/artigos?c=impostos'] }
+      ],
+      sims: [['emergencia', 'i-alvo', 'Reserva de emergência', 'Quanto ter guardado e quando chega lá.'], ['divida', 'i-cartao', 'Prazo de uma dívida', 'Quando fica quitada e quanto paga de juros.'], ['objetivo', 'i-graf', 'Objetivo de economia', 'Quanto guardar por mês até a data.'], ['', 'i-calc', 'Todos os simuladores', 'Também para empresas: margem e recebimentos.']],
+      blocos: [
+        { id: 'plano', sob: 'Plano pessoal', h: 'Um plano que diz o que fazer <b>com o que sobra</b>', p: 'Quanto entra, quanto sai e quanto sobra, mês a mês, com a projeção até dezembro, as contas do mês e quanto colocar em cada objetivo.', l: ['Abrir conta', ABRIR], arte: 'painel' },
+        { id: 'extratos', sob: 'Extratos', h: 'Importe o extrato e <b>o resto se faz sozinho</b>', p: 'As movimentações do banco são associadas às despesas fixas e aos créditos. Você só revisa o que ficou sem categoria.', l: ['Saiba mais', '/ajuda?p=extratos'], arte: 'extratos' },
+        { id: 'seguranca', sob: 'Segurança', h: 'Cada operação <b>assinada e registrada</b>', p: 'Login com senha, assinatura com PIN e rubrica, registro de operações encadeado, conexão criptografada e backups diários.', l: ['Dicas de segurança online', A + 'proteger-suas-contas'], arte: 'seguranca' }
+      ],
+      ajuda: [['i-ajuda', 'Tem dúvidas?', 'Encontre respostas para suas perguntas na central de ajuda', 'Tirar dúvidas', '/ajuda'], ['i-user', 'Já é cliente?', 'Entre na sua área com seu e-mail e senha', 'Entrar', ENT + '?tipo=particular'], ['i-escudo', 'Recebeu uma mensagem suspeita?', 'Saiba reconhecer tentativas de golpe e proteger suas contas', 'Ver dicas', A + 'proteger-suas-contas']]
+    });
+    Object.assign(E, {
+      slides: [
+        { tag: 'Empresas', h: 'Nenhum pagamento sai sem autorização.', p: 'Pedidos com alçadas e dupla aprovação, assinados com PIN e rubrica por quem aprova.', c1: ['Abrir conta de empresa', ABRIR], c2: ['Já sou cliente', ENT + '?tipo=empresa'], arte: 'pagamentos' },
+        { tag: 'Fluxo de caixa', h: 'Saldos e compromissos em tempo real.', p: 'Saldo disponível, saldo bloqueado em pedidos aguardando aprovação e conciliação com o extrato bancário.', c1: ['Simular recebimentos', '/simuladores#pmr'], arte: 'tesouraria' },
+        { tag: 'Equipe', h: 'Toda a equipe, cada um no seu papel.', p: 'Convide os colaboradores pelo e-mail e defina o papel e a alçada de cada um.', c1: ['Abrir conta de empresa', ABRIR], arte: 'equipa' },
+        { tag: 'Guia', h: 'Fluxo de caixa em 13 semanas.', p: 'Antecipe a falta de caixa com uma previsão semanal simples de entradas e saídas.', c1: ['Ler o guia', A + 'fluxo-de-caixa-13-semanas'], arte: 'tesouraria' }
+      ],
+      movel: { sob: 'No celular', h: 'A empresa, <b>na palma da mão</b>', p: 'O site se adapta à tela do celular. Aprove um pagamento, consulte o caixa ou veja as vendas da semana onde estiver.',
+        pts: ['Pagamentos aprovados onde estiver', 'Saldo e previsão de caixa', 'Avisos de pagamentos pendentes'], c1: ['Abrir conta de empresa', ABRIR], c2: ['Ver simuladores', '/simuladores#pmr'],
+        cards: [['i-chave', 'Pagamento autorizado', '2 de 2', 'Fornecedor · ' + DIN(8400)], ['i-graf', 'Saldo previsto · 30 dias', DIN(126800, 0), '▲ dentro do plano']] },
+      quero: [
+        { id: 'pagamentos', t: 'Quero controlar pagamentos', ico: 'i-chave', tg: 'Autorização de pagamentos', lb: 'Pagamentos', h: 'Cada pagamento com quem pode aprovar', pts: ['Alçadas por valor e por pessoa', 'Dupla aprovação acima do limite', 'Assinatura com PIN e rubrica'],
+          lado: [['Pix, boleto e TED: por que a dupla aprovação protege o caixa', A + 'dupla-aprovacao-pix-e-boleto'], ['O que é a regra das duas pessoas', '/ajuda?p=duas-pessoas'], ['Abrir conta de empresa', ABRIR]] },
+        { id: 'receber', t: 'Quero receber mais cedo', ico: 'i-carteira', tg: 'Simulação rápida', lb: 'Prazo de recebimento', h: 'Quanto vende por ano?', pts: ['Valor bruto, como aparece nas notas fiscais', 'Cada dia de atraso prende caixa', 'Compare com o prazo combinado'],
+          vals: [200000, 500000, 1000000, 2000000, 5000000], def: 1000000, un: 'R$', res: function (v) { return 'Cada dia a mais no prazo de recebimento prende <b>' + eur0(v / 365) + '</b>. Receber 15 dias mais cedo libera <b>' + eur0(v / 365 * 15) + '</b> de caixa.'; }, cta: ['Calcular meu prazo médio', '/simuladores#pmr'] },
+        { id: 'precos', t: 'Quero definir preços', ico: 'i-carrinho', tg: 'Simulação rápida', lb: 'Preço e margem', h: 'Que margem você quer?', pts: ['Margem é o lucro sobre o preço', 'Markup é o lucro sobre o custo', 'Não são a mesma coisa'],
+          vals: [20, 30, 40, 50, 60], def: 40, un: '%', fmt: function (v) { return v + '%'; }, res: function (v) { var p = 100 / (1 - v / 100); return 'Para um custo de ' + eur0(100) + ', o preço antes dos impostos é <b>' + DIN(p) + '</b>, um markup de <b>' + Math.round(p - 100) + '%</b> sobre o custo.'; }, cta: ['Simular com meus valores', '/simuladores#margem'] },
+        { id: 'equipa', t: 'Quero organizar a equipe', ico: 'i-pessoas', tg: 'Por convite', lb: 'Equipe', h: 'Cada colaborador com seu acesso', pts: ['Convite pelo e-mail', 'Papel e alçada definidos pelo responsável', 'Registro de quem fez o quê'],
+          lado: [['Como os colaboradores entram', '/ajuda?p=colaboradores'], ['Gerenciar mais de uma empresa', '/ajuda?p=varias-empresas'], ['Abrir conta de empresa', ABRIR]] }
+      ],
+      dest: [
+        { id: 'pagamentos', foto: ['1556742208-999815fca738', 'Pagamento numa maquininha de cartão'], cat: 'credito', ico: 'i-chave', h: 'Pedidos de pagamento com alçadas', p: 'O colaborador pede, aprova quem tem alçada para o valor e, acima do limite, são necessárias duas pessoas diferentes.', l: ['Ler sobre dupla aprovação', A + 'dupla-aprovacao-pix-e-boleto'] },
+        { id: 'tesouraria', foto: ['1551288049-bebda4e38f71', 'Gráficos financeiros numa tela'], cat: 'empresas', ico: 'i-carteira', h: 'Fluxo de caixa e conciliação', p: 'Saldos por conta, saldo bloqueado em pedidos e extratos ligados aos pagamentos realizados.', l: ['Simular recebimentos', '/simuladores#pmr'] },
+        { id: 'resultados', foto: ['1556740758-90de374c12ad', 'Atendimento no balcão de uma loja'], cat: 'poupanca', ico: 'i-carrinho', h: 'Vendas, comissões e resultados', p: 'Registre vendas, calcule comissões de vendedores e acompanhe o orçamento e o DRE.', l: ['Simular preço e margem', '/simuladores#margem'] },
+        { id: 'equipa', foto: ['1517048676732-d65bc937f952', 'Equipe reunida à mesa'], cat: 'casa', ico: 'i-pessoas', h: 'Equipe por convite', p: 'Cada colaborador entra com seu e-mail. O responsável define o papel e a alçada de cada um.', l: ['Saber como funciona', '/ajuda?p=colaboradores'] }
+      ],
+      sims: [['pmr', 'i-carteira', 'Prazo médio de recebimento', 'Quantos dias os clientes levam para pagar.'], ['margem', 'i-carrinho', 'Preço e margem', 'O preço para a margem que você quer.'], ['guia', 'i-graf', 'Previsão de 13 semanas', 'Guia para a previsão do fluxo de caixa.'], ['', 'i-calc', 'Todos os simuladores', 'Incluindo economia e dívidas.']],
+      blocos: [
+        { id: 'regras', sob: 'Autorização de pagamentos', h: 'Do pedido ao pagamento, <b>com as regras da empresa</b>', p: 'Cada pedido segue as alçadas definidas. Alterações sensíveis, como mudar limites ou usuários, só entram em vigor com uma segunda aprovação.', l: ['Ajuda sobre pagamentos', '/ajuda?t=pagamentos'], arte: 'fluxo' },
+        { id: 'relatorios', sob: 'Relatórios', h: 'Orçamento e resultados <b>sempre atualizados</b>', p: 'Orçamento por rubrica, DRE e relatórios anuais prontos para exportar.', l: ['Abrir conta de empresa', ABRIR], arte: 'tesouraria' },
+        { id: 'seguranca', sob: 'Segurança', h: 'Cada operação <b>assinada e registrada</b>', p: 'Assinatura com PIN e rubrica e certificado verificável, registro de operações encadeado, conexão criptografada e backups diários.', l: ['Dicas de segurança online', A + 'proteger-suas-contas'], arte: 'seguranca' }
+      ],
+      ajuda: [['i-ajuda', 'Tem dúvidas?', 'Encontre respostas para suas perguntas na central de ajuda', 'Tirar dúvidas', '/ajuda?t=empresas'], ['i-user', 'Já é cliente?', 'Entre na área da empresa com seu e-mail e senha', 'Entrar', ENT + '?tipo=empresa'], ['i-escudo', 'Pedido de pagamento suspeito?', 'Saiba como a dupla aprovação barra golpes por e-mail e boletos falsos', 'Ler o artigo', A + 'dupla-aprovacao-pix-e-boleto']]
+    });
+  }
   var D = emp ? E : P;
   var foto = function (d) { var u = function (w) { return 'https://images.unsplash.com/photo-' + d.foto[0] + '?auto=format&fit=crop&crop=entropy&q=82&w=' + w + '&h=' + Math.round(w * 9 / 16); };
     return '<div class="foto"><img src="' + u(960) + '" srcset="' + [640, 960, 1280, 1600].map(function (w) { return u(w) + ' ' + w + 'w'; }).join(', ') + '" sizes="(max-width:640px) 86vw, (max-width:1100px) 50vw, 34vw" alt="' + d.foto[1] + '" decoding="async"><span class="chip">' + ic(d.ico, 15) + '</span></div>'; };
@@ -283,8 +359,8 @@
   var QC = document.getElementById('queroC');
   function quero(i) { var q = D.quero[i];
     document.querySelectorAll('#queroT button').forEach(function (b) { b.classList.toggle('on', +b.dataset.q === i); });
-    var fmt = q.fmt || function (v) { return v.toLocaleString('pt-PT') + ' €'; };
-    var dir = q.vals ? '<div class="vals">' + q.vals.map(function (v) { return '<button type="button" data-v="' + v + '"' + (v === q.def ? ' class="on"' : '') + '>' + fmt(v) + '</button>'; }).join('') + '<input class="outro" type="number" min="1" inputmode="decimal" placeholder="Outro valor' + (q.un === '%' ? ' (%)' : ' (€)') + '" aria-label="Outro valor"><div class="res" id="qRes"></div><div class="acao"><a class="btn btn-p" href="' + q.cta[1] + '">' + q.cta[0] + ' ' + ic('i-seta', 16) + '</a></div></div>'
+    var fmt = q.fmt || eur0;
+    var dir = q.vals ? '<div class="vals">' + q.vals.map(function (v) { return '<button type="button" data-v="' + v + '"' + (v === q.def ? ' class="on"' : '') + '>' + fmt(v) + '</button>'; }).join('') + '<input class="outro" type="number" min="1" inputmode="decimal" placeholder="Outro valor' + (q.un === '%' ? ' (%)' : ' (' + (window.BXB_MOEDA || '€') + ')') + '" aria-label="Outro valor"><div class="res" id="qRes"></div><div class="acao"><a class="btn btn-p" href="' + q.cta[1] + '">' + q.cta[0] + ' ' + ic('i-seta', 16) + '</a></div></div>'
       : '<div class="lado">' + q.lado.map(function (l) { return '<a class="li" href="' + l[1] + '">' + l[0] + '</a>'; }).join('') + '</div>';
     QC.innerHTML = '<div class="camp"><div><span class="tg">' + ic('i-ok', 13) + q.tg + '</span><span class="lb">' + q.lb + '</span><h3>' + q.h + '</h3><ul>' + q.pts.map(function (t) { return '<li>' + ok + t + '</li>'; }).join('') + '</ul></div>' + dir + '</div>';
     if (q.vals) { var res = document.getElementById('qRes'), mostrar = function (v) { res.innerHTML = q.res(v); };
