@@ -51,7 +51,7 @@
     return nav ? `${nav} · ${so}` : so; };
 
   // nomes das ações do registo
-  const ACOES = { GESTAO_PERFIL_GUARDADO: 'Perfil guardado', GESTAO_OPERADOR_ALTERADO: 'Acessos do operador alterados', ENTRADA: 'Entrou', ENTRADA_FALHADA: 'Entrada falhada', SAIDA: 'Saiu', CONTA_CRIADA: 'Conta criada', AREA_CRIADA: 'Área criada', LEITURA: 'Leu os dados',
+  const ACOES = { CONTA_CRIADA_VERIFICADA: 'Criou conta (email confirmado)', PERFIL_COMPLETO: 'Completou o perfil', GESTAO_VERIFICACAO_LIGADA: 'Ligou a confirmação do email', GESTAO_VERIFICACAO_DESLIGADA: 'Desligou a confirmação do email', GESTAO_PERFIL_GUARDADO: 'Perfil guardado', GESTAO_OPERADOR_ALTERADO: 'Acessos do operador alterados', ENTRADA: 'Entrou', ENTRADA_FALHADA: 'Entrada falhada', SAIDA: 'Saiu', CONTA_CRIADA: 'Conta criada', AREA_CRIADA: 'Área criada', LEITURA: 'Leu os dados',
     GRAVACAO: 'Gravou', APAGADO: 'Apagou', ACESSO_RECUSADO: 'Acesso recusado', CONTACTO_ADICIONADO: 'Juntou um contacto', COLABORADOR_CONVIDADO: 'Convidou colaborador',
     COLABORADOR_RETIRADO: 'Retirou colaborador', CONVITE_ACEITE: 'Aceitou convite', PALAVRA_ALTERADA: 'Mudou a palavra-passe', ADMIN_CONTA_ALTERADA: 'Conta alterada (admin)',
     ADMIN_SESSOES_TERMINADAS: 'Sessões terminadas (admin)', CONFIGURADO: 'Servidor configurado', SERVIDOR_LIGADO: 'Servidor ligado', SERVIDOR_DESLIGADO: 'Servidor desligado',
