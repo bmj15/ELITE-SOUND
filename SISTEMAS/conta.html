@@ -41,7 +41,7 @@
   var areas = ses.areas || [];
   c.insertAdjacentHTML('beforeend', '<div class="card"><div class="card-h"><h3>As minhas áreas</h3></div>' + (areas.length ? areas.map(function (a) {
     return '<div class="lin"><div><b>' + esc(a.nome) + '</b><div class="faint">' + (a.tipo === 'empresa' ? 'Empresa' : 'Particular') + ' · ' + (a.papel === 'dono' ? 'responsável' : 'colaborador') + '</div></div><a class="btn sm" href="/SISTEMAS/subsidiaria/index.html?s=' + encodeURIComponent(a.key) + '">Abrir</a></div>'; }).join('') : '<div class="empty">Ainda não tem nenhuma área.</div>') +
-    '<p class="faint" style="margin:12px 0 0;font-size:12.5px">Os dados de cada área só são enviados às contas dessa área. Nem o administrador do site lhes tem acesso.</p></div>');
+    '</div>');
 
   // colaboradores das empresas de que é responsável
   areas.filter(function (a) { return a.tipo === 'empresa' && a.papel === 'dono'; }).forEach(function (a) {

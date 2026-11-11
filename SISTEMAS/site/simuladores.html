@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simuladores · BXB</title>
+<meta name="description" content="Simuladores de fundo de emergência, prazo de dívidas, objetivos de poupança, prazo médio de recebimentos e preço e margem.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=2">
+</head>
+<body data-pagina="simuladores">
+<main>
+  <section class="cab"><div class="wrap">
+    <div class="migalhas"><a href="/">Início</a><span>›</span><span>Simuladores</span></div>
+    <h1>Simuladores</h1>
+    <p>Faça as contas antes de decidir. Sem registo e sem guardar valores.</p>
+  </div></section>
+  <section style="padding-top:10px">
+    <div class="wrap">
+      <nav class="sim-nav" id="simNav">
+        <a href="#emergencia">Fundo de emergência</a><a href="#divida">Prazo de uma dívida</a><a href="#objetivo">Objetivo de poupança</a><a href="#pmr">Prazo médio de recebimentos</a><a href="#margem">Preço e margem</a>
+      </nav>
+
+      <div class="calc" id="emergencia">
+        <form class="ent"><h2>Fundo de emergência</h2><p>Quanto deve ter de parte para imprevistos e em quanto tempo lá chega.</p>
+          <div class="cp"><label>Despesas essenciais por mês (€)</label><input name="desp" type="number" min="0" step="10" value="1200" inputmode="decimal"></div>
+          <div class="cp"><label>A sua situação</label><select name="meses"><option value="3">Rendimento estável, duas fontes de rendimento (3 meses)</option><option value="6" selected>Rendimento estável, uma fonte (6 meses)</option><option value="9">Rendimento variável ou trabalho independente (9 meses)</option></select></div>
+          <div class="dois"><div class="cp"><label>Já tem (€)</label><input name="tem" type="number" min="0" step="50" value="1500" inputmode="decimal"></div><div class="cp"><label>Consegue juntar por mês (€)</label><input name="mes" type="number" min="0" step="10" value="250" inputmode="decimal"></div></div>
+        </form>
+        <div class="sai"><small>Fundo recomendado</small><div class="v" data-o="alvo">—</div><div class="l"><span>Falta juntar</span><b data-o="falta">—</b></div><div class="l"><span>Tempo até lá chegar</span><b data-o="tempo">—</b></div><div class="nt" data-o="nt"></div><a class="btn btn-s" href="/artigos/fundo-de-emergencia">Ler o guia</a></div>
+      </div>
+
+      <div class="calc" id="divida">
+        <form class="ent"><h2>Prazo de uma dívida</h2><p>Quando fica paga e quanto paga de juros, e o efeito de reforçar a prestação.</p>
+          <div class="dois"><div class="cp"><label>Valor em dívida (€)</label><input name="saldo" type="number" min="0" step="50" value="4300" inputmode="decimal"></div><div class="cp"><label>TAN (%)</label><input name="tan" type="number" min="0" step="0.1" value="9.5" inputmode="decimal"></div></div>
+          <div class="dois"><div class="cp"><label>Prestação mensal (€)</label><input name="prest" type="number" min="0" step="5" value="150" inputmode="decimal"></div><div class="cp"><label>Reforço mensal (€)</label><input name="extra" type="number" min="0" step="5" value="50" inputmode="decimal"></div></div>
+        </form>
+        <div class="sai"><small>Fica paga em</small><div class="v" data-o="prazo">—</div><div class="l"><span>Juros a pagar</span><b data-o="juros">—</b></div><div class="l"><span>Com o reforço</span><b data-o="ref">—</b></div><div class="l"><span>Poupança em juros com o reforço</span><b data-o="poup">—</b></div><div class="nt" data-o="nt"></div><a class="btn btn-s" href="/artigos/avalanche-ou-bola-de-neve">Tem várias dívidas? Ler o guia</a></div>
+      </div>
+
+      <div class="calc" id="objetivo">
+        <form class="ent"><h2>Objetivo de poupança</h2><p>Quanto poupar por mês para chegar ao valor na data que escolher.</p>
+          <div class="dois"><div class="cp"><label>Valor do objetivo (€)</label><input name="valor" type="number" min="0" step="100" value="10000" inputmode="decimal"></div><div class="cp"><label>Prazo (meses)</label><input name="n" type="number" min="1" step="1" value="36" inputmode="numeric"></div></div>
+          <div class="dois"><div class="cp"><label>Já tem (€)</label><input name="tem" type="number" min="0" step="50" value="1000" inputmode="decimal"></div><div class="cp"><label>Rendimento anual da poupança (%)</label><input name="tx" type="number" min="0" step="0.1" value="2" inputmode="decimal"></div></div>
+        </form>
+        <div class="sai"><small>Poupar por mês</small><div class="v" data-o="mes">—</div><div class="l"><span>Total que vai pôr de parte</span><b data-o="total">—</b></div><div class="l"><span>Rendimento estimado</span><b data-o="rend">—</b></div><div class="nt">Rendimento antes de impostos, com capitalização mensal.</div><a class="btn btn-s" href="/SISTEMAS/entrar.html?criar=1&tipo=particular">Criar este objetivo na sua conta</a></div>
+      </div>
+
+      <div class="calc" id="pmr">
+        <form class="ent"><h2>Prazo médio de recebimentos</h2><p>Quantos dias, em média, os clientes demoram a pagar.</p>
+          <div class="cp"><label>Saldo de clientes por receber (€)</label><input name="cli" type="number" min="0" step="100" value="18500" inputmode="decimal"></div>
+          <div class="cp"><label>Vendas do último ano, com IVA (€)</label><input name="vendas" type="number" min="0" step="1000" value="142000" inputmode="decimal"></div>
+          <div class="cp"><label>Prazo de pagamento acordado (dias)</label><input name="acord" type="number" min="0" step="1" value="30" inputmode="numeric"></div>
+        </form>
+        <div class="sai"><small>Prazo médio de recebimentos</small><div class="v" data-o="dias">—</div><div class="l"><span>Face ao prazo acordado</span><b data-o="dif">—</b></div><div class="l"><span>Dinheiro preso por cada dia de atraso</span><b data-o="dia">—</b></div><div class="nt">PMR = clientes ÷ vendas com IVA × 365.</div><a class="btn btn-s" href="/artigos/tesouraria-pme-13-semanas">Previsão de tesouraria</a></div>
+      </div>
+
+      <div class="calc" id="margem">
+        <form class="ent"><h2>Preço e margem</h2><p>O preço de venda para a margem que pretende.</p>
+          <div class="dois"><div class="cp"><label>Custo unitário (€)</label><input name="custo" type="number" min="0" step="0.01" value="40" inputmode="decimal"></div><div class="cp"><label>Margem pretendida (%)</label><input name="m" type="number" min="0" max="99" step="0.5" value="35" inputmode="decimal"></div></div>
+          <div class="cp"><label>Taxa de IVA</label><select name="iva"><option value="23" selected>23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">Isento</option></select></div>
+        </form>
+        <div class="sai"><small>Preço de venda sem IVA</small><div class="v" data-o="preco">—</div><div class="l"><span>Preço com IVA</span><b data-o="pciva">—</b></div><div class="l"><span>Lucro por unidade</span><b data-o="lucro">—</b></div><div class="l"><span>Markup sobre o custo</span><b data-o="mk">—</b></div><div class="nt">Margem = lucro ÷ preço. Markup = lucro ÷ custo.</div></div>
+      </div>
+
+      <p class="aviso-sim">Simulações indicativas, com fins informativos. Não constituem proposta nem aconselhamento financeiro ou fiscal.</p>
+    </div>
+  </section>
+</main>
+<script src="/SISTEMAS/site/artigos.js?v=2"></script>
+<script src="/SISTEMAS/site/site.js?v=2"></script>
+<script>
+(function () {
+  'use strict';
+  var eur = function (v) { return (Math.round(v * 100) / 100).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'; };
+  var eur0 = function (v) { return Math.round(v).toLocaleString('pt-PT') + ' €'; };
+  var meses = function (n) { n = Math.ceil(n); if (n <= 0) return 'já está'; var a = Math.floor(n / 12), m = n % 12; return (a ? a + (a > 1 ? ' anos' : ' ano') : '') + (a && m ? ' e ' : '') + (m ? m + (m > 1 ? ' meses' : ' mês') : ''); };
+  var dataAte = function (n) { var d = new Date(); d.setMonth(d.getMonth() + Math.ceil(n)); return d.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' }); };
+  var num = function (f, k) { var v = parseFloat(String(f[k].value).replace(',', '.')); return isFinite(v) && v > 0 ? v : 0; };
+  var out = function (c, k, v) { c.querySelector('[data-o="' + k + '"]').textContent = v; };
+  // número de meses para pagar S com prestação P à taxa mensal r (Infinity se a prestação não paga os juros)
+  var nPag = function (S, r, P) { if (S <= 0) return 0; if (P <= 0) return Infinity; if (r === 0) return S / P; if (P <= S * r) return Infinity; return -Math.log(1 - r * S / P) / Math.log(1 + r); };
+  // juros simulados mês a mês (última prestação ajustada)
+  var juros = function (S, r, P) { var j = 0, n = 0; while (S > 0.005 && n < 1200) { var i = S * r; j += i; S = S + i - P; n++; } return j; };
+  var C = {
+    emergencia: function (f, c) { var alvo = num(f, 'desp') * +f.meses.value, falta = Math.max(0, alvo - num(f, 'tem')), m = num(f, 'mes');
+      out(c, 'alvo', eur0(alvo)); out(c, 'falta', eur0(falta)); out(c, 'tempo', falta === 0 ? 'Objetivo atingido' : m ? meses(falta / m) : 'indique quanto junta');
+      out(c, 'nt', falta && m ? 'Ao ritmo atual, completa o fundo em ' + dataAte(falta / m) + '.' : 'Guarde-o numa conta à ordem separada ou num depósito com mobilização imediata.'); },
+    divida: function (f, c) { var S = num(f, 'saldo'), r = num(f, 'tan') / 100 / 12, P = num(f, 'prest'), X = num(f, 'extra');
+      var n = nPag(S, r, P), n2 = nPag(S, r, P + X);
+      if (!isFinite(n)) { out(c, 'prazo', 'Nunca'); out(c, 'juros', '—'); out(c, 'ref', isFinite(n2) ? meses(n2) : '—'); out(c, 'poup', '—'); out(c, 'nt', 'A prestação não chega para pagar os juros do mês (' + eur(S * r) + '). A dívida não diminui.'); return; }
+      var j = juros(S, r, P), j2 = juros(S, r, P + X);
+      out(c, 'prazo', meses(n)); out(c, 'juros', eur(j)); out(c, 'ref', X ? meses(n2) + ' (' + meses(n - n2) + ' mais cedo)' : '—'); out(c, 'poup', X ? eur(j - j2) : '—');
+      out(c, 'nt', 'Sem reforço, fica paga em ' + dataAte(n) + '.'); },
+    objetivo: function (f, c) { var V = num(f, 'valor'), n = Math.max(1, Math.round(num(f, 'n'))), J = num(f, 'tem'), i = num(f, 'tx') / 100 / 12;
+      var fv = J * Math.pow(1 + i, n), falta = V - fv, m = falta <= 0 ? 0 : i ? falta * i / (Math.pow(1 + i, n) - 1) : falta / n;
+      out(c, 'mes', eur(m)); out(c, 'total', eur(m * n)); out(c, 'rend', eur(Math.max(0, V - J - m * n) + (falta <= 0 ? fv - V : 0))); },
+    pmr: function (f, c) { var cl = num(f, 'cli'), v = num(f, 'vendas'), a = num(f, 'acord');
+      if (!v) { out(c, 'dias', '—'); return; } var d = cl / v * 365;
+      out(c, 'dias', Math.round(d) + ' dias'); out(c, 'dif', d > a ? '+' + Math.round(d - a) + ' dias' : 'dentro do prazo'); out(c, 'dia', eur0(v / 365)); },
+    margem: function (f, c) { var k = num(f, 'custo'), m = Math.min(99, num(f, 'm')) / 100, p = k / (1 - m);
+      out(c, 'preco', eur(p)); out(c, 'pciva', eur(p * (1 + +f.iva.value / 100))); out(c, 'lucro', eur(p - k)); out(c, 'mk', k ? (Math.round((p - k) / k * 1000) / 10).toLocaleString('pt-PT') + '%' : '—'); }
+  };
+  Object.keys(C).forEach(function (id) { var c = document.getElementById(id), f = c.querySelector('form'), go = function () { C[id](f, c); };
+    f.addEventListener('input', go); f.addEventListener('submit', function (e) { e.preventDefault(); }); go(); });
+  // um simulador de cada vez (separadores), escolhido pelo endereço (#divida, #pmr…)
+  var nav = document.querySelectorAll('#simNav a');
+  var marcar = function () { var id = location.hash.slice(1); if (!C[id]) id = Site.seg === 'empresa' ? 'pmr' : 'emergencia';
+    nav.forEach(function (a) { a.classList.toggle('on', a.getAttribute('href') === '#' + id); });
+    Object.keys(C).forEach(function (k) { document.getElementById(k).style.display = k === id ? '' : 'none'; }); };
+  addEventListener('hashchange', function () { marcar(); scrollTo(0, 0); }); marcar();
+})();
+</script>
+</body>
+</html>

@@ -20,10 +20,12 @@ const crypto = require('crypto');
 const { exec } = require('child_process');
 const { DatabaseSync } = require('node:sqlite');
 
-const PORT = +process.env.PORT || 8080;
+// o site abre diretamente em http://localhost (porta 80); se a porta 80 estiver ocupada ou não for permitida, usa a 8080
+let PORT = +process.env.PORT || 80;
+const PORT_RESERVA = 8080;
 const HOST = '127.0.0.1';
 const RAIZ = __dirname;
-const URL_PORTAL = `http://localhost:${PORT}/SISTEMAS/entrar.html`;
+const urlSite = () => `http://localhost${PORT === 80 ? '' : ':' + PORT}/`;
 const ASSINATURA = 'grupo-bxb-servidor';
 // dados: por omissão em "BXB INVESTIMENTOS\DADOS-SERVIDOR" (duas pastas acima do repositório)
 const DADOS = path.resolve(process.env.BXB_DADOS || path.join(RAIZ, '..', '..', 'DADOS-SERVIDOR'));
@@ -370,7 +372,15 @@ function atender(req, res) {
   catch (e) { return enviar(400, 'Pedido inválido'); }
   if (caminho.startsWith('/api/')) return api(req, res, caminho).catch(e => { try { enviar(400, JSON.stringify({ erro: e.message }), 'application/json; charset=utf-8'); } catch (e2) { } });
   if (req.method !== 'GET' && req.method !== 'HEAD') return enviar(405, 'Método não permitido');
-  if (caminho === '/' || caminho === '/entrar') { res.writeHead(302, { Location: '/SISTEMAS/entrar.html', 'X-Servidor': ASSINATURA }); return res.end(); }
+  if (caminho === '/entrar') { res.writeHead(302, { Location: '/SISTEMAS/entrar.html', 'X-Servidor': ASSINATURA }); return res.end(); }
+  // páginas públicas do site com endereços simples
+  if (caminho === '/' || caminho === '/index.html') caminho = '/SISTEMAS/inicio.html';
+  else if (caminho === '/artigos' || caminho === '/artigos/') caminho = '/SISTEMAS/site/artigos.html';
+  else if (/^\/artigos\/[a-z0-9-]+\/?$/.test(caminho)) caminho = '/SISTEMAS/site/artigo.html';
+  else if (caminho === '/empresas' || caminho === '/empresas/' || caminho === '/particulares') caminho = '/SISTEMAS/inicio.html';
+  else if (caminho === '/ajuda' || caminho === '/ajuda/') caminho = '/SISTEMAS/site/ajuda.html';
+  else if (caminho === '/simuladores' || caminho === '/simuladores/') caminho = '/SISTEMAS/site/simuladores.html';
+  else if (caminho === '/conta') { res.writeHead(302, { Location: '/SISTEMAS/conta.html' }); return res.end(); }
 
   const ficheiro = path.normalize(path.join(RAIZ, caminho));
   // impede sair da pasta do repositório (../) e servir pastas privadas
@@ -415,35 +425,33 @@ function abrirRede() {
     });
 }
 
-servidor.on('error', erro => {
-  if (erro.code !== 'EADDRINUSE') {
-    console.error('Erro ao arrancar o servidor:', erro.message);
-    process.exit(1);
-  }
-  // a porta está ocupada: se for este servidor (já aberto noutra janela), basta abrir o browser
-  http.get(`http://${HOST}:${PORT}/`, r => {
-    if (r.headers['x-servidor'] === ASSINATURA) {
-      console.log(`O servidor já está a correr noutra janela. A abrir ${URL_PORTAL}`);
-      abrirBrowser(URL_PORTAL);
-      setTimeout(() => process.exit(0), 500);
-    } else {
-      console.error(`A porta ${PORT} está ocupada por outro programa. Feche-o ou defina outra porta (set PORT=8081).`);
-      process.exit(1);
-    }
-  }).on('error', () => {
-    console.error(`A porta ${PORT} está ocupada por outro programa. Feche-o ou defina outra porta (set PORT=8081).`);
-    process.exit(1);
-  });
-});
-
-migrarFicheiros();
-servidor.listen(PORT, HOST, () => {
+function arrancar() { servidor.listen(PORT, HOST, () => {
   console.log('');
   console.log('  BXB - site a correr');
-  console.log(`  Abra: ${URL_PORTAL}`);
+  console.log(`  Abra: ${urlSite()}`);
   console.log(`  Dados guardados em: ${DADOS}`);
   console.log('');
   abrirRede();
   console.log('  Nao feche esta janela enquanto usa o sistema.');
-  abrirBrowser(URL_PORTAL);
+  abrirBrowser(urlSite());
+}); }
+servidor.on('error', erro => {
+  const ocupada = erro.code === 'EADDRINUSE';
+  if (!ocupada && erro.code !== 'EACCES') { console.error('Erro ao arrancar o servidor:', erro.message); process.exit(1); }
+  const reserva = () => { if (!process.env.PORT && PORT !== PORT_RESERVA) { console.log(`  A porta ${PORT} nao esta disponivel: a usar a ${PORT_RESERVA}.`); PORT = PORT_RESERVA; arrancar(); return true; } return false; };
+  if (!ocupada) { if (!reserva()) { console.error(`Sem permissao para usar a porta ${PORT}.`); process.exit(1); } return; }
+  // a porta está ocupada: se for este servidor (já aberto noutra janela), basta abrir o browser; se for outro programa, tenta a reserva
+  http.get(`http://${HOST}:${PORT}/`, r => {
+    if (r.headers['x-servidor'] === ASSINATURA) {
+      console.log(`O servidor já está a correr noutra janela. A abrir ${urlSite()}`);
+      abrirBrowser(urlSite());
+      setTimeout(() => process.exit(0), 500);
+    } else if (!reserva()) {
+      console.error(`A porta ${PORT} está ocupada por outro programa. Feche-o ou defina outra porta (set PORT=8081).`);
+      process.exit(1);
+    }
+  }).on('error', () => { if (!reserva()) { console.error(`A porta ${PORT} está ocupada por outro programa. Feche-o ou defina outra porta (set PORT=8081).`); process.exit(1); } });
 });
+
+migrarFicheiros();
+arrancar();

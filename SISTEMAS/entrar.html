@@ -9,73 +9,81 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/spap.css?v=45">
 <style>
-  body{min-height:100vh;margin:0;display:flex;flex-direction:column;background:radial-gradient(55% 45% at 15% 10%,rgba(139,92,246,.20),transparent 60%),radial-gradient(50% 45% at 90% 90%,rgba(34,211,238,.12),transparent 60%),var(--bg)}
-  .topo{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px clamp(16px,4vw,48px)}
+  body{min-height:100vh;margin:0;display:flex;flex-direction:column;background:radial-gradient(50% 40% at 15% 0%,rgba(139,92,246,.16),transparent 60%),var(--bg)}
+  .topo{border-bottom:1px solid var(--line);background:rgba(0,0,0,.18)}
+  .topo .in{display:flex;align-items:center;gap:18px;height:64px;max-width:1120px;margin:0 auto;padding:0 clamp(16px,4vw,32px)}
   .marca{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.3px;color:var(--text);text-decoration:none}
-  .marca i{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-style:normal;font-size:13px;background:linear-gradient(135deg,#8b5cf6,#22d3ee);color:#fff}
-  .topo nav{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
-  .topo nav button{border:0;background:none;color:var(--muted);font:600 14px Inter,system-ui,sans-serif;padding:8px 14px;border-radius:9px;cursor:pointer}
-  .topo nav button.on{background:var(--panel3);color:var(--text)}
-  main{flex:1;display:grid;grid-template-columns:1.1fr minmax(340px,440px);gap:clamp(24px,5vw,72px);align-items:center;padding:12px clamp(16px,4vw,48px) 40px;max-width:1200px;width:100%;margin:0 auto;box-sizing:border-box}
-  .heroi h1{font-size:clamp(32px,4.6vw,54px);line-height:1.05;letter-spacing:-1.6px;margin:0 0 16px}
-  .heroi h1 span{background:linear-gradient(90deg,#a78bfa,#22d3ee);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .heroi p{color:var(--muted);font-size:17px;line-height:1.55;max-width:520px;margin:0 0 26px}
-  .pontos{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:560px}
-  .pontos div{display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);font-size:14px}
-  .pontos svg{flex:none;color:#a78bfa}
-  .caixa{padding:28px;border-radius:22px;background:var(--panel);border:1px solid var(--line2);box-shadow:0 30px 80px rgba(0,0,0,.35)}
-  .caixa h2{margin:0 0 4px;font-size:24px;letter-spacing:-.5px}
-  .caixa .sub2{color:var(--muted);margin:0 0 20px;font-size:14px}
-  .seg{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:12px;background:var(--panel2);margin:0 0 20px}
-  .seg button{border:0;background:none;color:var(--muted);font:600 14px Inter,system-ui,sans-serif;padding:10px;border-radius:9px;cursor:pointer}
-  .seg button.on{background:var(--panel3);color:var(--text);box-shadow:0 1px 0 rgba(255,255,255,.04)}
+  .marca i{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-style:normal;font-size:12.5px;background:linear-gradient(135deg,#8b5cf6,#6366f1 45%,#22d3ee);color:#fff}
+  .area-t{color:var(--muted);font-weight:600;font-size:14px;padding-left:16px;border-left:1px solid var(--line2)}
+  .topo nav{display:flex;align-items:stretch;height:100%;margin-left:auto}
+  .topo nav button{border:0;background:none;color:var(--muted);font:600 14px Inter,system-ui,sans-serif;padding:0 14px;cursor:pointer;position:relative}
+  .topo nav button.on{color:var(--text)}.topo nav button.on:after{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2px;border-radius:2px;background:linear-gradient(90deg,#8b5cf6,#22d3ee)}
+  .topo .aj{color:var(--muted);font-weight:600;font-size:14px;text-decoration:none;padding-left:12px}.topo .aj:hover{color:var(--text)}
+  main{flex:1;display:grid;grid-template-columns:minmax(320px,460px) minmax(260px,360px);justify-content:center;gap:clamp(20px,4vw,48px);align-items:start;padding:clamp(28px,6vh,64px) clamp(16px,4vw,32px) 40px;width:100%;box-sizing:border-box}
+  .caixa{padding:30px;border-radius:22px;background:var(--panel);border:1px solid var(--line2);box-shadow:0 30px 80px rgba(0,0,0,.35)}
+  .caixa h2{margin:0 0 4px;font-size:26px;letter-spacing:-.5px}
+  .caixa .sub2{color:var(--muted);margin:0 0 22px;font-size:14.5px}
   .fl{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
   .fl label{font-size:13px;font-weight:600;color:var(--muted)}
   .fl .inp{padding:12px 14px;font-size:15px}
-  .pw{position:relative}.pw .inp{width:100%;box-sizing:border-box;padding-right:64px}
+  .pw{position:relative}.pw .inp{width:100%;box-sizing:border-box;padding-right:72px}
   .pw button{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);font:600 12px Inter,system-ui,sans-serif;cursor:pointer;padding:6px}
   .principal{width:100%;justify-content:center;padding:13px;font-size:15px;margin-top:4px}
   .linha{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:16px;font-size:14px;color:var(--muted)}
   .linha a{color:#a78bfa;font-weight:600;text-decoration:none;cursor:pointer}
   .dois{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .nota{font-size:12px;color:var(--faint);margin-top:14px;line-height:1.5}
-  footer{padding:18px clamp(16px,4vw,48px);color:var(--faint);font-size:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
-  @media (max-width:900px){main{grid-template-columns:1fr}.heroi{display:none}}
-  @media (max-width:480px){.topo nav{display:none}.caixa{padding:22px 18px;border-radius:18px}.dois{grid-template-columns:1fr}}
+  .nota{font-size:12.5px;color:var(--faint);margin-top:14px;line-height:1.5}
+  .lado{display:grid;gap:14px}
+  .bloco{padding:20px;border-radius:18px;background:var(--panel);border:1px solid var(--line)}
+  .bloco h3{margin:0 0 6px;font-size:16px}.bloco p{margin:0 0 14px;color:var(--muted);font-size:14px;line-height:1.5}
+  .bloco ul{list-style:none;margin:0;padding:0;display:grid}
+  .bloco li a{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line);color:var(--text);text-decoration:none;font-size:14.5px}
+  .bloco li:first-child a{border-top:0}.bloco li a:after{content:"›";color:var(--muted)}.bloco li a:hover{color:#a78bfa}
+  .bloco.alerta{background:rgba(251,191,36,.06);border-color:rgba(251,191,36,.25)}
+  .bloco.alerta h3{display:flex;gap:8px;align-items:center;color:#fcd34d}.bloco.alerta p{margin:0}
+  .bloco .btn{width:100%;justify-content:center;text-decoration:none;box-sizing:border-box}
+  footer{border-top:1px solid var(--line);color:var(--faint);font-size:12.5px}
+  footer .in{max-width:1120px;margin:0 auto;padding:18px clamp(16px,4vw,32px);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  footer a{color:var(--muted);text-decoration:none;margin-right:16px}footer a:hover{color:var(--text)}
+  @media (max-width:860px){main{grid-template-columns:minmax(0,460px)}}
+  @media (max-width:560px){.area-t{display:none}.topo nav button{padding:0 9px}.topo .aj{display:none}.caixa{padding:22px 18px;border-radius:18px}.dois{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header class="topo">
-  <a class="marca" href="entrar.html"><i>BXB</i>BXB</a>
+<header class="topo"><div class="in">
+  <a class="marca" href="/"><i>BXB</i>BXB</a><span class="area-t">Área de cliente</span>
   <nav id="navt"><button type="button" data-t="particular" class="on">Particulares</button><button type="button" data-t="empresa">Empresas</button></nav>
-</header>
+  <a class="aj" href="/ajuda">Ajuda</a>
+</div></header>
 <main>
-  <section class="heroi" id="heroi"></section>
   <section class="caixa" id="c"></section>
+  <aside class="lado" id="lado"></aside>
 </main>
-<footer><span>© BXB</span><span>Ligação segura · cada conta só vê os seus dados</span></footer>
+<footer><div class="in"><span><a href="/ajuda">Centro de ajuda</a><a href="/simuladores">Simuladores</a><a href="/artigos">Artigos</a><a href="/artigos/proteger-a-sua-conta">Segurança online</a></span><span>© BXB</span></div></footer>
 <script>
 (function () {
   'use strict';
-  var S = window.BXBServidor || {}, c = document.getElementById('c'), heroi = document.getElementById('heroi');
+  var S = window.BXBServidor || {}, c = document.getElementById('c'), lado = document.getElementById('lado');
   var q = new URLSearchParams(location.search), voltar = q.get('voltar') || '/SISTEMAS/index.html';
   if (!/^\/[^/]/.test(voltar)) voltar = '/SISTEMAS/index.html';
   var tipo = q.get('tipo') === 'empresa' ? 'empresa' : 'particular', vista = q.get('criar') ? 'criar' : 'entrar';
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (x) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x]; }); };
   function post(url, corpo) { return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-BXB': '1' }, body: JSON.stringify(corpo) }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); }, function () { return { ok: false, j: { erro: 'Sem ligação ao servidor' } }; }); }
   function erro(t) { var e = document.getElementById('erro'); if (e) e.innerHTML = t ? '<div class="alert bad" style="margin-top:14px"><div>' + esc(t) + '</div></div>' : ''; }
-  var ic = function (d) { return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>'; };
-  var TXT = {
-    particular: { h: 'As suas finanças, <span>sob controlo</span>.', p: 'Rendimentos, despesas, dívidas e objetivos num só lugar, com a projeção do ano e o que pode poupar todos os meses.',
-      pts: [['<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>', 'Projeção do ano'], ['<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>', 'Dívidas e cartões'], ['<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>', 'Objetivos e poupança'], ['<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>', 'Despesas partilhadas']] },
-    empresa: { h: 'A tesouraria da empresa, <span>com assinatura</span>.', p: 'Pagamentos com autorização e alçadas, vendas, comissões, orçamentos e relatórios, com cada ato assinado e registado.',
-      pts: [['<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', 'Autorizações e alçadas'], ['<path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/>', 'Saldos em tempo real'], ['<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>', 'Vendas e resultados'], ['<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>', 'Auditoria encadeada']] } };
-  function pintarHeroi() { var t = TXT[tipo];
-    heroi.innerHTML = '<h1>' + t.h + '</h1><p>' + t.p + '</p><div class="pontos">' + t.pts.map(function (x) { return '<div>' + ic(x[0]) + '<span>' + x[1] + '</span></div>'; }).join('') + '</div>'; }
+  function pintarLado() {
+    var emp = tipo === 'empresa', aj = [['abrir-conta', 'Como abro uma conta?'], ['esqueci-palavra-passe', 'Esqueci-me da palavra-passe'], ['palavra-passe-e-pin', 'Palavra-passe e PIN: qual a diferença?']];
+    if (emp) aj.push(['colaboradores', 'Como entram os colaboradores?']); else aj.push(['partilhar-despesas', 'Como funcionam as partilhas?']);
+    lado.innerHTML = (S.sessao ? '' : vista === 'criar'
+      ? '<div class="bloco"><h3>Já é cliente?</h3><p>Entre com o seu email e palavra-passe.</p><a class="btn" href="#" data-vista="entrar">Entrar</a></div>'
+      : '<div class="bloco"><h3>Ainda não é cliente?</h3><p>' + (emp ? 'Abra a área da empresa e convide a equipa.' : 'Abra a sua conta e comece pelo plano pessoal.') + ' Demora um minuto.</p><a class="btn primary" href="#" data-vista="criar">Abrir conta</a></div>') +
+      '<div class="bloco"><h3>Ajuda rápida</h3><ul>' + aj.map(function (x) { return '<li><a href="/ajuda?p=' + x[0] + '">' + x[1] + '</a></li>'; }).join('') + '</ul></div>' +
+      '<div class="bloco alerta"><h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>Atenção à fraude</h3><p>A BXB nunca pede a palavra-passe, o PIN ou códigos por email, SMS ou telefone. Entre sempre escrevendo o endereço do site.</p></div>';
+    lado.querySelectorAll('[data-vista]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); vista = a.dataset.vista; pintar(); }; });
+  }
   function guardaTipo() { try { sessionStorage.setItem('bxb:tipo', tipo); } catch (e) { } }
-  function mudarTipo(t) { tipo = t; document.querySelectorAll('[data-t]').forEach(function (b) { b.classList.toggle('on', b.dataset.t === tipo); }); pintarHeroi(); if (!S.sessao) pintar(); }
+  function mudarTipo(t) { tipo = t; document.querySelectorAll('[data-t]').forEach(function (b) { b.classList.toggle('on', b.dataset.t === tipo); }); pintarLado(); if (!S.sessao) pintar(); }
   document.querySelectorAll('#navt [data-t]').forEach(function (b) { b.onclick = function () { mudarTipo(b.dataset.t); }; });
-  var seg = function () { return '<div class="seg"><button type="button" data-t="particular" class="' + (tipo === 'particular' ? 'on' : '') + '">Particulares</button><button type="button" data-t="empresa" class="' + (tipo === 'empresa' ? 'on' : '') + '">Empresas</button></div>'; };
+  var seg = function () { return ''; };
   var campo = function (rot, nome, extra) { return '<div class="fl"><label>' + rot + '</label><input class="inp" name="' + nome + '" ' + (extra || '') + '></div>'; };
   var senha = function (rot, nome, auto) { return '<div class="fl"><label>' + rot + '</label><div class="pw"><input class="inp" type="password" name="' + nome + '" autocomplete="' + auto + '" required><button type="button" data-ver>Mostrar</button></div></div>'; };
   function ligar() {
@@ -85,13 +93,14 @@
   }
   function pintar() {
     if (vista === 'criar') {
-      c.innerHTML = '<h2>Criar conta</h2><p class="sub2">' + (tipo === 'empresa' ? 'Abre já o sistema da sua empresa.' : 'Abre já o seu plano pessoal.') + '</p>' + seg() +
+      c.innerHTML = '<h2>Abrir conta</h2><p class="sub2">' + (tipo === 'empresa' ? 'Empresas · área da empresa com pagamentos, tesouraria e equipa' : 'Particulares · plano pessoal') + '</p>' + seg() +
         '<form id="f" autocomplete="on">' + (tipo === 'empresa' ? '<div class="dois">' + campo('Nome da empresa', 'empresa', 'required autocomplete="organization"') + campo('NIF (opcional)', 'nif', 'inputmode="numeric" maxlength="9"') + '</div>' : '') +
         campo(tipo === 'empresa' ? 'O seu nome' : 'Nome', 'nome', 'required autocomplete="name"') + campo('Email', 'email', 'type="email" required autocomplete="email"') +
         senha('Palavra-passe (mín. 8 caracteres)', 'palavra', 'new-password') + senha('Repetir palavra-passe', 'palavra2', 'new-password') +
         '<button class="btn primary principal" type="submit">Criar conta</button></form><div id="erro"></div>' +
-        '<div class="linha"><span>Já tem conta?</span><a data-vista="entrar">Entrar</a></div>' +
-        '<div class="nota">No primeiro acesso ao sistema escolhe um PIN: é pedido para entrar no sistema e para assinar cada operação.</div>';
+        '<div class="linha"><span>Já é cliente?</span><a data-vista="entrar">Entrar</a></div>' +
+        '<div class="nota">O PIN para assinar operações é definido na primeira assinatura.</div>';
+      pintarLado();
       ligar();
       document.getElementById('f').onsubmit = function (e) { e.preventDefault(); var f = Object.fromEntries(new FormData(e.target)); erro('');
         if (f.palavra !== f.palavra2) return erro('As palavras-passe não coincidem');
@@ -99,17 +108,17 @@
         post('/api/registar', { tipo: tipo, nome: f.nome, email: f.email, palavra: f.palavra, empresa: f.empresa, nif: f.nif }).then(function (r) { b.disabled = false; if (!r.ok) return erro(r.j.erro || 'Não foi possível criar a conta'); guardaTipo(); location.replace(r.j.destino || voltar); }); };
       return;
     }
-    c.innerHTML = '<h2>Entrar</h2><p class="sub2">' + (tipo === 'empresa' ? 'Área de empresas' : 'Área de particulares') + '</p>' + seg() +
+    c.innerHTML = '<h2>Entrar</h2><p class="sub2">' + (tipo === 'empresa' ? 'Empresas' : 'Particulares') + '</p>' + seg() +
       '<form id="f" autocomplete="on">' + campo('Email', 'email', 'type="text" required autocomplete="username" autofocus') + senha('Palavra-passe', 'palavra', 'current-password') +
       '<button class="btn primary principal" type="submit">Entrar</button></form><div id="erro"></div>' +
-      '<div class="linha"><a data-vista="esqueci">Esqueci-me da palavra-passe</a><a data-vista="criar">Criar conta</a></div>';
-    ligar();
+      '<div class="linha"><a data-vista="esqueci">Esqueci-me da palavra-passe</a><a data-vista="criar">Abrir conta</a></div>';
+    ligar(); pintarLado();
     var esq = c.querySelector('[data-vista="esqueci"]'); esq.onclick = function (e) { e.preventDefault(); erro(''); document.getElementById('erro').innerHTML = '<div class="alert info" style="margin-top:14px"><div>Peça ao apoio BXB para redefinir a palavra-passe. Por segurança, não é enviada por email.</div></div>'; };
     document.getElementById('f').onsubmit = function (e) { e.preventDefault(); var f = Object.fromEntries(new FormData(e.target)); erro('');
       var b = e.target.querySelector('[type=submit]'); b.disabled = true;
       post('/api/entrar', { email: f.email, palavra: f.palavra, tipo: tipo }).then(function (r) { b.disabled = false; if (!r.ok) return erro(r.j.erro || 'Não foi possível entrar'); guardaTipo(); location.replace(voltar); }); };
   }
-  pintarHeroi();
+  pintarLado();
   document.querySelectorAll('#navt [data-t]').forEach(function (b) { b.classList.toggle('on', b.dataset.t === tipo); });
   if (S.sessao) {
     c.innerHTML = '<h2>Olá, ' + esc(String(S.sessao.nome || '').split(' ')[0]) + '</h2><p class="sub2">Já tem sessão iniciada.</p><button class="btn primary principal" id="cont">Continuar</button><div class="linha"><span>' + esc(S.sessao.email || S.sessao.utilizador || '') + '</span><a id="sair">Sair</a></div>';

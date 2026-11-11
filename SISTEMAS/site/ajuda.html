@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Centro de ajuda · BXB</title>
+<meta name="description" content="Respostas sobre abrir conta, entrar, plano pessoal, partilhas, empresas, pagamentos e segurança.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/SISTEMAS/site/site.css?v=2">
+</head>
+<body data-pagina="ajuda">
+<main>
+  <section class="cab"><div class="wrap">
+    <div class="migalhas"><a href="/">Início</a><span>›</span><span>Ajuda</span></div>
+    <h1>Como podemos ajudar?</h1>
+    <p>Respostas organizadas por tema.</p>
+    <div class="busca"><svg width="20" height="20"><use href="#i-lupa"/></svg><input id="q" placeholder="Pesquisar na ajuda, por exemplo: palavra-passe" autocomplete="off"></div>
+  </div></section>
+  <section style="padding-top:10px">
+    <div class="wrap">
+      <div class="temas" id="temas"></div>
+      <div id="lista"></div>
+      <div class="final rv" style="margin-top:40px">
+        <h2>Ainda não é cliente?</h2>
+        <p>Abra a sua conta e comece pelo plano pessoal ou pela área da empresa.</p>
+        <div class="ctas"><a class="btn btn-p" href="/SISTEMAS/entrar.html?criar=1" data-abr>Abrir conta</a><a class="btn btn-s" href="/SISTEMAS/entrar.html" data-ent>Entrar</a></div>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="/SISTEMAS/site/artigos.js?v=2"></script>
+<script src="/SISTEMAS/site/ajuda.js?v=1"></script>
+<script src="/SISTEMAS/site/site.js?v=2"></script>
+<script>
+(function () {
+  'use strict';
+  var esc = Site.esc, ic = Site.ic, qs = new URLSearchParams(location.search);
+  var tema = qs.get('t') || '', abrir = qs.get('p') || '', inp = document.getElementById('q');
+  var norm = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+  if (abrir) { var x = AJUDA.find(function (a) { return a.id === abrir; }); if (x) tema = x.t; }
+  document.getElementById('temas').innerHTML = Object.keys(TEMAS_AJUDA).map(function (k) { var t = TEMAS_AJUDA[k];
+    return '<button class="tema" type="button" data-t="' + k + '"><i>' + ic(t.ico, 20) + '</i><div><b>' + esc(t.nome) + '</b><span>' + esc(t.d) + '</span></div></button>'; }).join('');
+  function pintar() {
+    var q = norm(inp.value.trim()), t = q.split(/\s+/);
+    document.querySelectorAll('.tema').forEach(function (b) { b.classList.toggle('on', b.dataset.t === tema); });
+    var l = AJUDA.filter(function (a) { return (!tema || q || a.t === tema) && (!q || t.every(function (w) { return norm(a.q + ' ' + a.r).indexOf(w) >= 0; })); });
+    var grupos = Object.keys(TEMAS_AJUDA).map(function (k) { return [k, l.filter(function (a) { return a.t === k; })]; }).filter(function (g) { return g[1].length; });
+    document.getElementById('lista').innerHTML = grupos.length ? grupos.map(function (g) {
+      return '<div class="grupo-faq" id="t-' + g[0] + '"><h2>' + esc(TEMAS_AJUDA[g[0]].nome) + '</h2><div class="faq esq">' + g[1].map(function (a) {
+        return '<details id="' + a.id + '"' + (a.id === abrir ? ' open' : '') + '><summary>' + esc(a.q) + '</summary><p>' + a.r + '</p></details>'; }).join('') + '</div></div>'; }).join('')
+      : '<p style="color:var(--muted)">Sem resultados para "' + esc(inp.value) + '". Experimente outras palavras.</p>';
+  }
+  document.getElementById('temas').onclick = function (e) { var b = e.target.closest('[data-t]'); if (!b) return; tema = tema === b.dataset.t ? '' : b.dataset.t; inp.value = ''; abrir = '';
+    history.replaceState(null, '', tema ? '?t=' + tema : location.pathname); pintar(); var g = document.getElementById('lista'); g.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  inp.oninput = pintar;
+  pintar();
+  if (abrir && document.getElementById(abrir)) setTimeout(function () { document.getElementById(abrir).scrollIntoView({ block: 'center' }); }, 60);
+  Site.revelar();
+})();
+</script>
+</body>
+</html>

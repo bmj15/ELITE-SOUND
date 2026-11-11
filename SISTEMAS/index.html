@@ -53,7 +53,7 @@
   }).join('');
   var cr = document.getElementById('criar');
   if (tipo === 'particular' && !minhas.length) {
-    cr.innerHTML = '<div class="card" style="margin-top:24px;max-width:560px"><h3 style="margin:0 0 8px">Ainda não tem a sua área pessoal</h3><p class="muted" style="margin:0 0 16px">Abra já o seu plano pessoal: só a sua conta lhe tem acesso.</p><button class="btn primary" id="cp">Abrir a minha área pessoal</button> <span class="muted" id="ce"></span></div>';
+    cr.innerHTML = '<div class="card" style="margin-top:24px;max-width:560px"><h3 style="margin:0 0 8px">Ainda não tem a sua área pessoal</h3><p class="muted" style="margin:0 0 16px">Abra já o seu plano pessoal.</p><button class="btn primary" id="cp">Abrir a minha área pessoal</button> <span class="muted" id="ce"></span></div>';
     document.getElementById('cp').onclick = function () { this.disabled = true; post('/api/criar-area', { tipo: 'particular' }).then(function (j) { if (j.destino) location.replace(j.destino); else document.getElementById('ce').textContent = j.erro || 'Erro'; }); };
   } else if (tipo === 'empresa' || trocar) {
     cr.innerHTML = '<div class="card" style="margin-top:24px;max-width:560px"><h3 style="margin:0 0 8px">' + (minhas.length ? 'Abrir outra empresa' : 'Ainda não tem nenhuma empresa nesta conta') + '</h3>' +
