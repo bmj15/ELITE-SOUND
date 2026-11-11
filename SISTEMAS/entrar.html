@@ -72,7 +72,8 @@
       pts: [['<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', 'Autorizações e alçadas'], ['<path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/>', 'Saldos em tempo real'], ['<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>', 'Vendas e resultados'], ['<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>', 'Auditoria encadeada']] } };
   function pintarHeroi() { var t = TXT[tipo];
     heroi.innerHTML = '<h1>' + t.h + '</h1><p>' + t.p + '</p><div class="pontos">' + t.pts.map(function (x) { return '<div>' + ic(x[0]) + '<span>' + x[1] + '</span></div>'; }).join('') + '</div>'; }
-  function mudarTipo(t) { tipo = t; document.querySelectorAll('[data-t]').forEach(function (b) { b.classList.toggle('on', b.dataset.t === tipo); }); pintarHeroi(); pintar(); }
+  function guardaTipo() { try { sessionStorage.setItem('bxb:tipo', tipo); } catch (e) { } }
+  function mudarTipo(t) { tipo = t; document.querySelectorAll('[data-t]').forEach(function (b) { b.classList.toggle('on', b.dataset.t === tipo); }); pintarHeroi(); if (!S.sessao) pintar(); }
   document.querySelectorAll('#navt [data-t]').forEach(function (b) { b.onclick = function () { mudarTipo(b.dataset.t); }; });
   var seg = function () { return '<div class="seg"><button type="button" data-t="particular" class="' + (tipo === 'particular' ? 'on' : '') + '">Particulares</button><button type="button" data-t="empresa" class="' + (tipo === 'empresa' ? 'on' : '') + '">Empresas</button></div>'; };
   var campo = function (rot, nome, extra) { return '<div class="fl"><label>' + rot + '</label><input class="inp" name="' + nome + '" ' + (extra || '') + '></div>'; };
@@ -95,7 +96,7 @@
       document.getElementById('f').onsubmit = function (e) { e.preventDefault(); var f = Object.fromEntries(new FormData(e.target)); erro('');
         if (f.palavra !== f.palavra2) return erro('As palavras-passe não coincidem');
         var b = e.target.querySelector('[type=submit]'); b.disabled = true;
-        post('/api/registar', { tipo: tipo, nome: f.nome, email: f.email, palavra: f.palavra, empresa: f.empresa, nif: f.nif }).then(function (r) { b.disabled = false; if (!r.ok) return erro(r.j.erro || 'Não foi possível criar a conta'); location.replace(r.j.destino || voltar); }); };
+        post('/api/registar', { tipo: tipo, nome: f.nome, email: f.email, palavra: f.palavra, empresa: f.empresa, nif: f.nif }).then(function (r) { b.disabled = false; if (!r.ok) return erro(r.j.erro || 'Não foi possível criar a conta'); guardaTipo(); location.replace(r.j.destino || voltar); }); };
       return;
     }
     c.innerHTML = '<h2>Entrar</h2><p class="sub2">' + (tipo === 'empresa' ? 'Área de empresas' : 'Área de particulares') + '</p>' + seg() +
@@ -106,13 +107,14 @@
     var esq = c.querySelector('[data-vista="esqueci"]'); esq.onclick = function (e) { e.preventDefault(); erro(''); document.getElementById('erro').innerHTML = '<div class="alert info" style="margin-top:14px"><div>Peça ao apoio BXB para redefinir a palavra-passe. Por segurança, não é enviada por email.</div></div>'; };
     document.getElementById('f').onsubmit = function (e) { e.preventDefault(); var f = Object.fromEntries(new FormData(e.target)); erro('');
       var b = e.target.querySelector('[type=submit]'); b.disabled = true;
-      post('/api/entrar', { email: f.email, palavra: f.palavra, tipo: tipo }).then(function (r) { b.disabled = false; if (!r.ok) return erro(r.j.erro || 'Não foi possível entrar'); location.replace(voltar); }); };
+      post('/api/entrar', { email: f.email, palavra: f.palavra, tipo: tipo }).then(function (r) { b.disabled = false; if (!r.ok) return erro(r.j.erro || 'Não foi possível entrar'); guardaTipo(); location.replace(voltar); }); };
   }
   pintarHeroi();
   document.querySelectorAll('#navt [data-t]').forEach(function (b) { b.classList.toggle('on', b.dataset.t === tipo); });
   if (S.sessao) {
     c.innerHTML = '<h2>Olá, ' + esc(String(S.sessao.nome || '').split(' ')[0]) + '</h2><p class="sub2">Já tem sessão iniciada.</p><button class="btn primary principal" id="cont">Continuar</button><div class="linha"><span>' + esc(S.sessao.email || S.sessao.utilizador || '') + '</span><a id="sair">Sair</a></div>';
-    document.getElementById('cont').onclick = function () { location.replace(voltar); };
+    c.querySelector('.sub2').insertAdjacentHTML('afterend', seg()); ligar();
+    document.getElementById('cont').onclick = function () { guardaTipo(); location.replace(voltar); };
     document.getElementById('sair').onclick = function () { post('/api/sair', {}).then(function () { location.reload(); }); };
     return;
   }

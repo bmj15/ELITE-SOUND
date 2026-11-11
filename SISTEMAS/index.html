@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Portal de Gestão</title>
+<title>Os meus sistemas · BXB</title>
 <script src="shared/servidor-dados.js?v=4"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -26,38 +26,32 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="muted" style="letter-spacing:.14em;font-size:12px;text-transform:uppercase">Portal de gestão</div>
-  <h1 id="tit">Grupo BXB</h1>
-  <p class="muted" id="sub" style="margin:0">A holding e as subsidiárias que ela criou. Cada empresa tem o seu próprio sistema, todos com o mesmo motor de autorização de pagamentos (SPAP).</p>
-  <div class="sys" id="sys">
-    <a href="bxb-investimentos/index.html" style="--c1:#c9a227;--c2:#e9cf74;--ink:#1b1503">
-      <div class="logo">BXB</div>
-      <div><h2>BXB Investimentos</h2><p>Holding do grupo: subsidiárias, entidades, crédito e PIA, aplicações em fundos.</p></div>
-      <ul><li>Holding</li><li>Subsidiárias</li><li>Crédito · PIA</li><li>Aplicações</li><li>SPAP</li></ul>
-    </a>
-  </div>
+  <div class="muted" id="sup" style="letter-spacing:.14em;font-size:12px;text-transform:uppercase">Os meus sistemas</div>
+  <h1 id="tit">Olá</h1>
+  <div class="sys" id="sys"></div>
+  <p class="muted" id="vazio" style="display:none">Esta conta ainda não tem nenhum sistema deste tipo. <a href="entrar.html">Voltar à entrada</a></p>
 </div>
 <script src="shared/grupo.js?v=6"></script>
 <script>
 (function () {
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var pode = function (k) { return !window.BXBServidor || !BXBServidor.podeVer || BXBServidor.podeVer(k); };
-  if (!pode('bxb')) { var bx = document.querySelector('#sys a[href^="bxb-investimentos"]'); if (bx) bx.remove(); }
-  // clientes do site (particulares e empresas): só os seus sistemas; com um só, entra logo nele
-  var ses = (window.BXBServidor || {}).sessao, cli = ses && !ses.admin && ses.tipo;
-  if (cli) {
-    var meus = Grupo.lista().filter(function (s) { return s.ativa !== false && pode(s.key); });
-    if (meus.length === 1) { location.replace(Grupo.href(meus[0], '')); return; }
-    document.getElementById('tit').textContent = 'Olá, ' + String(ses.nome || '').split(' ')[0];
-    document.getElementById('sub').textContent = 'Os seus sistemas.';
-  }
-  var html = Grupo.lista().filter(function (s) { return s.ativa !== false && pode(s.key); }).map(function (s) {
+  var ses = (window.BXBServidor || {}).sessao || {};
+  // o separador escolhido na entrada (Particulares / Empresas) decide o que aparece; com um só sistema entra logo nele
+  var tipo = null; try { tipo = sessionStorage.getItem('bxb:tipo'); } catch (e) { }
+  tipo = ses.tipo || tipo || 'particular';
+  var eTipo = function (s) { return (s.tipo || (s.modelo === 'planeamento' ? 'particular' : 'empresa')) === tipo; };
+  var meus = Grupo.lista().filter(function (s) { return s.ativa !== false && pode(s.key) && eTipo(s); });
+  if (meus.length === 1) { location.replace(Grupo.href(meus[0], '')); return; }
+  document.getElementById('sup').textContent = tipo === 'empresa' ? 'Empresas' : 'Particulares';
+  document.getElementById('tit').textContent = 'Olá' + (ses.nome ? ', ' + String(ses.nome).split(' ')[0] : '');
+  if (!meus.length) document.getElementById('vazio').style.display = '';
+  document.getElementById('sys').innerHTML = meus.map(function (s) {
     var m = Grupo.MODELOS[s.modelo] || { nome: s.modelo, desc: '' };
     return '<a href="' + Grupo.href(s, '') + '" style="--c1:' + esc(s.cor1) + ';--c2:' + esc(s.cor2) + ';--ink:#fff">' +
       '<div class="logo">' + esc(s.sigla) + '</div><div><h2>' + esc(s.nome) + '</h2><p>' + esc(s.setor || m.desc) + '</p></div>' +
-      (s.independente ? '<ul><li>' + (s.tipo === 'empresa' ? 'Empresa' : 'Particular') + '</li><li>' + esc(m.nome) + '</li></ul></a>' : '<ul><li>Subsidiária</li><li>' + esc(m.nome) + '</li><li>' + Math.round((+s.participacao || 0) * 100) + '% BXB</li><li>SPAP</li></ul></a>');
+      '<ul><li>' + (tipo === 'empresa' ? 'Empresa' : 'Particular') + '</li><li>' + esc(m.nome) + '</li></ul></a>';
   }).join('');
-  document.getElementById('sys').insertAdjacentHTML('beforeend', html);
 })();
 </script>
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('spap:theme')||'dark')}catch(e){}</script>
