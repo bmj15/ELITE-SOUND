@@ -416,3 +416,16 @@ table.sens td,table.sens th{padding:8px 10px;font-size:12.5px}
   .obj-acoes>.btn.ghost{border:1px solid var(--line)}
   .obj-acoes>.btn:not(.primary):last-child:nth-child(even){grid-column:1/-1}
 }
+@media (max-width:640px){
+  /* menus de quadrados (Rendimentos, Partilhas, Simulador): duas colunas, quadrados mais baixos */
+  .mq-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px}
+  .mq-grid .pf-tile{min-height:104px;font-size:14px;gap:8px;padding:12px}
+  .mq-grid .pf-tile svg{width:24px;height:24px}
+  .mq-grid .pf-tile:last-child:nth-child(odd){grid-column:1/-1}
+  .mq-topo{gap:10px!important;margin-bottom:14px!important;padding-bottom:10px!important}
+  .mq-topo h2{font-size:17px!important}
+}
+/* quadrados por cima de um painel (Rendimentos): baixos, ícone ao lado do texto */
+.mq-compacto{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))!important;gap:10px!important;margin-bottom:16px}
+.mq-compacto .pf-tile{min-height:60px!important;flex-direction:row!important;gap:10px!important;font-size:14.5px!important;padding:12px 14px!important}
+.mq-compacto .pf-tile svg{width:20px!important;height:20px!important}
