@@ -1,4 +1,4 @@
-// servidor.js — site BXB (sem dependências: só Node.js 22.5+, com a base de dados SQLite incorporada)
+// servidor.js — site dinmeta (sem dependências: só Node.js 22.5+, com a base de dados SQLite incorporada)
 // Serve a pasta do repositório em http://localhost:8080 e guarda os dados numa base de dados deste computador
 // (fora do repositório, que é público). Funciona como o site de um banco:
 //   · cada pessoa entra com email e palavra-passe;
@@ -10,7 +10,7 @@
 // Em http://localhost:8080 só aceita ligações deste computador (127.0.0.1); para a internet use um túnel HTTPS (ex.: Cloudflare).
 // Rede de casa (opcional): com um certificado em DADOS-SERVIDOR\tls (cert.pem e key.pem) abre também https://<IP>:8443.
 // Consola de gestão antiga: http://127.0.0.1:8099, só neste computador (nunca na rede nem nos túneis). Vai ser retirada:
-// o back-office (BXB Gestor .exe e painel de gestão) passa a ter servidor e base de dados próprios (pasta backoffice/, do Codex).
+// o back-office (dinmeta Gestor .exe e painel de gestão) passa a ter servidor e base de dados próprios (pasta backoffice/, do Codex).
 // API de consulta para o back-office: http://127.0.0.1:8097, só leitura (contrato em CONTRATO-CONSULTA.md).
 'use strict';
 const http = require('http');
@@ -41,7 +41,7 @@ const PASTA_TLS = path.join(DADOS, 'tls');
 const PORT_REDE = +process.env.PORT_REDE || 8443;
 const PORT_GESTAO = +process.env.PORT_GESTAO || 8099;
 const FICH_SEGREDO = path.join(DADOS, 'segredo.chave'); // cifra as definições secretas (ex.: palavra-passe do email)
-const FICH_GESTAO = path.join(DADOS, 'gestao.chave');   // o BXB Gestor usa-a para abrir a consola
+const FICH_GESTAO = path.join(DADOS, 'gestao.chave');   // o dinmeta Gestor usa-a para abrir a consola
 const ARRANQUE = Date.now();
 const portas = { site: 0, rede: 0, gestao: 0, consulta: 0 };
 
@@ -232,9 +232,11 @@ function decifrar(s) { try { const b = Buffer.from(String(s || '').slice(3), 'ba
   d.setAuthTag(b.subarray(12, 28)); return Buffer.concat([d.update(b.subarray(28)), d.final()]).toString('utf8'); } catch (e) { return null; } }
 function cfg(k, def) { const r = q('SELECT v FROM config WHERE k = ?').get(k); if (!r) return def; try { const v = JSON.parse(r.v); return def && typeof def === 'object' && !Array.isArray(def) ? Object.assign({}, def, v) : v; } catch (e) { return def; } }
 const gravarCfg = (k, v, por) => q('INSERT INTO config (k, v, em, por) VALUES (?,?,?,?) ON CONFLICT(k) DO UPDATE SET v = excluded.v, em = excluded.em, por = excluded.por').run(k, JSON.stringify(v), agoraISO(), por || null);
-const GERAL_PADRAO = { marca: 'BXB', descricao: 'Planeamento financeiro e tesouraria', urlPublico: '', emailSuporte: '' };
+const GERAL_PADRAO = { marca: 'dinmeta', descricao: 'Planeamento financeiro e tesouraria', urlPublico: '', emailSuporte: '' };
 const SMTP_PADRAO = { servidor: 'smtp.gmail.com', porta: 465, seguranca: 'ssl', utilizador: '', palavra: '', remetente: '', nomeRemetente: '' };
 const geral = () => cfg('geral', GERAL_PADRAO);
+// Apresentação da marca antiga sem alterar configurações guardadas ou nomes personalizados.
+const marcaProduto = valor => !String(valor || '').trim() || /^bxb$/i.test(String(valor).trim()) ? 'dinmeta' : String(valor).trim();
 const linkPublico = () => (geral().urlPublico || urlSite()).replace(/\/+$/, '') + '/';
 // convites pendentes para este email (colaboradores de empresas): passam a membro quando a conta existe
 function aceitarConvites(c) { if (!c.email) return; q('SELECT area FROM convites WHERE email = ?').all(c.email).forEach(r => {
@@ -307,7 +309,7 @@ function smtpEnviar(s, msg) {
       }
       await cmd(`MAIL FROM:<${de}>`, [250]); await cmd(`RCPT TO:<${msg.para}>`, [250, 251], 'Destinatário');
       await cmd('DATA', [354]);
-      await cmd(montarMensagem(Object.assign({ de, nomeDe: s.nomeRemetente || geral().marca }, msg)).replace(/^\./gm, '..') + '\r\n.', [250], 'Envio');
+      await cmd(montarMensagem(Object.assign({ de, nomeDe: s.nomeRemetente || marcaProduto(geral().marca) }, msg)).replace(/^\./gm, '..') + '\r\n.', [250], 'Envio');
       try { sock.write('QUIT\r\n'); } catch (e) { }
       acabar();
     })().catch(acabar);
@@ -344,15 +346,15 @@ function moldura(corpo, g) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2937;font-size:15px;line-height:1.6">
 <tr><td style="background:linear-gradient(135deg,#7c5cff,#c056ff);background-color:${cor};padding:22px 28px;color:#ffffff;font-size:20px;font-weight:800;letter-spacing:-.3px">${esc(g.marca)}</td></tr>
 <tr><td style="padding:26px 28px 8px">${corpo}</td></tr>
-<tr><td style="padding:16px 28px 24px;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb">${esc(g.marca)} · ${esc(g.descricao)}${suporte}</td></tr>
+<tr><td style="padding:16px 28px 24px;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb">${esc(g.marca)} · ${esc(g.descricao)}${suporte}<br>Desenvolvido pela BXB</td></tr>
 </table></td></tr></table></body></html>`;
 }
 function preencher(m, vars) {
-  const g = geral(), todas = Object.assign({ marca: g.marca, link: linkPublico(), data: new Date().toLocaleString('pt-PT', { dateStyle: 'long', timeStyle: 'short' }) }, vars);
+  const atual = geral(), g = Object.assign({}, atual, { marca: marcaProduto(atual.marca) }), todas = Object.assign({ marca: g.marca, link: linkPublico(), data: new Date().toLocaleString('pt-PT', { dateStyle: 'long', timeStyle: 'short' }) }, vars);
   const sub = (t, html) => String(t).replace(/\{\{\s*([a-z]+)\s*\}\}/gi, (x, k) => todas[k] == null ? '' : html ? esc(todas[k]) : String(todas[k]));
   const corpo = sub(m.html, true), html = moldura(corpo, g);
   const texto = corpo.replace(/<a [^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '$2: $1').replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>\s*/gi, '\n\n').replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim() + `\n\n--\n${g.marca} · ${g.descricao}`;
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim() + `\n\n--\n${g.marca} · ${g.descricao}\nDesenvolvido pela BXB`;
   return { assunto: sub(m.assunto, false).replace(/[\r\n]+/g, ' '), html, texto };
 }
 async function enviarEmail(para, conteudo, modeloId) {
@@ -681,7 +683,7 @@ function abrirRede() {
 }
 
 /* ================= Consola de gestão (http://127.0.0.1:8099, só neste computador) =================
-   Entra-se com um bilhete de uso único pedido pelo BXB Gestor (que lê DADOS-SERVIDOR\gestao.chave) ou com um utilizador da consola (gestao.db, separado das contas dos clientes).
+   Entra-se com um bilhete de uso único pedido pelo dinmeta Gestor (que lê DADOS-SERVIDOR\gestao.chave) ou com um utilizador da consola (gestao.db, separado das contas dos clientes).
    Proteções: só aceita o nome 127.0.0.1/localhost (contra DNS rebinding), pedidos que alteram têm o cabeçalho X-BXB e a mesma origem. */
 const GESTAO_DIR = path.join(RAIZ, 'SISTEMAS', 'gestao');
 const DURACAO_GESTAO = 12 * 3600 * 1000;
@@ -730,10 +732,10 @@ const assinar = t => crypto.createHmac('sha256', chaveGestao()).update(t).digest
 // cookie da consola "expira.quem.assinatura": sobrevive a reinícios; uma chave nova fecha todas as sessões da consola
 function quemGestao(req) {
   const auth = /^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization || '');
-  if (auth) return igual(auth[1], chaveGestao()) ? { quem: 'gestor', nome: 'BXB Gestor', chave: true } : null;
+  if (auth) return igual(auth[1], chaveGestao()) ? { quem: 'gestor', nome: 'dinmeta Gestor', chave: true } : null;
   const m = /(?:^|;\s*)bxb_gestao=(\d+)\.([A-Za-z0-9_-]+)\.([a-f0-9]{64})/.exec(req.headers.cookie || ''); if (!m) return null;
   if (+m[1] < Date.now() || !igual(m[3], assinar(m[1] + '.' + m[2]))) return null;
-  if (m[2] === 'gestor') return { quem: 'gestor', nome: 'BXB Gestor' };
+  if (m[2] === 'gestor') return { quem: 'gestor', nome: 'dinmeta Gestor' };
   const o = operador(m[2]); return o && o.ativo && acessosGestao(o).length ? { quem: o.id, nome: o.nome, op: o } : null;
 }
 function cookieGestao(res, quem) { const v = (Date.now() + DURACAO_GESTAO) + '.' + quem;
@@ -791,8 +793,8 @@ async function apiGestao(req, res, caminho) {
   if (caminho === '/api/gestao/entrar' && req.method === 'POST') {
     const b = await lerCorpo(req);
     if (b.bilhete) { const k = String(b.bilhete), t = bilhetes.get(k); bilhetes.delete(k);
-      if (!t || t < Date.now()) return json(401, { erro: 'Este acesso já expirou. Abra a consola de novo pelo BXB Gestor.' });
-      cookieGestao(res, 'gestor'); registar(null, 'GESTAO_ENTRADA', 'BXB Gestor', 'local'); return json(200, { ok: true }); }
+      if (!t || t < Date.now()) return json(401, { erro: 'Este acesso já expirou. Abra a consola de novo pelo dinmeta Gestor.' });
+      cookieGestao(res, 'gestor'); registar(null, 'GESTAO_ENTRADA', 'dinmeta Gestor', 'local'); return json(200, { ok: true }); }
     const u = String(b.email || '').trim().toLowerCase(), chaveF = 'gestao:' + u, f = falhas.get(chaveF);
     if (f && f.ate > Date.now()) return json(429, { erro: 'Demasiadas tentativas. Tente de novo dentro de alguns minutos.' });
     const x = u && operadorPorEmail(u);
@@ -817,7 +819,7 @@ async function apiGestao(req, res, caminho) {
   const corpo = () => req.method === 'GET' ? Promise.resolve(qs) : lerCorpo(req);
 
   if (caminho === '/api/gestao/bilhete' && req.method === 'POST') {
-    if (!g.chave) return json(403, { erro: 'Só o BXB Gestor' });
+    if (!g.chave) return json(403, { erro: 'Só o dinmeta Gestor' });
     const t = crypto.randomBytes(24).toString('hex'), agora = Date.now(); for (const [k, v] of bilhetes) if (v < agora) bilhetes.delete(k);
     bilhetes.set(t, agora + 60000); return json(200, { bilhete: t });
   }
@@ -992,7 +994,7 @@ function abrirGestao() {
   servidorGestao.listen(PORT_GESTAO, '127.0.0.1', () => { portas.gestao = PORT_GESTAO; console.log(`  Consola de gestao: http://127.0.0.1:${PORT_GESTAO}/ (so neste computador)`); console.log(''); });
 }
 /* ================= API de consulta para o back-office (http://127.0.0.1:8097, só neste computador) =================
-   O back-office (BXB Gestor .exe e painel de gestão, com servidor e base de dados próprios, na pasta backoffice/) só CONSULTA
+   O back-office (dinmeta Gestor .exe e painel de gestão, com servidor e base de dados próprios, na pasta backoffice/) só CONSULTA
    o sistema do cliente por aqui. Tudo é GET e nada altera dados. A única exceção é POST /v1/desligar: o Gestor desliga o
    processo do site com ordem (não mexe em dados).
    Entra-se com a chave em DADOS-SERVIDOR\consulta.chave (cabeçalho Authorization: Bearer <chave>), só pedidos de servidor
@@ -1020,7 +1022,7 @@ function atenderConsulta(req, res) {
   if (!auth || !igual(auth[1], chaveConsulta())) return json(401, { erro: 'Chave de consulta em falta ou errada' });
   if (caminho === '/v1/desligar') {
     if (req.method !== 'POST') return json(405, { erro: 'Use POST' });
-    json(200, { ok: true }); setTimeout(() => desligar('BXB Gestor'), 150); return;
+    json(200, { ok: true }); setTimeout(() => desligar('dinmeta Gestor'), 150); return;
   }
   if (req.method !== 'GET') return json(405, { erro: 'A API de consulta só aceita GET' });
 
@@ -1069,7 +1071,7 @@ process.on('SIGTERM', () => desligar('pedido do sistema'));
 function arrancar() { servidor.listen(PORT, HOST, () => {
   portas.site = PORT;
   console.log('');
-  console.log('  BXB - site a correr');
+  console.log('  dinmeta - site a correr');
   console.log(`  Abra: ${urlSite()}`);
   console.log(`  Dados guardados em: ${DADOS}`);
   console.log('');

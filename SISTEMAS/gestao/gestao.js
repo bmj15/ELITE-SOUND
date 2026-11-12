@@ -2,6 +2,11 @@
 // Fala só com /api/gestao/* do servidor deste computador.
 'use strict';
 (() => {
+  // A consola antiga só serve os seus próprios scripts e /icones; mantém as rotas existentes.
+  const DinmetaMarca = {
+    simbolo: () => '<svg class="dinmeta-simbolo" viewBox="0 0 224 180" fill="none" aria-hidden="true" focusable="false"><use href="/icones/dinmeta.svg#dinmeta-simbolo"></use></svg>',
+    credito: () => '<span class="dinmeta-credito">Desenvolvido pela BXB</span>'
+  };
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x]));
   const E = { quem: null, rota: 'painel', timers: [], filtroContas: 'todas', pqContas: '', subEmail: 'servidor', modelo: null, subReg: 'atividade', fReg: { acao: '', texto: '', leituras: false } };
@@ -9,7 +14,7 @@
   /* ---------- pedidos ---------- */
   async function api(metodo, url, corpo) {
     let r; try { r = await fetch(url, { method: metodo, cache: 'no-store', headers: Object.assign({ 'X-BXB': '1' }, corpo ? { 'Content-Type': 'application/json' } : {}), body: corpo ? JSON.stringify(corpo) : undefined }); }
-    catch (e) { throw new Error('O servidor não responde. Ligue-o no BXB Gestor.'); }
+    catch (e) { throw new Error('O servidor não responde. Ligue-o no dinmeta Gestor.'); }
     let j = {}; try { j = await r.json(); } catch (e) { }
     if (r.status === 401 && !url.endsWith('/entrar')) { mostrarEntrar(E.quem ? 'A sessão na consola terminou. Entre de novo.' : ''); throw new Error(j.erro || 'Sem sessão'); }
     if (!r.ok) throw new Error(j.erro || 'Erro ' + r.status);
@@ -81,8 +86,8 @@
   function mostrarEntrar(aviso) {
     pararTimers(); E.quem = null;
     $('#app').innerHTML = `<div class="g-entrar"><div class="card">
-      <div class="brand"><div class="brand-logo">BXB</div><div><div class="brand-name">BXB</div><div class="brand-sub">Consola de gestão</div></div></div>
-      <h1>Entrar na consola</h1><p>Use o seu utilizador da consola ou abra pelo BXB Gestor.</p>
+      <div class="brand"><div class="dinmeta-logo">${DinmetaMarca.simbolo()}</div><div><div class="brand-name dinmeta-palavra">dinmeta</div><div class="brand-sub">Consola de gestão</div></div></div>
+      ${DinmetaMarca.credito()}<h1>Entrar na consola</h1><p>Use o seu utilizador da consola ou abra pelo dinmeta Gestor.</p>
       ${aviso ? `<div class="alert warn" style="margin-bottom:16px"><div>${esc(aviso)}</div></div>` : ''}
       <form class="form" id="fe">
         <div class="fld"><label for="fe-em">Email</label><input class="inp" id="fe-em" name="email" type="email" autocomplete="username" required></div>
@@ -102,11 +107,11 @@
     email: ['Email', 'mail', 'Servidor de envio, modelos e emails enviados'], registos: ['Registos', 'lista', 'Atividade, servidor e rede'], definicoes: ['Definições', 'def', 'Projeto, servidor e acesso à consola'], operadores: ['Utilizadores da consola', 'chave', 'Quem entra nesta consola e com que perfil'] };
   const pode = k => k === 'painel' || (E.quem.acessos || []).includes(k);
   function montar() {
-    const marca = E.quem.marca || 'BXB', sigla = marca.length <= 4 ? marca.toUpperCase() : marca.split(/\s+/).map(p => p[0]).join('').slice(0, 3).toUpperCase();
+    const marca = 'dinmeta';
     $('#app').innerHTML = `<div class="shell g-shell"><aside class="side">
-        <div class="brand"><div class="brand-logo">${esc(sigla)}</div><div><div class="brand-name">${esc(marca)}</div><div class="brand-sub">Consola de gestão</div></div></div>
+        <div class="brand"><div class="dinmeta-logo">${DinmetaMarca.simbolo()}</div><div><div class="brand-name dinmeta-palavra">${esc(marca)}</div><div class="brand-sub">Consola de gestão</div></div></div>
         <nav class="nav">${Object.entries(ROTAS).filter(([k]) => pode(k)).map(([k, [t, i]]) => `<a href="#${k}" data-r="${k}">${ic(i)}<span>${t}</span></a>`).join('')}</nav>
-        <div class="side-foot"><div class="g-quem">Entrou como <b>${esc(E.quem.nome)}</b></div>
+        <div class="side-foot">${DinmetaMarca.credito()}<div class="g-quem">Entrou como <b>${esc(E.quem.nome)}</b></div>
           <div class="row" style="gap:6px"><button class="btn sm ghost" id="bt-tema">${ic('tema', 15)} Tema</button><button class="btn sm ghost" id="bt-sair">${ic('sair', 15)} Sair</button></div></div>
       </aside><main>
         <div class="top"><div><h1 id="t-h"></h1><div class="crumb" id="t-c"></div></div><div class="spacer"></div><div class="g-estado" id="t-e"></div>
@@ -126,7 +131,7 @@
     if (!E.quem) return;
     const r = location.hash.slice(1).split('/')[0]; E.rota = ROTAS[r] && pode(r) ? r : 'painel';
     $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.r === E.rota));
-    const [t, , c] = ROTAS[E.rota]; $('#t-h').textContent = t; $('#t-c').textContent = c; document.title = t + ' · Consola de gestão';
+    const [t, , c] = ROTAS[E.rota]; $('#t-h').textContent = t; $('#t-c').textContent = c; document.title = t + ' · dinmeta';
     $('#view').innerHTML = '<div class="empty">A carregar…</div>';
     VISTAS[E.rota]().catch(e => { if (E.quem) $('#view').innerHTML = `<div class="alert bad"><div>${esc(e.message)}</div></div>`; });
   }
@@ -153,7 +158,7 @@
     const kpi = (rot, val, foot, lado) => `<div class="card kpi tem-lado"><div class="kpi-lado"><div class="lbl">${lado[0]}</div><div class="val num">${lado[1]}</div>${lado[2] ? `<div class="foot">${lado[2]}</div>` : ''}</div>
       <div class="lbl">${rot}</div><div class="val num">${val}</div><div class="foot">${foot}</div></div>`;
     const lin = (a, b, cls = '') => `<div class="g-lin"><span>${a}</span><b class="${cls}">${b}</b></div>`;
-    $('#view').innerHTML = `${s.versaoDisco && s.versao && s.versaoDisco !== s.versao ? `<div class="alert warn" style="margin-bottom:16px"><div>Há uma versão nova do código (${esc(s.versao)} → ${esc(s.versaoDisco)}). Reinicie o servidor no BXB Gestor para a usar.</div></div>` : ''}
+    $('#view').innerHTML = `${s.versaoDisco && s.versao && s.versaoDisco !== s.versao ? `<div class="alert warn" style="margin-bottom:16px"><div>Há uma versão nova do código (${esc(s.versao)} → ${esc(s.versaoDisco)}). Reinicie o servidor no dinmeta Gestor para a usar.</div></div>` : ''}
       <div class="grid g2">
         ${kpi('Contas ativas', nInt(c.ativas), `${nInt(c.novas30)} ${c.novas30 === 1 ? 'nova' : 'novas'} nos últimos 30 dias · ${plural(p.areas.particular, 'particular', 'particulares')}, ${plural(p.areas.empresa, 'empresa', 'empresas')}`, ['Com sessão aberta', nInt(c.comSessao), `${nInt(c.sessoes)} ${c.sessoes === 1 ? 'sessão' : 'sessões'}`])}
         ${kpi('Servidor ligado há', duracao(Date.now() - s.arranque), `Versão ${esc(s.versao || '—')} · Node ${esc(s.node)} · ${tamanho(s.memoria)} de memória`, ['Entradas (7 dias)', nInt(p.entradas.d7), `${nInt(p.entradas.falhadas7)} falhadas`])}
@@ -365,15 +370,15 @@
           <div class="g-lin"><span>Portas</span><b>site ${d.portas.site || '—'} · rede ${d.portas.rede || 'fechada'} · consola ${d.portas.gestao || '—'}</b></div>
           <div class="g-lin"><span>Versão do código</span><b class="mono">${esc(d.versao || '—')}</b></div></div></div>
         <div class="card"><div class="card-h"><h3>Acesso à consola</h3></div>
-          <p class="muted" style="margin:0 0 12px">O BXB Gestor abre a consola com a chave guardada em <span class="mono" style="font-size:12px;word-break:break-all">${esc(d.chave)}</span>. Uma chave nova fecha todas as sessões abertas na consola, incluindo esta.</p>
+          <p class="muted" style="margin:0 0 12px">O dinmeta Gestor abre a consola com a chave guardada em <span class="mono" style="font-size:12px;word-break:break-all">${esc(d.chave)}</span>. Uma chave nova fecha todas as sessões abertas na consola, incluindo esta.</p>
           <button class="btn bad" id="kn">${ic('chave', 15)} Gerar chave nova</button></div>
       </div></div>`;
     $('#fg').onsubmit = async e => { e.preventDefault();
       try { const r = await api('POST', '/api/gestao/definicoes', Object.fromEntries(new FormData(e.target))); toast('Definições guardadas');
         if (r.geral.marca !== E.quem.marca) { E.quem.marca = r.geral.marca; montar(); ir(); } }
       catch (x) { msg($('#fg-m'), x.message, 'bad'); } };
-    $('#kn').onclick = async () => { if (!confirm('Gerar uma chave nova? Todas as sessões da consola terminam, incluindo esta. Volte a abrir a consola pelo BXB Gestor.')) return;
-      try { await api('POST', '/api/gestao/chave-nova', {}); mostrarEntrar('Chave nova gerada. Abra a consola de novo pelo BXB Gestor.'); } catch (x) { toast(x.message, 'bad'); } };
+    $('#kn').onclick = async () => { if (!confirm('Gerar uma chave nova? Todas as sessões da consola terminam, incluindo esta. Volte a abrir a consola pelo dinmeta Gestor.')) return;
+      try { await api('POST', '/api/gestao/chave-nova', {}); mostrarEntrar('Chave nova gerada. Abra a consola de novo pelo dinmeta Gestor.'); } catch (x) { toast(x.message, 'bad'); } };
   };
 
 
@@ -431,7 +436,7 @@
     setInterval(() => { if (!document.hidden) verSaude(); }, 15000);
     await comBilhete();
   }
-  // aberta pelo BXB Gestor: o bilhete (uso único, 60 s) vem no endereço e sai logo dele
+  // aberta pelo dinmeta Gestor: o bilhete (uso único, 60 s) vem no endereço e sai logo dele
   async function comBilhete() {
     const b = /^#b=([a-f0-9]{16,})$/.exec(location.hash);
     if (b) { history.replaceState(null, '', location.pathname + '#painel');

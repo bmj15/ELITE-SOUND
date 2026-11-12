@@ -75,3 +75,9 @@ textarea.g-html{min-height:220px;font:12.5px/1.6 var(--mono)}
   .g-shell .menu-btn{display:none}
   .g-barra .inp{width:100%}
 }
+
+/* Marca do produto na consola antiga, sem dependências de rotas novas. */
+.dinmeta-logo{display:grid;place-items:center;flex:none;width:40px;height:36px;color:var(--text);background:none}
+.dinmeta-simbolo{display:block;width:36px;height:29px;fill:none}
+.dinmeta-palavra{font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;font-size:19px;font-weight:800;letter-spacing:-.02em;text-transform:none}
+.dinmeta-credito{display:block;color:var(--muted);font:500 11px/1.5 Inter,system-ui,sans-serif;margin-bottom:10px}

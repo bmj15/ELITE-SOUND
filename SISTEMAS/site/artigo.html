@@ -3,11 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
-<title>Artigo · BXB</title>
+<title>Artigo · dinmeta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="/SISTEMAS/site/pais.js?v=2"></script>
 <link rel="stylesheet" href="/SISTEMAS/site/site.css?v=28">
+
+<link rel="stylesheet" href="/SISTEMAS/shared/marca.css?v=1">
+<script src="/SISTEMAS/shared/marca.js?v=2"></script>
+<link rel="icon" type="image/svg+xml" href="/SISTEMAS/icones/dinmeta-favicon.svg">
+<meta name="application-name" content="dinmeta">
+<meta name="author" content="BXB">
+<link rel="manifest" href="/SISTEMAS/manifest.json">
+<link rel="apple-touch-icon" href="/SISTEMAS/icones/apple-touch-icon.png">
 </head>
 <body data-pagina="artigos">
 <div class="progresso" id="prog"></div>
@@ -15,8 +23,8 @@
   <article class="wrap"><div class="leitura" id="art"></div></article>
   <section style="padding-top:60px"><div class="wrap"><div class="sec-h" style="margin-bottom:30px"><h2 style="font-size:32px">Continue a ler</h2></div><div class="arts" id="rel"></div></div></section>
 </main>
-<script src="/SISTEMAS/site/artigos.js?v=7"></script>
-<script src="/SISTEMAS/site/site.js?v=12"></script>
+<script src="/SISTEMAS/site/artigos.js?v=8"></script>
+<script src="/SISTEMAS/site/site.js?v=13"></script>
 <script>
 (function () {
   'use strict';
@@ -30,7 +38,7 @@
   if (outro) return location.replace((window.BXB_PAIS ? '/pt-' + BXB_PAIS : '') + '/artigos/' + outro.par);
   if (!a) { box.innerHTML = '<div class="topo-art"><h1>Artigo não encontrado</h1><p class="resumo">Pode ter mudado de endereço.</p><a class="btn btn-p" href="/artigos">Ver todos os artigos</a></div>'; document.getElementById('rel').parentNode.parentNode.remove(); return; }
   var c = CATEGORIAS[a.cat] || {};
-  document.title = a.titulo + ' · BXB';
+  document.title = a.titulo + ' · dinmeta';
   var md = document.createElement('meta'); md.name = 'description'; md.content = a.resumo; document.head.appendChild(md);
   box.innerHTML = '<div class="topo-art"><a class="voltar-art" href="/artigos?c=' + a.cat + '">‹ ' + esc(c.nome) + '</a>' +
     '<h1>' + esc(a.titulo) + '</h1><p class="resumo">' + esc(a.resumo) + '</p>' +

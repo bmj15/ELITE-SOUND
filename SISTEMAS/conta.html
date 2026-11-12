@@ -10,8 +10,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="BXB">
-<title>A minha conta · BXB</title>
+<meta name="apple-mobile-web-app-title" content="dinmeta">
+<title>A minha conta · dinmeta</title>
 <script src="shared/servidor-dados.js?v=8"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -26,13 +26,21 @@
   .lin{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
   .lin:last-child{border-bottom:0}
 </style>
+
+<link rel="stylesheet" href="/SISTEMAS/shared/marca.css?v=1">
+<script src="/SISTEMAS/shared/marca.js?v=2"></script>
+<link rel="icon" type="image/svg+xml" href="/SISTEMAS/icones/dinmeta-favicon.svg">
+<meta name="application-name" content="dinmeta">
+<meta name="author" content="BXB">
 </head>
 <body>
 <div class="wrap">
+  <a class="dinmeta-identidade dinmeta-marca-pagina" href="/SISTEMAS/index.html"><svg class="dinmeta-simbolo" viewBox="0 0 224 180" fill="none" aria-hidden="true" focusable="false"><use href="/SISTEMAS/icones/dinmeta.svg#dinmeta-simbolo"></use></svg><span class="dinmeta-palavra">dinmeta</span></a>
   <div class="topo"><a href="/SISTEMAS/index.html">‹ Voltar</a><a href="#" id="sair">Sair</a></div>
   <h1>A minha conta</h1>
   <p class="muted" id="quem" style="margin:0 0 22px"></p>
   <div class="stack" id="c"></div>
+  <footer class="dinmeta-credito dinmeta-rodape">Desenvolvido pela BXB</footer>
 </div>
 <script>
 (function () {

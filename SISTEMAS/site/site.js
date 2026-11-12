@@ -74,20 +74,20 @@ var menuM = '<div class="menu-m" id="menuM"><div class="sg">' + lsg('/', 'Partic
   '<div class="bts" id="btsM"><a class="btn btn-s" href="' + ENT + '?tipo=' + seg + '" data-ent>Entrar</a><a class="btn btn-p" href="' + abrir + '" data-abr>Abrir conta</a></div></div>';
 var avisoFechado = false; try { avisoFechado = localStorage.getItem('bxb:aviso') === 'simuladores-1'; } catch (e) { }
 var aviso = avisoFechado ? '' : '<div class="aviso" id="aviso"><div class="wrap"><span class="et">Novidade</span><p>' + T('Já pode simular o prazo de uma dívida, o fundo de emergência e a tesouraria da empresa, sem registo.', 'Agora você pode simular o prazo de uma dívida, a reserva de emergência e o fluxo de caixa da empresa, sem cadastro.') + ' <a href="/simuladores">Experimentar</a></p><button type="button" id="avisoF" aria-label="Fechar aviso">×</button></div></div>';
-var cab = aviso + '<header class="nav" id="nav"><div class="wrap barra"><a class="marca" href="' + casa + '"><b>BXB</b>BXB</a><nav class="segs">' + segs + '</nav>' +
+var cab = aviso + '<header class="nav" id="nav"><div class="wrap barra"><a class="marca" href="' + casa + '">' + DinmetaMarca.marca() + '</a><nav class="segs">' + segs + '</nav>' +
   '<button type="button" class="eu-quero" id="bPesq" aria-label="Pesquisar">' + ic('i-lupa', 17) + '<span>Eu quero…</span></button>' + acoes +
   '<a class="ent-m" id="entM" href="' + ENT + '?tipo=' + seg + '" data-ent>' + ic('i-cad', 15) + '<span>Entrar</span></a>' + paisB + '<button class="ic-m pq" id="bPesqM" aria-label="Pesquisar">' + ic('i-lupa', 19) + '</button><button class="ic-m" id="hamb" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 6h18M3 12h18M3 18h18"/></svg></button></div>' +
   subM + menuM + '</header>';
 
 var col = function (t, l) { return '<div><h4>' + t + '</h4><ul>' + l.map(function (x) { return '<li><a href="' + x[0] + '">' + x[1] + '</a></li>'; }).join('') + '</ul></div>'; };
 var rod = '<footer><div class="wrap">' +
-  '<div class="rod-topo"><a class="marca" href="' + casa + '"><b>BXB</b>BXB</a></div>' +
+  '<div class="rod-topo"><a class="marca" href="' + casa + '">' + DinmetaMarca.marca() + '</a></div>' +
   '<div class="g">' +
   col('Particulares', [['/#plano', 'Plano pessoal'], ['/#dividas', 'Sair das dívidas'], ['/#objetivos', 'Objetivos de poupança'], ['/artigos?c=impostos', T('Recibos e IRS', 'Imposto de Renda')], ['/#partilhar', T('Despesas partilhadas', 'Despesas compartilhadas')]]) +
   col('Empresas', [['/empresas#pagamentos', 'Autorização de pagamentos'], ['/empresas#tesouraria', T('Tesouraria', 'Fluxo de caixa')], ['/empresas#resultados', 'Vendas e resultados'], ['/empresas#equipa', T('Equipa', 'Equipe')]]) +
   col('Ferramentas', [['/simuladores', 'Simuladores'], ['/artigos', 'Artigos'], ['/ajuda', 'Centro de ajuda'], [T('/artigos/proteger-a-sua-conta', '/artigos/proteger-suas-contas'), 'Segurança online']]) +
   col('Área de cliente', [[ENT + '?tipo=particular', 'Particulares'], [ENT + '?tipo=empresa', 'Empresas'], [abrir, 'Abrir conta'], ['/SISTEMAS/conta.html', T('A minha conta', 'Minha conta')]]) +
-  '</div><div class="base"><span>© ' + new Date().getFullYear() + ' BXB · ' + T('Planeamento financeiro e tesouraria', 'Planejamento financeiro e fluxo de caixa') + ' · ' + NOME_P[pais] + '</span><span>' + T('A BXB nunca pede a palavra-passe ou o PIN por email, SMS ou telefone.', 'A BXB nunca pede a senha ou o PIN por e-mail, SMS, WhatsApp ou telefone.') + '</span></div></div></footer>';
+  '</div><div class="base"><span>© ' + new Date().getFullYear() + ' dinmeta · ' + T('Planeamento financeiro e tesouraria', 'Planejamento financeiro e fluxo de caixa') + ' · ' + NOME_P[pais] + ' · Desenvolvido pela BXB</span><span>' + T('A dinmeta nunca pede a palavra-passe ou o PIN por email, SMS ou telefone.', 'A dinmeta nunca pede a senha ou o PIN por e-mail, SMS, WhatsApp ou telefone.') + '</span></div></div></footer>';
 var pesq = '<div class="pesq" id="pesq" role="dialog" aria-label="Pesquisar"><div class="cx"><div class="lin">' + ic('i-lupa', 20) + '<input id="pesqI" placeholder="O que procura?" autocomplete="off"><button class="fechar" type="button" id="pesqF">Esc</button></div><div class="res" id="pesqR"></div></div></div>';
 
 document.body.insertAdjacentHTML('afterbegin', SPRITE + cab);

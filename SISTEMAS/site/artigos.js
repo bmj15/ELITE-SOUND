@@ -31,7 +31,7 @@ window.ARTIGOS = [
 <ol><li><strong>Automatize.</strong> Uma transferência no dia em que recebe o ordenado vale mais do que boas intenções no fim do mês.</li><li><strong>Comece pequeno.</strong> Um primeiro objetivo de 1 000 € já evita a maior parte dos créditos rápidos.</li><li><strong>Use o dinheiro extra.</strong> Subsídios de férias e de Natal, reembolso do IRS ou um prémio são a forma mais rápida de acelerar.</li><li><strong>Reponha depois de usar.</strong> Se teve de recorrer ao fundo, volte a pô-lo como prioridade até estar completo.</li></ol>
 <h2>E as dívidas?</h2>
 <p>Se tem dívidas caras (cartões de crédito, créditos pessoais), faça primeiro um fundo pequeno, de um mês, e depois concentre-se em pagar as dívidas. Quando estiverem pagas, complete o fundo. Ter dinheiro parado a render pouco enquanto paga juros altos sai caro.</p>
-<div class="caixa"><b>No BXB</b>O objetivo "Fundo de emergência" calcula o valor a partir das suas despesas fixas e mostra quanto falta e em que mês o completa, com a parte do que sobra que lhe dedica.</div>`
+<div class="caixa"><b>Na dinmeta</b>O objetivo "Fundo de emergência" calcula o valor a partir das suas despesas fixas e mostra quanto falta e em que mês o completa, com a parte do que sobra que lhe dedica.</div>`
 },
 {
   id: 'por-qual-divida-comecar', paises: ['pt'], par: 'varias-dividas-por-onde-comecar', foto: '1625980344922-a4df108b2bd0', cat: 'credito', data: '2026-11-06', min: 7,
@@ -56,7 +56,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>Antes de amortizar</b>Confirme no contrato a comissão de reembolso antecipado. Nos créditos aos consumidores ela tem limites legais e, em muitos casos, compensa na mesma, mas é um custo a pôr na conta.</div>
 <h2>O que escolher</h2>
 <ul><li>Se é disciplinado e quer pagar o mínimo de juros: comece pela <strong>taxa mais alta</strong>.</li><li>Se já tentou antes e desistiu: comece pelo <strong>saldo mais pequeno</strong>.</li><li>Em qualquer dos casos: não volte a usar o cartão que está a pagar.</li></ul>
-<div class="caixa"><b>No BXB</b>O plano para sair das dívidas compara várias estratégias com as suas dívidas reais e mostra, para cada uma, a data em que fica sem dívidas e os juros que paga.</div>`
+<div class="caixa"><b>Na dinmeta</b>O plano para sair das dívidas compara várias estratégias com as suas dívidas reais e mostra, para cada uma, a data em que fica sem dívidas e os juros que paga.</div>`
 },
 {
   id: 'tan-taeg-mtic', paises: ['pt'], par: 'juros-e-cet', foto: '1709880945165-d2208c6ad2ec', cat: 'credito', data: '2026-10-30', min: 5,
@@ -90,7 +90,7 @@ window.ARTIGOS = [
 <ol><li><strong>Escolha o pagamento da totalidade</strong> sempre que puder: assim usa o período sem juros e o cartão não lhe custa nada além da anuidade.</li><li><strong>Se já tem saldo em dívida, pare de usar o cartão</strong> até o liquidar: novas compras somam-se ao saldo e prolongam tudo.</li><li><strong>Fixe um valor de pagamento acima do mínimo</strong>: mesmo 30 ou 50 € a mais por mês encurtam o prazo de forma visível.</li></ol>
 <h2>Compras a prestações com o cartão</h2>
 <p>Dividir uma compra em prestações "sem juros" pode ter comissões ou exigir a modalidade de pagamento parcial. Leia as condições: o que importa é a TAEG dessa operação.</p>
-<div class="caixa"><b>No BXB</b>Ao registar uma despesa paga a prestações pelo cartão, o plano calcula mês a mês a prestação, os juros e o imposto do selo, e mostra quando fica liquidada.</div>`
+<div class="caixa"><b>Na dinmeta</b>Ao registar uma despesa paga a prestações pelo cartão, o plano calcula mês a mês a prestação, os juros e o imposto do selo, e mostra quando fica liquidada.</div>`
 },
 {
   id: 'deducoes-irs-e-fatura', paises: ['pt'], par: 'imposto-de-renda-deducoes', foto: '1762265591492-1454ae17f31a', cat: 'impostos', data: '2026-10-15', min: 6,
@@ -112,7 +112,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>Prazos</b>A validação das faturas pendentes faz-se no início do ano seguinte, normalmente até ao fim de fevereiro, e a declaração de IRS entrega-se entre 1 de abril e 30 de junho. Confirme as datas exatas de cada ano no Portal das Finanças.</div>
 <h2>Reembolso não é um prémio</h2>
 <p>Um reembolso grande significa que reteve imposto a mais durante o ano: emprestou dinheiro ao Estado sem juros. Pode ser útil como poupança forçada, mas convém saber de onde vem.</p>
-<div class="caixa"><b>No BXB</b>A página do IRS junta os seus rendimentos e retenções, os valores do e-Fatura que indicar e os escalões do ano, e estima se vai receber ou pagar.</div>`
+<div class="caixa"><b>Na dinmeta</b>A página do IRS junta os seus rendimentos e retenções, os valores do e-Fatura que indicar e os escalões do ano, e estima se vai receber ou pagar.</div>`
 },
 {
   id: 'recibos-verdes-sem-surpresas', paises: ['pt'], par: 'mei-ou-autonomo', foto: '1682669328101-3a0f8a12d06d', cat: 'impostos', data: '2026-10-08', min: 7,
@@ -130,7 +130,7 @@ window.ARTIGOS = [
 <ol><li>Por cada recibo recebido, ponha de lado uma <strong>percentagem fixa</strong> numa conta à parte (por exemplo, 25 a 30%, ajustada ao seu caso).</li><li>Dessa conta saem as contribuições mensais e o eventual acerto do IRS.</li><li>No fim do ano, o que sobrar é seu: pode ir para o fundo de emergência.</li></ol>
 <h2>Não duplique recibos</h2>
 <p>Ao registar recibos à mão e importá-los do Portal das Finanças, é fácil contar o mesmo duas vezes e achar que ganhou mais do que ganhou. Use o número do recibo (FR, por exemplo) como referência única.</p>
-<div class="caixa"><b>No BXB</b>Os recibos verdes são reconhecidos pelo número do documento: se tentar inserir um que já existe, o sistema avisa e ignora-o.</div>`
+<div class="caixa"><b>Na dinmeta</b>Os recibos verdes são reconhecidos pelo número do documento: se tentar inserir um que já existe, o sistema avisa e ignora-o.</div>`
 },
 {
   id: 'despesas-partilhadas-a-dois', paises: ['pt'], par: 'despesas-compartilhadas-a-dois', foto: '1758523417936-fa871f4a840d', cat: 'casa', data: '2026-09-30', min: 5,
@@ -147,7 +147,7 @@ window.ARTIGOS = [
 <h2>O acerto do mês</h2>
 <p>Na prática, cada um vai pagando coisas: um paga a renda, outro as compras. No fim do mês soma-se o que cada um pagou, compara-se com a parte de cada um, e quem pagou menos transfere a diferença. Uma transferência por mês, sem contas de cabeça.</p>
 <div class="caixa"><b>Combinem por escrito</b>Que despesas são comuns, em que proporção, e quem paga o quê. Evita mal-entendidos e facilita quando a situação muda (um aumento, um filho, uma mudança de casa).</div>
-<div class="caixa"><b>No BXB</b>As despesas partilhadas funcionam por convite: cada pessoa aceita a partilha com a sua conta, vê só a folha comum e o acerto do mês, e o resto do plano continua privado.</div>`
+<div class="caixa"><b>Na dinmeta</b>As despesas partilhadas funcionam por convite: cada pessoa aceita a partilha com a sua conta, vê só a folha comum e o acerto do mês, e o resto do plano continua privado.</div>`
 },
 {
   id: 'dupla-aprovacao-pagamentos', paises: ['pt'], par: 'dupla-aprovacao-pix-e-boleto', foto: '1556740714-a8395b3bf30f', cat: 'empresas', data: '2026-11-03', min: 6,
@@ -167,7 +167,7 @@ window.ARTIGOS = [
 <ol><li>Confirme sempre por <strong>telefone, para um número que já tinha</strong>, nunca para o que vem no email.</li><li>Exija comprovativo do novo IBAN em nome do fornecedor.</li><li>Trate a alteração como uma mudança de regra: com segunda aprovação.</li></ol>
 <h2>E isto não atrasa tudo?</h2>
 <p>Com as alçadas bem definidas, a maioria dos pagamentos do dia a dia é aprovada por uma pessoa. A dupla aprovação só entra nos valores que justificam o cuidado extra. E com assinatura eletrónica, a aprovação faz-se no telemóvel, em segundos.</p>
-<div class="caixa"><b>No BXB</b>Cada pedido de pagamento passa por pedido, aprovação e execução, com alçadas por pessoa, dupla aprovação acima do valor que definir e assinatura com PIN e rubrica em cada passo. Tudo fica no registo de auditoria.</div>`
+<div class="caixa"><b>Na dinmeta</b>Cada pedido de pagamento passa por pedido, aprovação e execução, com alçadas por pessoa, dupla aprovação acima do valor que definir e assinatura com PIN e rubrica em cada passo. Tudo fica no registo de auditoria.</div>`
 },
 {
   id: 'tesouraria-pme-13-semanas', paises: ['pt'], par: 'fluxo-de-caixa-13-semanas', foto: '1460925895917-afdab827c52f', cat: 'empresas', data: '2026-10-27', min: 6,
@@ -184,7 +184,7 @@ window.ARTIGOS = [
 <p>A previsão só vale se for atualizada: compare o previsto com o real, corrija as datas dos clientes que se atrasam e acrescente mais uma semana no fim. Em pouco tempo percebe quais os clientes que pagam a horas e onde estão as folgas.</p>
 <h2>Quando a previsão fica negativa</h2>
 <ul><li>Antecipe cobranças (descontos de pronto pagamento, faturação mais cedo);</li><li>Negocie prazos com fornecedores antes do vencimento, não depois;</li><li>Adie investimentos que não são urgentes;</li><li>Só depois pense em financiamento de curto prazo, e compare a TAEG.</li></ul>
-<div class="caixa"><b>No BXB</b>A tesouraria mostra o saldo de cada conta, o saldo cativo dos pedidos aprovados e a previsão dos pagamentos recorrentes, para ver o disponível real a cada dia.</div>`
+<div class="caixa"><b>Na dinmeta</b>A tesouraria mostra o saldo de cada conta, o saldo cativo dos pedidos aprovados e a previsão dos pagamentos recorrentes, para ver o disponível real a cada dia.</div>`
 },
 {
   id: 'proteger-a-sua-conta', paises: ['pt'], par: 'proteger-suas-contas', foto: '1584433144859-1fc3ab64a957', cat: 'seguranca', data: '2026-09-22', min: 4,
@@ -197,7 +197,7 @@ window.ARTIGOS = [
 <h2>3. Escreva o endereço, não clique no link</h2><p>Para entrar numa conta, escreva o endereço do site ou use um marcador. Os links em SMS e emails podem levar a cópias perfeitas da página verdadeira.</p>
 <h2>4. Nunca partilhe códigos</h2><p>Nenhum serviço legítimo lhe pede, por telefone ou mensagem, o código que recebeu por SMS, a palavra-passe ou o PIN.</p>
 <h2>5. Termine a sessão em computadores partilhados</h2><p>E bloqueie o ecrã quando se afasta do seu.</p>
-<div class="caixa"><b>No BXB</b>A palavra-passe serve para entrar e o PIN só para assinar operações: mesmo que alguém descubra a palavra-passe, não consegue aprovar pagamentos sem o PIN e a rubrica. Cada entrada e acesso fica registado.</div>`
+<div class="caixa"><b>Na dinmeta</b>A palavra-passe serve para entrar e o PIN só para assinar operações: mesmo que alguém descubra a palavra-passe, não consegue aprovar pagamentos sem o PIN e a rubrica. Cada entrada e acesso fica registado.</div>`
 },
 /* ---------- Brasil ---------- */
 {
@@ -222,7 +222,7 @@ window.ARTIGOS = [
 <ol><li><strong>Automatize.</strong> Uma transferência no dia em que o salário cai vale mais do que boas intenções no fim do mês.</li><li><strong>Comece pequeno.</strong> Uma primeira meta de R$ 2.000 já evita a maior parte do cheque especial.</li><li><strong>Use o dinheiro extra.</strong> 13º salário, restituição do Imposto de Renda e bônus são a forma mais rápida de acelerar.</li><li><strong>Reponha depois de usar.</strong> Se precisou da reserva, volte a priorizá-la até ela estar completa.</li></ol>
 <h2>E as dívidas?</h2>
 <p>Se você tem dívidas caras (rotativo, cheque especial, empréstimo pessoal), monte primeiro uma reserva pequena, de um mês, e depois concentre-se em quitar as dívidas. Quando estiverem pagas, complete a reserva. Deixar dinheiro rendendo pouco enquanto paga juros altos sai caro.</p>
-<div class="caixa"><b>No BXB</b>O objetivo "Reserva de emergência" calcula o valor a partir das suas despesas fixas e mostra quanto falta e em que mês você completa a reserva, com a parte do que sobra que você dedica a ela.</div>`
+<div class="caixa"><b>Na dinmeta</b>O objetivo "Reserva de emergência" calcula o valor a partir das suas despesas fixas e mostra quanto falta e em que mês você completa a reserva, com a parte do que sobra que você dedica a ela.</div>`
 },
 {
   id: 'varias-dividas-por-onde-comecar', paises: ['br'], par: 'por-qual-divida-comecar', foto: '1625980344922-a4df108b2bd0', cat: 'credito', data: '2026-11-06', min: 7,
@@ -242,7 +242,7 @@ window.ARTIGOS = [
 <ul><li><strong>Troque dívida cara por barata.</strong> Um empréstimo consignado ou com garantia, com juros menores, pode quitar o rotativo ou o cheque especial de uma vez. Compare sempre o CET.</li><li><strong>Portabilidade de crédito.</strong> Você pode levar um empréstimo para outra instituição que ofereça juros menores, sem custo de transferência.</li><li><strong>Negocie.</strong> Bancos e lojas costumam ter campanhas de renegociação com desconto para pagamento à vista ou parcelado.</li></ul>
 <h2>O que escolher</h2>
 <p>Se você é disciplinado e o objetivo é pagar o mínimo possível, comece pela taxa mais alta. Se precisa de vitórias rápidas para não desistir, comece pelo saldo menor. Mais importante do que a ordem é <strong>não criar dívida nova</strong> enquanto quita as antigas.</p>
-<div class="caixa"><b>No BXB</b>O plano de dívidas compara as estratégias com os seus valores reais e mostra, para cada uma, o total de juros e o mês em que fica sem dívidas.</div>`
+<div class="caixa"><b>Na dinmeta</b>O plano de dívidas compara as estratégias com os seus valores reais e mostra, para cada uma, o total de juros e o mês em que fica sem dívidas.</div>`
 },
 {
   id: 'juros-e-cet', paises: ['br'], par: 'tan-taeg-mtic', foto: '1709880945165-d2208c6ad2ec', cat: 'credito', data: '2026-10-30', min: 5,
@@ -264,7 +264,7 @@ window.ARTIGOS = [
 <p>Seguro prestamista, título de capitalização ou pacote de serviços não podem ser condição para liberar o crédito: a venda casada é proibida pelo Código de Defesa do Consumidor. Se não quiser, peça para retirar e confira o CET de novo.</p>
 <h2>Antes de assinar</h2>
 <ol><li>Peça a simulação com o <strong>CET anual</strong> e o <strong>valor total a pagar</strong>.</li><li>Compare pelo menos três propostas, inclusive de bancos digitais e cooperativas.</li><li>Confira se a parcela cabe no orçamento com folga: o ideal é que todas as parcelas somadas fiquem bem abaixo de 30% da renda.</li></ol>
-<div class="caixa"><b>No BXB</b>Ao registrar um crédito, você informa a parcela e a taxa, e o plano mostra a data de quitação e quanto ainda vai pagar de juros.</div>`
+<div class="caixa"><b>Na dinmeta</b>Ao registrar um crédito, você informa a parcela e a taxa, e o plano mostra a data de quitação e quanto ainda vai pagar de juros.</div>`
 },
 {
   id: 'rotativo-do-cartao', paises: ['br'], par: 'cartao-de-credito-pagamento-minimo', foto: '1640545232493-9a9b5c88ede4', cat: 'credito', data: '2026-10-22', min: 5,
@@ -279,7 +279,7 @@ window.ARTIGOS = [
 <ol><li><strong>Pare de usar o cartão</strong> enquanto houver saldo no rotativo ou parcelamento em aberto.</li><li><strong>Compare o parcelamento da fatura</strong> com um empréstimo pessoal ou consignado. Se o CET do empréstimo for menor, vale quitar o cartão com ele.</li><li><strong>Negocie.</strong> Muitos emissores oferecem condições melhores para quem pede a renegociação antes de atrasar.</li><li><strong>Reorganize o vencimento</strong> da fatura para alguns dias depois do salário cair.</li></ol>
 <h2>Para não voltar</h2>
 <p>Use o cartão só para gastos que já cabem no orçamento do mês e acompanhe a fatura parcial ao longo do mês, não apenas no fechamento. Compras parceladas "sem juros" também comprometem a renda dos próximos meses: some todas as parcelas futuras antes de fazer uma nova.</p>
-<div class="caixa"><b>No BXB</b>Registre o cartão como um crédito: o plano mostra o saldo, o custo dos juros e a data em que fica quitado com o valor que você consegue pagar.</div>`
+<div class="caixa"><b>Na dinmeta</b>Registre o cartão como um crédito: o plano mostra o saldo, o custo dos juros e a data em que fica quitado com o valor que você consegue pagar.</div>`
 },
 {
   id: 'imposto-de-renda-deducoes', paises: ['br'], par: 'deducoes-irs-e-fatura', foto: '1740592910131-b604d790061a', cat: 'impostos', data: '2026-10-15', min: 6,
@@ -296,7 +296,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>Dica</b>A declaração pré-preenchida já traz muitas despesas informadas por médicos, hospitais, escolas e planos de saúde. Confira cada item: o que estiver errado ou faltando é responsabilidade de quem declara.</div>
 <h2>Prazos</h2>
 <p>A entrega costuma acontecer entre março e o fim de maio. Confirme as datas do ano no site da Receita Federal. Quem entrega cedo e sem pendências tende a receber a restituição nos primeiros lotes.</p>
-<div class="caixa"><b>No BXB</b>Registre as despesas dedutíveis ao longo do ano e veja uma estimativa da restituição muito antes do prazo de entrega.</div>`
+<div class="caixa"><b>Na dinmeta</b>Registre as despesas dedutíveis ao longo do ano e veja uma estimativa da restituição muito antes do prazo de entrega.</div>`
 },
 {
   id: 'mei-ou-autonomo', paises: ['br'], par: 'recibos-verdes-sem-surpresas', foto: '1682669328101-3a0f8a12d06d', cat: 'impostos', data: '2026-10-08', min: 7,
@@ -311,7 +311,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>Regra prática</b>Separe uma porcentagem de cada recebimento numa conta à parte, só para impostos e contribuições. Assim, quando a guia vence, o dinheiro já está lá.</div>
 <h2>Erros comuns</h2>
 <ol><li>Misturar as contas da atividade com as pessoais.</li><li>Esquecer do DAS em meses fracos: ele é devido mesmo sem faturamento.</li><li>Não guardar as notas e os recibos emitidos.</li><li>Deixar a declaração anual para a última hora.</li></ol>
-<div class="caixa"><b>No BXB</b>Registre cada recebimento e o plano reserva automaticamente a parte dos impostos, mostrando quanto é seu de verdade em cada mês.</div>`
+<div class="caixa"><b>Na dinmeta</b>Registre cada recebimento e o plano reserva automaticamente a parte dos impostos, mostrando quanto é seu de verdade em cada mês.</div>`
 },
 {
   id: 'despesas-compartilhadas-a-dois', paises: ['br'], par: 'despesas-partilhadas-a-dois', foto: '1758523417936-fa871f4a840d', cat: 'casa', data: '2026-09-30', min: 5,
@@ -328,7 +328,7 @@ window.ARTIGOS = [
 <p>Na prática, cada um paga algumas contas no seu cartão ou por Pix. No fim do mês, basta somar o que cada um pagou, comparar com a parte que lhe cabia e fazer <strong>um único Pix</strong> de acerto.</p>
 <h2>Combinados que ajudam</h2>
 <ol><li>Uma conversa por mês, com os números na mesa.</li><li>Um valor a partir do qual compras grandes são decididas a dois.</li><li>Autonomia total sobre o dinheiro pessoal de cada um.</li></ol>
-<div class="caixa"><b>No BXB</b>Convide a outra pessoa para uma planilha comum: cada um registra o que pagou e o BXB calcula o acerto do mês, com a regra de divisão que vocês escolherem.</div>`
+<div class="caixa"><b>Na dinmeta</b>Convide a outra pessoa para uma planilha comum: cada um registra o que pagou e a dinmeta calcula o acerto do mês, com a regra de divisão que vocês escolherem.</div>`
 },
 {
   id: 'dupla-aprovacao-pix-e-boleto', paises: ['br'], par: 'dupla-aprovacao-pagamentos', foto: '1556740714-a8395b3bf30f', cat: 'empresas', data: '2026-11-03', min: 6,
@@ -343,7 +343,7 @@ window.ARTIGOS = [
 <div class="caixa"><b>Regra de ouro</b>Mudança de dados bancários de um fornecedor nunca é confirmada pelo mesmo canal em que chegou. Ligue para um telefone que você já tinha cadastrado.</div>
 <h2>Cuidados no Pix e no boleto</h2>
 <ul><li>Antes de confirmar um Pix, confira o <strong>nome e o CNPJ do recebedor</strong> exibidos na tela.</li><li>No boleto, compare o beneficiário e o CNPJ com os dados do fornecedor.</li><li>Desconfie de urgência e de pedidos de sigilo.</li></ul>
-<div class="caixa"><b>No BXB</b>Cada pedido passa por alçadas e, acima do limite, por duas aprovações de pessoas diferentes, com assinatura e registro de quem aprovou e quando.</div>`
+<div class="caixa"><b>Na dinmeta</b>Cada pedido passa por alçadas e, acima do limite, por duas aprovações de pessoas diferentes, com assinatura e registro de quem aprovou e quando.</div>`
 },
 {
   id: 'fluxo-de-caixa-13-semanas', paises: ['br'], par: 'tesouraria-pme-13-semanas', foto: '1460925895917-afdab827c52f', cat: 'empresas', data: '2026-10-27', min: 6,
@@ -358,7 +358,7 @@ window.ARTIGOS = [
 <ul><li><strong>Negocie prazos</strong> com fornecedores antes do vencimento, não depois.</li><li><strong>Cobre os atrasados</strong> e ofereça desconto para pagamento antecipado.</li><li><strong>Antecipação de recebíveis</strong>: resolve no curto prazo, mas tem custo. Compare com uma linha de capital de giro pelo CET.</li><li><strong>Reprograme pagamentos</strong> que não são críticos.</li></ul>
 <h2>Atualize toda semana</h2>
 <p>A previsão só funciona se for atualizada: substitua o previsto pelo realizado, acrescente uma semana nova no fim e veja o que mudou.</p>
-<div class="caixa"><b>No BXB</b>A área de fluxo de caixa junta saldos, pedidos de pagamento aprovados e recebimentos previstos, mostrando o saldo projetado semana a semana.</div>`
+<div class="caixa"><b>Na dinmeta</b>A área de fluxo de caixa junta saldos, pedidos de pagamento aprovados e recebimentos previstos, mostrando o saldo projetado semana a semana.</div>`
 },
 {
   id: 'proteger-suas-contas', paises: ['br'], par: 'proteger-a-sua-conta', foto: '1584433144859-1fc3ab64a957', cat: 'seguranca', data: '2026-09-22', min: 4,
@@ -371,7 +371,7 @@ window.ARTIGOS = [
 <h2>3. Desconfie de contato que chega até você</h2><p>No golpe da falsa central, alguém liga dizendo ser do banco e pede para "confirmar dados" ou fazer um Pix para uma "conta segura". Desligue e ligue você mesmo para o número oficial.</p>
 <h2>4. Nunca compartilhe códigos</h2><p>Nenhum serviço legítimo pede, por telefone ou mensagem, o código que você recebeu por SMS, a senha ou o PIN.</p>
 <h2>5. Cuidado com links</h2><p>Mensagens sobre entregas, multas ou pontos a vencer são iscas comuns. Acesse sempre digitando o endereço ou pelo aplicativo oficial.</p>
-<div class="caixa"><b>No BXB</b>A senha serve para entrar e o PIN só para assinar operações: mesmo que alguém descubra a senha, não consegue aprovar pagamentos sem o PIN.</div>`
+<div class="caixa"><b>Na dinmeta</b>A senha serve para entrar e o PIN só para assinar operações: mesmo que alguém descubra a senha, não consegue aprovar pagamentos sem o PIN.</div>`
 },
 ];
 

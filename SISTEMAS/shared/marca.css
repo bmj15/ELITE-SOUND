@@ -1,0 +1,22 @@
+/* Identidade única do produto: símbolo vetorial aprovado e palavra em Inter 800. */
+.dinmeta-identidade{display:inline-flex;align-items:center;gap:9px;vertical-align:middle;color:var(--text,#eef1f7);font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;font-size:19px;line-height:1;text-decoration:none;white-space:nowrap}
+.dinmeta-simbolo{display:block;flex:none;width:36px;height:29px;overflow:visible;fill:none}
+.dinmeta-palavra{font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;font-size:inherit;font-weight:800;font-style:normal;line-height:1.1;letter-spacing:-.02em;text-transform:none}
+.dinmeta-credito{display:block;color:var(--muted,#97a0b3);font:500 11px/1.5 Inter,system-ui,-apple-system,'Segoe UI',sans-serif;letter-spacing:0;text-transform:none}
+.dinmeta-marca-pagina{margin-bottom:20px;text-decoration:none;display:inline-flex}
+.dinmeta-rodape{margin-top:26px}
+.dinmeta-produto{padding:4px 8px 16px;display:flex;flex-direction:column;gap:6px}
+.side .dinmeta-produto{padding-right:48px}
+.dinmeta-logo{display:grid;place-items:center;flex:none;width:40px;height:36px;background:none!important;box-shadow:none!important;color:var(--text,#eef1f7);border-radius:0}
+.dinmeta-logo .dinmeta-simbolo{width:36px;height:29px}
+.top .top-logo.dinmeta-logo{background:none;box-shadow:none;color:var(--text,#eef1f7)}
+.top .top-logo.dinmeta-logo .dinmeta-simbolo{width:34px;height:28px}
+.ar-cab .lg.dinmeta-logo,.am-cab .lg.dinmeta-logo{background:none;box-shadow:none;color:var(--text,#eef1f7)}
+.ar-cab .lg.dinmeta-logo{width:30px;height:28px}
+.ar-cab .lg.dinmeta-logo .dinmeta-simbolo{width:28px;height:23px}
+.am-cab .lg.dinmeta-logo .dinmeta-simbolo{width:34px;height:28px}
+@media(max-width:520px){.dinmeta-identidade{gap:7px;font-size:18px}.dinmeta-simbolo{width:32px;height:26px}.side .dinmeta-produto{padding-bottom:12px}}
+
+.dinmeta-login-conteudo{width:min(400px,100%)}
+.dinmeta-login-movel{display:none}
+@media(max-width:860px){.dinmeta-login-movel{display:flex;flex-direction:column;align-items:flex-start;gap:7px;margin-bottom:26px}}

@@ -1,7 +1,7 @@
 {
   "id": "/SISTEMAS/",
-  "name": "BXB · Planeamento e pagamentos",
-  "short_name": "BXB",
+  "name": "dinmeta · Planeamento e pagamentos",
+  "short_name": "dinmeta",
   "description": "Planeamento financeiro, dívidas, objetivos e pagamentos autorizados com PIN.",
   "lang": "pt",
   "start_url": "/SISTEMAS/index.html",
@@ -9,10 +9,28 @@
   "display": "standalone",
   "background_color": "#07090d",
   "theme_color": "#07090d",
-  "categories": ["finance", "productivity"],
+  "categories": [
+    "finance",
+    "productivity"
+  ],
   "icons": [
-    { "src": "/SISTEMAS/icones/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/SISTEMAS/icones/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/SISTEMAS/icones/icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/SISTEMAS/icones/icone-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/SISTEMAS/icones/icone-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/SISTEMAS/icones/icone-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

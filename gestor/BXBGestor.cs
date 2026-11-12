@@ -1,4 +1,4 @@
-// BXB Gestor — liga, desliga e acompanha o servidor (servidor.js), mostra os registos e abre a consola de gestão.
+// dinmeta Gestor — liga, desliga e acompanha o servidor (servidor.js), mostra os registos e abre a consola de gestão.
 // Compilar: gestor\compilar.bat (usa o compilador C# que já vem com o Windows; não é preciso instalar nada).
 // Fica na pasta do repositório como "BXB Gestor.exe" (fora do git: cada computador compila o seu).
 using System;
@@ -18,8 +18,9 @@ using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
-[assembly: System.Reflection.AssemblyTitle("BXB Gestor")]
-[assembly: System.Reflection.AssemblyProduct("BXB Gestor")]
+[assembly: System.Reflection.AssemblyTitle("dinmeta Gestor")]
+[assembly: System.Reflection.AssemblyProduct("dinmeta Gestor")]
+[assembly: System.Reflection.AssemblyCompany("BXB")]
 [assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
 
 namespace BXB
@@ -49,6 +50,89 @@ namespace BXB
         }
     }
 
+    // Geometria vetorial do SVG aprovado dinmeta-simbolo.svg (viewBox 224 x 180).
+    // A palavra dinmeta é texto; Inter é usada quando está instalada neste computador.
+    static class MarcaDinmeta
+    {
+        public static readonly string Fonte = EscolherFonte();
+        public static string FonteDestaque { get { return Fonte == "Inter" ? "Inter" : "Segoe UI Semibold"; } }
+        public static FontStyle EstiloDestaque { get { return Fonte == "Inter" ? FontStyle.Bold : FontStyle.Regular; } }
+        static string EscolherFonte()
+        {
+            using (var fontes = new System.Drawing.Text.InstalledFontCollection())
+                foreach (var familia in fontes.Families)
+                    if (string.Equals(familia.Name, "Inter", StringComparison.OrdinalIgnoreCase)) return "Inter";
+            return "Segoe UI";
+        }
+        public static void Desenhar(Graphics g, RectangleF destino, Color tinta)
+        {
+            var estado = g.Save();
+            try
+            {
+                float escala = Math.Min(destino.Width / 224f, destino.Height / 180f);
+                g.TranslateTransform(destino.X + (destino.Width - 224f * escala) / 2f, destino.Y + (destino.Height - 180f * escala) / 2f);
+                g.ScaleTransform(escala, escala);
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                using (var d = CaminhoD()) using (var pincel = new SolidBrush(tinta)) g.FillPath(pincel, d);
+                using (var m = CaminhoM()) using (var pincel = new SolidBrush(Color.FromArgb(139, 92, 246))) g.FillPath(pincel, m);
+            }
+            finally { g.Restore(estado); }
+        }
+        static GraphicsPath CaminhoD()
+        {
+            var p = new GraphicsPath(FillMode.Alternate);
+            p.StartFigure();
+            p.AddBezier(98.0f, 10.0f, 104.627f, 10.0f, 110.0f, 15.373f, 110.0f, 22.0f);
+            p.AddLine(110.0f, 22.0f, 110.0f, 118.0f);
+            p.AddBezier(110.0f, 118.0f, 110.0f, 145.614f, 88.51f, 168.0f, 62.0f, 168.0f);
+            p.AddBezier(62.0f, 168.0f, 34.386f, 168.0f, 12.0f, 145.614f, 12.0f, 118.0f);
+            p.AddBezier(12.0f, 118.0f, 12.0f, 90.386f, 34.386f, 68.0f, 62.0f, 68.0f);
+            p.AddBezier(62.0f, 68.0f, 70.5f, 68.0f, 78.5f, 70.0f, 86.0f, 74.0f);
+            p.AddLine(86.0f, 74.0f, 86.0f, 22.0f);
+            p.AddBezier(86.0f, 22.0f, 86.0f, 15.373f, 91.373f, 10.0f, 98.0f, 10.0f);
+            p.CloseFigure();
+            p.StartFigure();
+            p.AddBezier(62.0f, 90.0f, 46.536f, 90.0f, 34.0f, 102.536f, 34.0f, 118.0f);
+            p.AddBezier(34.0f, 118.0f, 34.0f, 133.464f, 46.536f, 146.0f, 62.0f, 146.0f);
+            p.AddBezier(62.0f, 146.0f, 77.464f, 146.0f, 90.0f, 133.464f, 90.0f, 118.0f);
+            p.AddBezier(90.0f, 118.0f, 90.0f, 102.536f, 77.464f, 90.0f, 62.0f, 90.0f);
+            p.CloseFigure();
+            return p;
+        }
+        static GraphicsPath CaminhoM()
+        {
+            var p = new GraphicsPath(FillMode.Winding);
+            p.StartFigure();
+            p.AddBezier(14.549056f, 133.803776f, 29.0f, 117.0f, 48.0f, 113.0f, 68.0f, 112.0f);
+            p.AddBezier(68.0f, 112.0f, 88.0f, 111.0f, 98.0f, 107.0f, 104.0f, 100.0f);
+            p.AddBezier(104.0f, 100.0f, 108.0f, 95.0f, 110.0f, 89.0f, 110.0f, 83.0f);
+            p.AddLine(110.0f, 83.0f, 110.0f, 43.0f);
+            p.AddBezier(110.0f, 43.0f, 110.0f, 37.0f, 115.0f, 33.5f, 120.5f, 34.0f);
+            p.AddBezier(120.5f, 34.0f, 123.3f, 34.2f, 125.1f, 35.9f, 126.56f, 38.12f);
+            p.AddLine(126.56f, 38.12f, 156.6f, 84.7f);
+            p.AddBezier(156.6f, 84.7f, 158.2f, 87.1666667f, 159.8f, 87.1666667f, 161.4f, 84.7f);
+            p.AddLine(161.4f, 84.7f, 191.44f, 38.12f);
+            p.AddBezier(191.44f, 38.12f, 192.9f, 35.9f, 195.1f, 34.0f, 199.0f, 34.0f);
+            p.AddBezier(199.0f, 34.0f, 204.0f, 34.0f, 208.0f, 38.0f, 208.0f, 43.0f);
+            p.AddLine(208.0f, 43.0f, 208.0f, 124.0f);
+            p.AddBezier(208.0f, 124.0f, 208.0f, 128.971f, 203.971f, 133.0f, 199.0f, 133.0f);
+            p.AddBezier(199.0f, 133.0f, 194.029f, 133.0f, 190.0f, 128.971f, 190.0f, 124.0f);
+            p.AddLine(190.0f, 124.0f, 190.0f, 78.5f);
+            p.AddBezier(190.0f, 78.5f, 190.0f, 75.1666667f, 189.1f, 74.9f, 187.3f, 77.7f);
+            p.AddLine(187.3f, 77.7f, 167.0f, 109.2f);
+            p.AddBezier(167.0f, 109.2f, 161.666667f, 117.466667f, 156.333333f, 117.466667f, 151.0f, 109.2f);
+            p.AddLine(151.0f, 109.2f, 130.7f, 77.7f);
+            p.AddBezier(130.7f, 77.7f, 128.9f, 74.9f, 128.0f, 75.1666667f, 128.0f, 78.5f);
+            p.AddLine(128.0f, 78.5f, 128.0f, 83.0f);
+            p.AddBezier(128.0f, 83.0f, 128.0f, 104.0f, 121.0f, 116.0f, 107.0f, 125.0f);
+            p.AddBezier(107.0f, 125.0f, 94.0f, 133.0f, 83.0f, 136.0f, 67.0f, 137.0f);
+            p.AddBezier(67.0f, 137.0f, 49.0f, 138.0f, 39.0f, 141.0f, 26.64475f, 153.35525f);
+            p.AddBezier(26.64475f, 153.35525f, 21.2158f, 147.9263f, 17.02948f, 141.25472f, 14.549056f, 133.803776f);
+            p.CloseFigure();
+            return p;
+        }
+    }
+
     static class Cor
     {
         public static readonly Color Fundo = H("#07090d"), Fundo2 = H("#0c0f15"), Painel = H("#11151d"), Painel2 = H("#171c26"), Painel3 = H("#1e2430"),
@@ -70,7 +154,7 @@ namespace BXB
             this.primario = primario; Text = texto;
             FlatStyle = FlatStyle.Flat; Cursor = Cursors.Hand; AutoSize = true; AutoSizeMode = AutoSizeMode.GrowAndShrink;
             Padding = new Padding(8, 3, 8, 3); Margin = new Padding(0, 0, 8, 0); UseVisualStyleBackColor = false;
-            Font = new Font("Segoe UI Semibold", 9.5f);
+            Font = new Font(MarcaDinmeta.FonteDestaque, 9.5f, MarcaDinmeta.EstiloDestaque);
             BackColor = primario ? Cor.Acento : Cor.Painel; ForeColor = primario ? Color.White : Cor.Texto;
             FlatAppearance.BorderSize = 1; FlatAppearance.BorderColor = primario ? Cor.Acento : Cor.Linha2;
             FlatAppearance.MouseOverBackColor = primario ? Cor.H("#8d71ff") : Cor.Painel2;
@@ -90,7 +174,7 @@ namespace BXB
         public bool Ativa;
         public Aba(string texto)
         {
-            Text = texto; Cursor = Cursors.Hand; Font = new Font("Segoe UI Semibold", 9.5f);
+            Text = texto; Cursor = Cursors.Hand; Font = new Font(MarcaDinmeta.FonteDestaque, 9.5f, MarcaDinmeta.EstiloDestaque);
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
             Margin = new Padding(0, 0, 4, 0);
         }
@@ -155,9 +239,9 @@ namespace BXB
             Montar();
             if (captura == null)
             {
-                Escrever("BXB Gestor aberto. Repositório: " + raiz, 2);
+                Escrever("dinmeta Gestor aberto. Repositório: " + raiz, 2);
                 Escrever("Dados: " + dados, 2);
-                if (!File.Exists(Path.Combine(raiz, "servidor.js"))) Escrever("Não encontrei servidor.js. O BXB Gestor.exe tem de estar na pasta do repositório.", 1);
+                if (!File.Exists(Path.Combine(raiz, "servidor.js"))) Escrever("Não encontrei servidor.js. O dinmeta Gestor (ficheiro BXB Gestor.exe) tem de estar na pasta do repositório.", 1);
                 sinalMostrar = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\BXBGestor-mostrar");
                 var t = new Thread(() => { while (true) { sinalMostrar.WaitOne(); try { BeginInvoke(new Action(Mostrar)); } catch { return; } } });
                 t.IsBackground = true; t.Start();
@@ -167,8 +251,8 @@ namespace BXB
         /* ---------------- interface ---------------- */
         void Montar()
         {
-            Text = "BXB Gestor"; Icon = iconeBase; BackColor = Cor.Fundo2; ForeColor = Cor.Texto;
-            Font = new Font("Segoe UI", 9.5f); Size = new Size(S(1000), S(660)); MinimumSize = new Size(S(780), S(480));
+            Text = "dinmeta Gestor"; Icon = iconeBase; BackColor = Cor.Fundo2; ForeColor = Cor.Texto;
+            Font = new Font(MarcaDinmeta.Fonte, 9.5f); Size = new Size(S(1000), S(660)); MinimumSize = new Size(S(780), S(480));
             StartPosition = FormStartPosition.CenterScreen;
 
             topo = new DoubleBufferedPanel { Dock = DockStyle.Top, Height = S(84), BackColor = Cor.Fundo };
@@ -215,7 +299,7 @@ namespace BXB
 
             // bandeja (junto ao relógio do Windows)
             menu = new ContextMenuStrip { ShowImageMargin = false };
-            menu.Items.Add("Abrir o BXB Gestor", null, (s, e) => Mostrar()).Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            menu.Items.Add("Abrir o dinmeta Gestor", null, (s, e) => Mostrar()).Font = new Font(MarcaDinmeta.Fonte, 9.5f, FontStyle.Bold);
             mConsola = (ToolStripMenuItem)menu.Items.Add("Consola de gestão", null, (s, e) => AbrirConsola());
             mSite = (ToolStripMenuItem)menu.Items.Add("Abrir o site", null, (s, e) => AbrirSite());
             menu.Items.Add(new ToolStripSeparator());
@@ -224,7 +308,7 @@ namespace BXB
             mReiniciar = (ToolStripMenuItem)menu.Items.Add("Reiniciar o servidor", null, (s, e) => Reiniciar());
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Sair", null, (s, e) => Sair());
-            bandeja = new NotifyIcon { Icon = iconeBase, Text = "BXB Gestor", ContextMenuStrip = menu, Visible = captura == null };
+            bandeja = new NotifyIcon { Icon = iconeBase, Text = "dinmeta Gestor", ContextMenuStrip = menu, Visible = captura == null };
             bandeja.DoubleClick += (s, e) => Mostrar();
             bandeja.BalloonTipClicked += (s, e) => Mostrar();
 
@@ -287,14 +371,13 @@ namespace BXB
         void PintarTopo(object sender, PaintEventArgs e)
         {
             var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.Clear(Cor.Fundo);
-            var r = new Rectangle(S(20), S(20), S(44), S(44));
-            using (var br = new LinearGradientBrush(r, Cor.Acento, Cor.Acento2, 45f)) using (var p = Redondo(r, S(12))) g.FillPath(br, p);
-            using (var f = new Font("Segoe UI", 10.5f, FontStyle.Bold)) TextRenderer.DrawText(g, "BXB", f, r, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-            using (var f = new Font("Segoe UI Semibold", 14f)) TextRenderer.DrawText(g, "BXB Gestor", f, new Point(S(76), S(17)), Cor.Texto);
-            using (var f = new Font("Segoe UI", 9f)) TextRenderer.DrawText(g, "Servidor, registos e consola de gestão", f, new Point(S(78), S(45)), Cor.Suave);
+            MarcaDinmeta.Desenhar(g, new RectangleF(S(18), S(18), S(58), S(48)), Cor.Texto);
+            using (var f = new Font(MarcaDinmeta.FonteDestaque, 14f, MarcaDinmeta.EstiloDestaque)) TextRenderer.DrawText(g, "dinmeta Gestor", f, new Point(S(86), S(12)), Cor.Texto);
+            using (var f = new Font(MarcaDinmeta.Fonte, 9f)) TextRenderer.DrawText(g, "Servidor, registos e consola de gestão", f, new Point(S(88), S(40)), Cor.Suave);
+            using (var f = new Font(MarcaDinmeta.Fonte, 8f)) TextRenderer.DrawText(g, "Desenvolvido pela BXB", f, new Point(S(88), S(61)), Cor.Suave);
             // estado à direita
             string t = TextoEstado(); Color c = CorEstado();
-            using (var f = new Font("Segoe UI Semibold", 9.5f))
+            using (var f = new Font(MarcaDinmeta.FonteDestaque, 9.5f, MarcaDinmeta.EstiloDestaque))
             {
                 Size ts = TextRenderer.MeasureText(g, t, f);
                 int h = S(32), w = ts.Width + S(38); var rp = new Rectangle(topo.Width - w - S(20), S(26), w, h);
@@ -318,7 +401,7 @@ namespace BXB
                     (saude.Versao != null ? " · versão " + saude.Versao : "") + (estado == Estado.LigadoFora ? " · aberto fora do Gestor" : "");
             else info.Text = estado == Estado.Desligado ? "Servidor desligado" : TextoEstado();
             topo.Invalidate();
-            if (bandeja != null) { bandeja.Text = "BXB Gestor · " + TextoEstado(); IconeBandeja(); }
+            if (bandeja != null) { bandeja.Text = "dinmeta Gestor · " + TextoEstado(); IconeBandeja(); }
             if (tEnderecos.Visible) PintarEnderecos();
         }
         // ícone da bandeja com um ponto: verde ligado, amarelo a mudar, vermelho sem resposta, cinzento desligado
@@ -504,7 +587,7 @@ namespace BXB
             catch (Win32Exception)
             {
                 Escrever("O Node.js não está instalado (ou não está no PATH).", 1);
-                if (MessageBox.Show(this, "O Node.js não está instalado.\n\nÉ preciso para o servidor. Abrir a página de download? Instale a versão LTS e volte a ligar.", "BXB Gestor", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+                if (MessageBox.Show(this, "O Node.js não está instalado.\n\nÉ preciso para o servidor. Abrir a página de download? Instale a versão LTS e volte a ligar.", "dinmeta Gestor", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
                     try { Process.Start("https://nodejs.org/"); } catch { }
             }
             catch (Exception x) { Escrever("Não foi possível ligar: " + x.Message, 1); }
@@ -518,7 +601,7 @@ namespace BXB
             else
             {
                 Escrever("O servidor parou" + (codigo != 0 ? " com um erro (código " + codigo + "). Veja as linhas acima." : "."), codigo != 0 ? 1 : 2);
-                if (codigo != 0 && bandeja.Visible && !Visible) bandeja.ShowBalloonTip(5000, "BXB Gestor", "O servidor parou com um erro.", ToolTipIcon.Error);
+                if (codigo != 0 && bandeja.Visible && !Visible) bandeja.ShowBalloonTip(5000, "dinmeta Gestor", "O servidor parou com um erro.", ToolTipIcon.Error);
             }
             Verificar();
         }
@@ -560,7 +643,7 @@ namespace BXB
         // a consola abre numa janela própria do Edge (ou do Chrome) com um bilhete de uso único
         void AbrirConsola()
         {
-            if (!Ligado) { MessageBox.Show(this, "Ligue o servidor primeiro.", "BXB Gestor", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+            if (!Ligado) { MessageBox.Show(this, "Ligue o servidor primeiro.", "dinmeta Gestor", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
             bConsola.Enabled = false;
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -606,7 +689,7 @@ namespace BXB
                         string fonte = Path.Combine(raiz, "gestor", "BXBGestor.cs");
                         if (File.Exists(fonte) && File.GetLastWriteTimeUtc(fonte) > File.GetLastWriteTimeUtc(Application.ExecutablePath))
                             Escrever("Há uma versão nova do próprio Gestor: feche-o (Sair) e corra gestor\\compilar.bat.", 2);
-                        if (Ligado && MessageBox.Show(this, "Há uma versão nova do código.\n\nReiniciar o servidor para a usar?", "BXB Gestor", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                        if (Ligado && MessageBox.Show(this, "Há uma versão nova do código.\n\nReiniciar o servidor para a usar?", "dinmeta Gestor", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                             Reiniciar();
                     }));
                 }
@@ -654,7 +737,7 @@ namespace BXB
                 {
                     if (sim) k.SetValue("BXB Gestor", "\"" + Application.ExecutablePath + "\" --bandeja"); else k.DeleteValue("BXB Gestor", false);
                 }
-                Escrever(sim ? "O BXB Gestor passa a abrir com o Windows (na bandeja)." : "O BXB Gestor deixa de abrir com o Windows.", 2);
+                Escrever(sim ? "O dinmeta Gestor passa a abrir com o Windows (na bandeja)." : "O dinmeta Gestor deixa de abrir com o Windows.", 2);
             }
             catch (Exception x) { Escrever("Não foi possível alterar o arranque com o Windows: " + x.Message, 1); }
         }
@@ -690,7 +773,7 @@ namespace BXB
             saude.Enderecos.Add(new KeyValuePair<string, string>("Site neste computador", "http://localhost/"));
             saude.Enderecos.Add(new KeyValuePair<string, string>("Consola de gestão", "http://127.0.0.1:8099/"));
             AtualizarEstado();
-            Escrever("A ligar o servidor (node servidor.js)…", 2); Escrever("", 0); Escrever("  BXB - site a correr", 0); Escrever("  Abra: http://localhost/", 0);
+            Escrever("A ligar o servidor (node servidor.js)…", 2); Escrever("", 0); Escrever("  dinmeta - site a correr", 0); Escrever("  Abra: http://localhost/", 0);
             Escrever("  Dados guardados em: C:\\...\\DADOS-SERVIDOR", 0); Escrever("  Rede de casa (telemovel, outros computadores):", 0); Escrever("    https://192.168.1.64:8443/SISTEMAS/index.html", 0);
             Escrever("  Consola de gestao: http://127.0.0.1:8099/ (so neste computador)", 0); Escrever("Servidor ligado.", 2); Escrever("  [email] boas-vindas para x@exemplo.pt: O servidor recusou o utilizador ou a palavra-passe", 1);
             var t = new System.Windows.Forms.Timer { Interval = 900 };
@@ -712,12 +795,12 @@ namespace BXB
             if (!aSair && captura == null && e.CloseReason == CloseReason.UserClosing && cBandeja.Checked)
             {
                 e.Cancel = true; Hide();
-                if (!avisouBandeja) { avisouBandeja = true; bandeja.ShowBalloonTip(4000, "BXB Gestor", "Continua aberto aqui na bandeja. O servidor " + (Ligado ? "continua ligado." : "está desligado."), ToolTipIcon.Info); }
+                if (!avisouBandeja) { avisouBandeja = true; bandeja.ShowBalloonTip(4000, "dinmeta Gestor", "Continua aberto aqui na bandeja. O servidor " + (Ligado ? "continua ligado." : "está desligado."), ToolTipIcon.Info); }
                 return;
             }
             if (!aSair && captura == null && e.CloseReason == CloseReason.UserClosing && Nosso)
             {
-                if (MessageBox.Show(this, "Sair do BXB Gestor desliga o servidor. Continuar?", "BXB Gestor", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) { e.Cancel = true; return; }
+                if (MessageBox.Show(this, "Sair do dinmeta Gestor desliga o servidor. Continuar?", "dinmeta Gestor", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) { e.Cancel = true; return; }
                 e.Cancel = true; Desligar(() => { aSair = true; Close(); }); return;
             }
             // fecho do Windows: desliga depressa
@@ -729,7 +812,7 @@ namespace BXB
             if (Nosso && Ligado)
             {
                 Mostrar();
-                if (MessageBox.Show(this, "Sair do BXB Gestor desliga o servidor. Continuar?", "BXB Gestor", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
+                if (MessageBox.Show(this, "Sair do dinmeta Gestor desliga o servidor. Continuar?", "dinmeta Gestor", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
                 Desligar(() => { aSair = true; Close(); }); return;
             }
             aSair = true; Close();

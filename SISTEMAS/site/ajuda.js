@@ -14,7 +14,7 @@ window.AJUDA = [
   { id: 'pessoal-e-empresa', t: 'acesso', seg: 'pe', topo: 1, q: 'Posso ter a área pessoal e a da empresa com o mesmo email?',
     r: 'Sim. Com o mesmo email pode ter a sua área pessoal e uma ou mais empresas. Depois de entrar, escolha a área em "Trocar de área".' },
   { id: 'esqueci-palavra-passe', t: 'acesso', seg: 'pe', topo: 1, q: 'Esqueci-me da palavra-passe. O que faço?',
-    r: 'Peça a reposição ao apoio BXB. Recebe uma palavra-passe temporária, que deve alterar no primeiro acesso em "A minha conta" › Palavra-passe.' },
+    r: 'Peça a reposição ao apoio dinmeta. Recebe uma palavra-passe temporária, que deve alterar no primeiro acesso em "A minha conta" › Palavra-passe.' },
   { id: 'mudar-palavra-passe', t: 'acesso', seg: 'pe', q: 'Como altero a palavra-passe?',
     r: 'Depois de entrar, abra "A minha conta" e use a secção Palavra-passe. Indique a atual e a nova.' },
   { id: 'terminar-sessao', t: 'acesso', seg: 'pe', q: 'Como termino a sessão?',
@@ -45,8 +45,8 @@ window.AJUDA = [
     r: 'Alterações sensíveis, como mudar alçadas, utilizadores ou orçamentos, só entram em vigor depois de uma segunda pessoa as aprovar.' },
   { id: 'comprovativos', t: 'pagamentos', seg: 'e', q: 'Como se confirma um comprovativo?',
     r: 'Os comprovativos e documentos assinados incluem um código QR que permite confirmar a assinatura e a data de cada aprovação.' },
-  { id: 'nunca-pedimos', t: 'seguranca', seg: 'pe', topo: 1, q: 'A BXB pede dados por email, SMS ou telefone?',
-    r: 'Não. A BXB nunca pede a palavra-passe, o PIN ou códigos por email, SMS ou telefone. Se receber um pedido assim, não responda e entre sempre escrevendo o endereço do site.' },
+  { id: 'nunca-pedimos', t: 'seguranca', seg: 'pe', topo: 1, q: 'A dinmeta pede dados por email, SMS ou telefone?',
+    r: 'Não. A dinmeta nunca pede a palavra-passe, o PIN ou códigos por email, SMS ou telefone. Se receber um pedido assim, não responda e entre sempre escrevendo o endereço do site.' },
   { id: 'boas-praticas', t: 'seguranca', seg: 'pe', q: 'Como protejo a minha conta?',
     r: 'Use uma palavra-passe que não utilize noutros serviços, não partilhe o PIN e termine a sessão em computadores partilhados. Veja <a href="/artigos/proteger-a-sua-conta">cinco hábitos para proteger as suas contas online</a>.' },
   { id: 'onde-ficam-dados', t: 'seguranca', seg: 'pe', q: 'Como são guardados os dados?',
@@ -65,7 +65,7 @@ if (window.BXB_PAIS === 'br') (function () {
   var BR = {
     'abrir-conta': ['Como abro uma conta?', 'Em <a href="/SISTEMAS/entrar.html?criar=1">Abrir conta</a>, escolha Pessoa física ou Empresas e informe o nome, o e-mail e uma senha com pelo menos 8 caracteres. No caso de uma empresa, informe também o nome e, se quiser, o CNPJ. Você entra na sua área logo em seguida.'],
     'pessoal-e-empresa': ['Posso ter a área pessoal e a da empresa com o mesmo e-mail?', 'Sim. Com o mesmo e-mail você pode ter sua área pessoal e uma ou mais empresas. Depois de entrar, escolha a área em "Trocar de área".'],
-    'esqueci-palavra-passe': ['Esqueci minha senha. O que faço?', 'Peça a redefinição ao suporte BXB. Você recebe uma senha temporária, que deve trocar no primeiro acesso em "Minha conta" › Senha.'],
+    'esqueci-palavra-passe': ['Esqueci minha senha. O que faço?', 'Peça a redefinição ao suporte dinmeta. Você recebe uma senha temporária, que deve trocar no primeiro acesso em "Minha conta" › Senha.'],
     'mudar-palavra-passe': ['Como troco a senha?', 'Depois de entrar, abra "Minha conta" e use a seção Senha. Informe a atual e a nova.'],
     'terminar-sessao': ['Como saio da conta?', 'No menu da sua área, escolha "Sair". Por precaução, a sessão também é encerrada automaticamente depois de um período sem atividade.'],
     'o-que-e-plano': ['O que inclui o plano pessoal?', 'Painel com a projeção do ano, despesas fixas e renda, dívidas e cartões com plano de quitação, objetivos de economia, comprovantes e Imposto de Renda, importação de extratos e despesas compartilhadas.'],
@@ -81,7 +81,7 @@ if (window.BXB_PAIS === 'br') (function () {
     'dupla-aprovacao': ['O que é a dupla aprovação?', 'Acima do limite definido pela empresa, um pagamento precisa da aprovação de duas pessoas diferentes antes de ser realizado. Cada aprovação é assinada com o PIN e a rubrica de quem aprova. Veja o artigo <a href="/artigos/dupla-aprovacao-pix-e-boleto">sobre Pix, boleto e dupla aprovação</a>.'],
     'duas-pessoas': ['O que é a regra das duas pessoas?', 'Alterações sensíveis, como mudar alçadas, usuários ou orçamentos, só entram em vigor depois que uma segunda pessoa as aprova.'],
     'comprovativos': ['Como se confere um comprovante?', 'Os comprovantes e documentos assinados incluem um QR code que permite conferir a assinatura e a data de cada aprovação.'],
-    'nunca-pedimos': ['A BXB pede dados por e-mail, SMS, WhatsApp ou telefone?', 'Não. A BXB nunca pede a senha, o PIN ou códigos por e-mail, SMS, WhatsApp ou telefone. Se receber um pedido assim, não responda e entre sempre digitando o endereço do site.'],
+    'nunca-pedimos': ['A dinmeta pede dados por e-mail, SMS, WhatsApp ou telefone?', 'Não. A dinmeta nunca pede a senha, o PIN ou códigos por e-mail, SMS, WhatsApp ou telefone. Se receber um pedido assim, não responda e entre sempre digitando o endereço do site.'],
     'boas-praticas': ['Como protejo minha conta?', 'Use uma senha que você não usa em outros serviços, não compartilhe o PIN e saia da conta em computadores compartilhados. Veja <a href="/artigos/proteger-suas-contas">cinco hábitos para proteger suas contas online</a>.'],
     'onde-ficam-dados': ['Como os dados são guardados?', 'Num banco de dados com backups diários e 60 dias de histórico. As conexões com o site são criptografadas.']
   };

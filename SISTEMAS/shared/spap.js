@@ -829,7 +829,7 @@ SPAP.createApp = function (cfg) {
   }
 
   function brandHtml() {
-    return `<div class="brand"><div class="brand-logo">${cfg.logo || esc(cfg.sigla)}</div><div><div class="brand-name">${esc(cfg.nome)}</div><div class="brand-sub">${esc(cfg.tagline || 'Sistema de gestão')}</div></div></div>`;
+    return `<div class="dinmeta-produto">${global.DinmetaMarca.marca()}${global.DinmetaMarca.credito()}</div><div class="brand"><div class="brand-logo">${cfg.logo || esc(cfg.sigla)}</div><div><div class="brand-name">${esc(cfg.nome)}</div><div class="brand-sub">${esc(cfg.tagline || 'Sistema de gestão')}</div></div></div>`;
   }
 
   /* ---------- Entrada pelo site ----------
@@ -887,7 +887,7 @@ SPAP.createApp = function (cfg) {
           <div>${icon('wallet')} Saldos, saldo cativo e extratos em tempo real</div></div></div>
         <div class="faint" style="font-size:12px">SPAP · Os dados ficam guardados neste computador (navegador). Faça cópias de segurança regulares.</div>
       </div>
-      <div class="login-form"><div class="login-box" id="lb"></div></div></div>`;
+      <div class="login-form"><div class="dinmeta-login-conteudo"><div class="dinmeta-login-movel">${global.DinmetaMarca.marca()}${global.DinmetaMarca.credito()}</div><div class="login-box" id="lb"></div></div></div></div>`;
     const lb = document.getElementById('lb');
     if (setup) {
       const admin = db.users.find(u => u.role === 'ADMIN');
@@ -1051,7 +1051,7 @@ SPAP.createApp = function (cfg) {
         </div></aside><div class="side-veu" id="side-veu"></div>
       <main><header class="top">
         <button class="btn ghost icon menu-btn" id="b-menu" title="Mostrar ou esconder o menu" aria-label="Mostrar ou esconder o menu">${icon('menu')}</button>
-        <div class="top-logo" aria-hidden="true">${cfg.logoMovel || cfg.logo || esc(cfg.sigla)}</div>
+        <div class="top-logo dinmeta-logo" aria-hidden="true">${cfg.logoMovel || global.DinmetaMarca.simbolo()}</div>
         <div class="top-t"><div class="crumb">${esc(cfg.nome)}</div><h1 id="ttl">${esc(rt.title || rt.label)}</h1></div>
         <div class="spacer"></div>
         ${can('criar') && !cfg.pagamentoDireto ? `<button class="btn primary" id="b-new">${icon('plus')}<span>Novo pedido</span></button>` : ''}
@@ -2681,7 +2681,7 @@ SPAP.createApp = function (cfg) {
   /* ---------- Arranque ---------- */
   app.start = () => {
     applyTheme(); load();
-    document.title = cfg.nome + ' · Gestão';
+    document.title = cfg.nome + ' · dinmeta';
     let sid = null; try { sid = sessionStorage.getItem(SESSION); } catch (e) { }
     const u = contaSite() ? utilizadorDoSite() : sid && userById(sid);
     if (u && u.ativo !== false && (u.pinHash || contaSite())) app.user = u;

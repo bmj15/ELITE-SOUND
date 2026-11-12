@@ -2687,7 +2687,7 @@ return {
   perfil: () => perfilPessoal(),
   // telemóvel: separadores da barra inferior e ações do botão +
   // no telemóvel o avatar já mostra as iniciais: o quadrado da esquerda leva a marca
-  logoMovel: '<span style="font-size:12px">BXB</span>',
+  logoMovel: window.DinmetaMarca.simbolo(),
   tabsMovel: [['visao', 'Painel'], ['dividas', 'Dívidas'], ['objetivos', 'Objetivos']],
   acoesMovel: () => podeEditar() ? [
     { label: 'Despesa fixa', sub: 'Renda, luz, internet, ginásio…', icon: 'list', run: irAtalho('despesas', 'nd') },
