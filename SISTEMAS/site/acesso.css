@@ -1,0 +1,15 @@
+/* Telefone integrado do registo: uma caixa, um foco e seletor nativo acessível. */
+.ac-telefone{min-width:0}
+.ac-telefone-campo{height:56px;padding:7px 12px 5px;border:1px solid var(--line2);border-radius:14px;background:rgba(16,20,28,.9);transition:border-color .2s,box-shadow .2s,background .2s}
+.ac-telefone-campo:hover{border-color:#3b4659}
+.ac-telefone-campo:focus-within{border-color:var(--roxo);background:var(--panel);box-shadow:0 0 0 4px rgba(139,92,246,.2)}
+.ac-telefone-rotulo{display:block;margin:0;font:500 11.5px/14px Inter,system-ui,sans-serif;color:var(--muted);cursor:text}
+.ac-telefone-linha{display:flex;align-items:center;min-width:0;height:28px}
+.ac-telefone-prefixo{position:relative;display:flex;align-items:center;justify-content:space-between;gap:6px;flex:none;width:70px;height:24px;padding-right:10px;border-right:1px solid var(--line2);color:var(--text);font:600 15px/1 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.ac-telefone-prefixo>span,.ac-telefone-prefixo>svg{pointer-events:none}
+.ac-telefone-prefixo>svg{flex:none;color:var(--muted)}
+.ac-telefone-prefixo select{position:absolute;inset:0;z-index:1;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.ac-telefone-linha input{display:block;flex:1;min-width:0;width:100%;height:28px;margin:0;padding:0 0 0 12px;border:0;border-radius:0;outline:0;box-shadow:none;background:transparent;color:var(--text);font:500 16px/28px Inter,system-ui,sans-serif}
+.ac-telefone-linha input:-webkit-autofill{-webkit-text-fill-color:var(--text);-webkit-box-shadow:0 0 0 40px var(--panel) inset;caret-color:var(--text)}
+.ac-telefone-ajuda{display:block;margin:6px 2px 0;color:var(--muted);font-size:11.5px;line-height:1.4}
+.ac-telefone-campo:has(input[aria-invalid="true"]){border-color:#ff7e89}

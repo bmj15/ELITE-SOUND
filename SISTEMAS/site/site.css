@@ -32,33 +32,41 @@ section{padding:clamp(64px,9vw,120px) 0}
 @media (max-width:620px){.aviso .et{display:none}.aviso{font-size:13px}}
 .nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);background:rgba(6,8,12,.9);border-bottom:1px solid var(--line)}
 .barra{display:flex;align-items:center;gap:18px;height:72px}
+/* Margens laterais simétricas no cabeçalho. */
+.nav .barra{--marca-espaco:clamp(16px,3.2vw,56px);--barra-intervalo:18px}
+.nav .barra.wrap{max-width:none;padding-inline:var(--marca-espaco)}
+@media(min-width:981px){
+  .nav .marca{margin-right:calc(var(--marca-espaco) - var(--barra-intervalo))}
+  .nav .segs{margin-left:0}
+  .nav .segs a:first-child{padding-left:0}
+}
 .marca{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:-.4px;flex:none}
 .marca b{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:12.5px;background:var(--grad);color:#fff;box-shadow:0 6px 20px -6px rgba(139,92,246,.8)}
 /* Marca pública maior; a identidade da app mantém as suas dimensões. */
-.marca .dinmeta-identidade{font-size:30px;gap:10px}
-.marca .dinmeta-simbolo{width:60px;height:48px}
+.marca .dinmeta-identidade{font-size:28px;gap:10px}
+.marca .dinmeta-simbolo{width:56px;height:45px}
 /* Reserva espaço para a marca maior nas larguras intermédias, mantendo todos os controlos. */
 @media(min-width:981px) and (max-width:1340px){
-  .nav .barra{gap:8px;padding-left:20px;padding-right:20px}
+  .nav .barra{--marca-espaco:20px;--barra-intervalo:8px;gap:8px}
   .nav .segs{gap:0;margin-left:0}
-  .nav .segs a{padding-left:6px;padding-right:6px}
-  .nav .segs a.on:after{left:6px;right:6px}
+  .nav .segs a{padding-left:5px;padding-right:5px}
+  .nav .segs a.on:after{left:5px;right:5px}
   .nav .acoes{gap:6px}
   .nav .acoes>.btn{padding-left:10px;padding-right:10px;gap:6px}
   .nav .pais-w{margin-left:0}
 }
 @media(max-width:980px){
-  .marca .dinmeta-identidade{font-size:24px;gap:7px}
-  .marca .dinmeta-simbolo{width:48px;height:39px}
+  .marca .dinmeta-identidade{font-size:23px;gap:7px}
+  .marca .dinmeta-simbolo{width:46px;height:37px}
 }
 @media(max-width:520px){
-  .nav .barra{gap:6px}
+  .nav .barra{gap:5px}
   .nav .marca .dinmeta-identidade{font-size:20px;gap:5px}
-  .nav .marca .dinmeta-simbolo{width:44px;height:36px}
+  .nav .marca .dinmeta-simbolo{width:42px;height:34px}
 }
 @media(max-width:360px){
   .nav .marca .dinmeta-identidade{gap:4px}
-  .nav .marca .dinmeta-simbolo{width:40px;height:33px}
+  .nav .marca .dinmeta-simbolo{width:38px;height:31px}
 }
 
 .segs{display:flex;align-items:stretch;height:100%;gap:2px;margin-left:10px}

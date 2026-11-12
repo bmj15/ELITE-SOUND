@@ -37,11 +37,125 @@
     return j;
   }
 
+
+  /* ---------- telefone: funções puras ---------- */
+  const digitosTelefone = valor => String(valor || '').replace(/\D/g, '');
+  function lerTelefone(valor, indicativo, aceitarSemSinal = false) {
+    const texto = String(valor || '');
+    let numero = digitosTelefone(texto), codigo = indicativo === '351' ? '351' : '55', retirados = 0;
+    const explicito = /^\s*(\+|00)\s*(55|351)/.exec(texto);
+    if (explicito) {
+      codigo = explicito[2]; retirados = codigo.length + (explicito[1] === '00' ? 2 : 0);
+    } else if (/^\s*(?:\+|00)/.test(texto)) {
+      return { indicativo: codigo, numero, retirados: 0, internacionalInvalido: true };
+    } else if (aceitarSemSinal) {
+      // Só uma colagem internacional completa permite retirar um indicativo sem +.
+      // Um número nacional de 10/11 dígitos com DDD 55 nunca perde o DDD.
+      if (/^55\d{11}$/.test(numero)) { codigo = '55'; retirados = 2; }
+      else if (/^351\d{9}$/.test(numero)) { codigo = '351'; retirados = 3; }
+    }
+    return { indicativo: codigo, numero: numero.slice(retirados), retirados, internacionalInvalido: false };
+  }
+  function formatarTelefone(numero, indicativo) {
+    const n = digitosTelefone(numero); if (!n) return '';
+    if (indicativo === '351') return [n.slice(0, 3), n.slice(3, 6), n.slice(6)].filter(Boolean).join(' ');
+    if (n.length < 2) return '(' + n;
+    const resto = n.slice(2), grupo = n.length > 10 ? 5 : 4;
+    return '(' + n.slice(0, 2) + ')' + (resto ? ' ' + resto.slice(0, grupo) + (resto.length > grupo ? '-' + resto.slice(grupo) : '') : '');
+  }
+  function posicaoTelefone(texto, quantidade) {
+    if (quantidade <= 0) { const primeiro = texto.search(/\d/); return primeiro < 0 ? 0 : primeiro; }
+    let vistos = 0, p = 0;
+    while (p < texto.length && vistos < quantidade) { if (/\d/.test(texto[p])) vistos++; p++; }
+    while (p < texto.length && /\D/.test(texto[p])) p++;
+    return p;
+  }
+  function prepararEdicaoTelefone(valor, inicio, fim, indicativo, aceitarSemSinal = false) {
+    const lido = lerTelefone(valor, indicativo, aceitarSemSinal);
+    if (lido.internacionalInvalido) return { ...lido, texto: String(valor), inicio, fim };
+    const texto = formatarTelefone(lido.numero, lido.indicativo);
+    const contar = p => Math.max(0, digitosTelefone(String(valor).slice(0, p)).length - lido.retirados);
+    return { ...lido, texto, inicio: posicaoTelefone(texto, contar(inicio)), fim: posicaoTelefone(texto, contar(fim)) };
+  }
+  function apagarSeparadorTelefone(valor, inicio, fim, tipo, indicativo) {
+    if (inicio !== fim || !['deleteContentBackward', 'deleteContentForward'].includes(tipo) || lerTelefone(valor, indicativo).internacionalInvalido) return null;
+    const recuar = tipo === 'deleteContentBackward';
+    let p = recuar ? inicio - 1 : inicio;
+    if (p < 0 || p >= valor.length || /\d/.test(valor[p])) return null;
+    while (p >= 0 && p < valor.length && /\D/.test(valor[p])) p += recuar ? -1 : 1;
+    if (p < 0 || p >= valor.length) return null;
+    const novo = valor.slice(0, p) + valor.slice(p + 1), cursor = recuar ? p : inicio;
+    return prepararEdicaoTelefone(novo, cursor, cursor, indicativo);
+  }
+  function erroTelefone(lido) {
+    if (lido.internacionalInvalido) return 'indicativo';
+    const n = lido.numero;
+    if (lido.indicativo === '351') return n.length === 9 ? '' : 'pt';
+    return (n.length === 11 && n[2] === '9') || (n.length === 10 && n[2] !== '9') ? '' : 'br';
+  }
+  function telefoneCompleto(lido) {
+    return erroTelefone(lido) ? null : '+' + lido.indicativo + ' ' + formatarTelefone(lido.numero, lido.indicativo);
+  }
+  /* ---------- fim das funções puras de telefone ---------- */
+
   /* ---------- peças ---------- */
   const campo = (nome, rotulo, tipoInp, auto, extra, opc) =>
     '<div class="ac-c"><input id="ac-' + nome + '" name="' + nome + '" type="' + tipoInp + '" autocomplete="' + auto + '" placeholder=" "' + (opc ? '' : ' required') + ' ' + (extra || '') + '><label for="ac-' + nome + '">' + rotulo + (opc ? ' <i>' + T('(opcional)', '(opcional)') + '</i>' : '') + '</label></div>';
   const escolha = (nome, rotulo, opcoes, opc) =>
     '<div class="ac-c ac-sel"><select id="ac-' + nome + '" name="' + nome + '"' + (opc ? '' : ' required') + '><option value="">' + T('Escolha…', 'Escolha…') + '</option>' + opcoes.map(o => '<option>' + esc(o) + '</option>').join('') + '</select><label for="ac-' + nome + '">' + rotulo + (opc ? ' <i>' + T('(opcional)', '(opcional)') + '</i>' : '') + '</label></div>';
+
+  function campoTelefone(rotulo) {
+    return '<div class="ac-telefone"><div class="ac-telefone-campo"><label class="ac-telefone-rotulo" for="ac-telefone">' + rotulo + '</label><div class="ac-telefone-linha">' +
+      '<div class="ac-telefone-prefixo"><span id="ac-indicativo-texto" aria-hidden="true">' + (BR ? '+55' : '+351') + '</span><svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true" focusable="false"><path d="m3 4.5 3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '<select id="ac-indicativo" autocomplete="tel-country-code" aria-label="Indicativo internacional" required><option value="55"' + (BR ? ' selected' : '') + '>Brasil (+55)</option><option value="351"' + (!BR ? ' selected' : '') + '>Portugal (+351)</option></select></div>' +
+      '<input id="ac-telefone" name="telefone" type="tel" autocomplete="tel-national" inputmode="tel" maxlength="30" required aria-describedby="ac-telefone-ajuda"></div></div>' +
+      '<small class="ac-telefone-ajuda" id="ac-telefone-ajuda"></small></div>';
+  }
+  function ligarTelefone(f) {
+    const i = f.elements.telefone, codigo = f.querySelector('#ac-indicativo'), codigoTexto = f.querySelector('#ac-indicativo-texto'), ajuda = f.querySelector('#ac-telefone-ajuda');
+    let comErro = false;
+    function atualizar(r) {
+      codigo.value = r.indicativo; codigoTexto.textContent = '+' + r.indicativo; i.value = r.texto;
+      i.setSelectionRange(r.inicio, r.fim);
+      ajuda.textContent = codigo.value === '55' ? T('Com DDD. Ex.: (11) 91234-5678.', 'Com DDD. Ex.: (11) 91234-5678.') : 'Ex.: 912 345 678.';
+      i.removeAttribute('aria-invalid');
+      if (comErro) { erroEm().textContent = ''; comErro = false; }
+    }
+    function formatar() { atualizar(prepararEdicaoTelefone(i.value, i.selectionStart || 0, i.selectionEnd || 0, codigo.value)); }
+    i.addEventListener('input', e => { if (!e.isComposing) formatar(); });
+    i.addEventListener('compositionend', formatar);
+    i.addEventListener('change', formatar);
+    i.addEventListener('beforeinput', e => {
+      if (!e.cancelable) return;
+      const r = apagarSeparadorTelefone(i.value, i.selectionStart, i.selectionEnd, e.inputType, codigo.value);
+      if (r) { e.preventDefault(); atualizar(r); }
+    });
+    i.addEventListener('paste', e => {
+      if (!e.clipboardData) return;
+      const colado = e.clipboardData.getData('text'), lido = lerTelefone(colado, codigo.value, true);
+      e.preventDefault();
+      if (lido.retirados || lido.internacionalInvalido) {
+        // Um telefone internacional completo substitui o campo, sem duplicar o DDI.
+        atualizar(prepararEdicaoTelefone(colado, colado.length, colado.length, codigo.value, true));
+      } else {
+        const inicio = i.selectionStart || 0, fim = i.selectionEnd || 0;
+        const novo = i.value.slice(0, inicio) + colado + i.value.slice(fim), cursor = inicio + colado.length;
+        atualizar(prepararEdicaoTelefone(novo, cursor, cursor, codigo.value));
+      }
+    });
+    codigo.addEventListener('change', formatar);
+    formatar();
+    return { validar() {
+      formatar();
+      const lido = lerTelefone(i.value, codigo.value), erro = erroTelefone(lido);
+      if (!erro) return telefoneCompleto(lido);
+      erroEm().textContent = erro === 'pt' ? T('O número de Portugal tem 9 dígitos, sem o indicativo.', 'O número de Portugal tem 9 dígitos, sem o indicativo.')
+        : erro === 'br' ? T('Indique o DDD e o número: 11 dígitos para telemóvel ou 10 para telefone fixo.', 'Informe o DDD e o número: 11 dígitos para celular ou 10 para telefone fixo.')
+        : T('Escolha Brasil (+55) ou Portugal (+351) para este telefone.', 'Escolha Brasil (+55) ou Portugal (+351) para este telefone.');
+      comErro = true; i.setAttribute('aria-invalid', 'true'); i.focus(); return null;
+    } };
+  }
+
   const senha = criar =>
     '<div class="ac-c ac-senha"><input id="ac-palavra" name="palavra" type="password" autocomplete="' + (criar ? 'new-password' : 'current-password') + '" placeholder=" " required' + (criar ? ' minlength="8"' : '') + '><label for="ac-palavra">' + (criar ? T('Palavra-passe (mín. 8)', 'Senha (mín. 8)') : T('Palavra-passe', 'Senha')) + '</label><button type="button" class="ac-olho" aria-label="' + T('Mostrar a palavra-passe', 'Mostrar a senha') + '">' + OLHO + '</button></div>';
   const botao = texto => '<button class="btn btn-p ac-ok" type="submit"><span>' + texto + '</span>' + SETA + '</button>';
@@ -148,8 +262,8 @@
         campo('documento', BR ? 'CNPJ' : T('NIF da empresa', 'NIF da empresa'), 'text', 'off', 'inputmode="numeric" maxlength="18"', true) +
         escolha('setor', T('Setor de atividade', 'Setor de atividade'), BR ? ['Comércio', 'Serviços', 'Alimentação', 'Construção', 'Indústria', 'Tecnologia', 'Saúde', 'Outro'] : ['Comércio', 'Serviços', 'Restauração', 'Construção', 'Indústria', 'Tecnologia', 'Saúde', 'Outro']) +
         escolha('dimensao', T('Pessoas na empresa', 'Pessoas na empresa'), [T('Só eu', 'Só eu'), '2 a 9', '10 a 49', T('50 ou mais', '50 ou mais')]) +
-        campo('telefone', T('Telefone', 'Telefone'), 'tel', 'tel', 'inputmode="tel" maxlength="30"')
-      : campo('telefone', BR ? 'Celular' : T('Telemóvel', 'Celular'), 'tel', 'tel', 'inputmode="tel" maxlength="30"') +
+        campoTelefone(T('Telefone', 'Telefone'))
+      : campoTelefone(BR ? 'Celular' : T('Telemóvel', 'Celular')) +
         campo('documento', BR ? 'CPF' : 'NIF', 'text', 'off', 'inputmode="numeric" maxlength="14"', true) +
         '<div class="ac-c ac-sel"><input id="ac-nascimento" name="nascimento" type="date" max="' + new Date().toISOString().slice(0, 10) + '"><label for="ac-nascimento">' + T('Data de nascimento', 'Data de nascimento') + ' <i>' + T('(opcional)', '(opcional)') + '</i></label></div>' +
         escolha('situacao', T('Situação profissional', 'Situação profissional'), BR ? ['CLT', 'Autônomo', 'Empresário', 'Servidor público', 'Estudante', 'Aposentado', 'Outra'] : ['Por conta de outrem', 'Independente', 'Empresário', 'Função pública', 'Estudante', 'Reformado', 'Outra'], true) +
@@ -159,13 +273,14 @@
       '<p class="ac-sub">' + (emRegisto ? T('A conta está criada.', 'A conta está criada.') + ' ' : '') + (emp ? T('Com estes dados preparamos a área da empresa.', 'Com esses dados preparamos a área da empresa.') : T('Com isto adaptamos o seu plano a si.', 'Com isso adaptamos o plano a você.')) + '</p>' +
       '<form class="ac-form ac-grade" novalidate>' + campos + botao(T('Concluir', 'Concluir')) + '</form>' +
       pe(emp ? '' : '<button type="button" data-depois>' + T('Fazer isto depois', 'Fazer isso depois') + '</button>');
-    const f = corpo.querySelector('form');
+    const f = corpo.querySelector('form'), controloTelefone = ligarTelefone(f);
     if (matchMedia('(pointer:fine)').matches) setTimeout(() => f.querySelector('input').focus({ preventScroll: true }), 50);
     const dp = corpo.querySelector('[data-depois]'); if (dp) dp.onclick = () => location.assign(depois);
     f.onsubmit = async e => {
       e.preventDefault(); erroEm().textContent = ''; if (!valido(f)) return;
+      const telefone = controloTelefone.validar(); if (telefone === null) return;
       aEnviar(f, true);
-      try { const j = await post('/api/perfil', Object.assign(Object.fromEntries(new FormData(f)), { tipo, pais: PAIS })); location.assign(j.destino || depois); }
+      try { const j = await post('/api/perfil', Object.assign(Object.fromEntries(new FormData(f)), { tipo, pais: PAIS, telefone })); location.assign(j.destino || depois); }
       catch (x) { erroEm().textContent = x.message; aEnviar(f, false); }
     };
   }

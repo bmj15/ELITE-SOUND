@@ -193,4 +193,4 @@ fetch('/api/estado', { credentials: 'same-origin' }).then(function (r) { return 
 window.Site = { revelar: revelar, seg: seg, esc: esc, ic: ic, pais: pais, T: T, band: BAND };
 })();
 
-;(() => { const s=document.createElement('script');s.src='/SISTEMAS/site/acesso.js?v=3';document.body.appendChild(s); })();
+;(() => { const c=document.createElement('link');c.rel='stylesheet';c.href='/SISTEMAS/site/acesso.css?v=2';document.head.appendChild(c);const s=document.createElement('script');s.src='/SISTEMAS/site/acesso.js?v=5';document.body.appendChild(s); })();
