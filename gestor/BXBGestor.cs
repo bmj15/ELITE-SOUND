@@ -555,7 +555,7 @@ namespace BXB
         {
             if (estado != Estado.Desligado) return;
             if (!File.Exists(Path.Combine(raiz, "servidor.js"))) { Escrever("Não encontrei servidor.js em " + raiz + ".", 1); return; }
-            var psi = new ProcessStartInfo("node", "\"" + Path.Combine(raiz, "servidor.js") + "\"")
+            var psi = new ProcessStartInfo("node", "--experimental-sqlite \"" + Path.Combine(raiz, "servidor.js") + "\"")
             {
                 WorkingDirectory = raiz, UseShellExecute = false, CreateNoWindow = true,
                 RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8

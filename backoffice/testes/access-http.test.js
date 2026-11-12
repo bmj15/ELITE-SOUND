@@ -131,7 +131,7 @@ async function ambiente() {
       BXB_DADOS_BACKOFFICE: dadosBO, BXB_DADOS: dadosSite, DINMETA_TESTE_ACCESS_FIXTURE: fixture };
     // O preload é específico deste filho e nunca altera o ambiente do servidor real.
     delete env.NODE_OPTIONS; delete env.NODE_PATH; delete env.TUNNEL_TOKEN;
-    filho = spawn(process.execPath, ['--require', preload, SERVIDOR], { env, windowsHide: true, shell: false, stdio: 'ignore' });
+    filho = spawn(process.execPath, ['--experimental-sqlite', '--require', preload, SERVIDOR], { env, windowsHide: true, shell: false, stdio: 'ignore' });
     let erroFilho = false;
     filho.once('error', () => { erroFilho = true; });
     terminou = new Promise(resolve => { filho.once('exit', resolve); filho.once('error', resolve); });

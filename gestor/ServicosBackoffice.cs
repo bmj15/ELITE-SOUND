@@ -116,7 +116,7 @@ namespace BXB
                 {
                     if (processoBackoffice == null || processoBackoffice.HasExited)
                     {
-                        var inicio = new ProcessStartInfo("node", "\"" + fonte + "\"")
+                        var inicio = new ProcessStartInfo("node", "--experimental-sqlite \"" + fonte + "\"")
                         {
                             WorkingDirectory = raiz, UseShellExecute = false, CreateNoWindow = true,
                             RedirectStandardOutput = true, RedirectStandardError = true,

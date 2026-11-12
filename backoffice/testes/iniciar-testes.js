@@ -51,7 +51,7 @@ async function portaLivre(porta) {
 }
 
 function arrancar(ficheiro, nome) {
-  const filho = spawn(process.execPath, [ficheiro], { cwd: raiz, env: ambiente, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  const filho = spawn(process.execPath, ['--experimental-sqlite', ficheiro], { cwd: raiz, env: ambiente, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   processos.add(filho);
   saidas.set(filho, '');
   for (const origem of [filho.stdout, filho.stderr]) {

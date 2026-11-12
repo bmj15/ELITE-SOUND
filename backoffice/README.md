@@ -7,6 +7,7 @@ Desenvolvido pela BXB. Os nomes técnicos de ficheiros, variáveis e dados mant�
 ## Requisitos
 
 - Windows e Node.js 22.5 ou superior, com `node:sqlite`.
+- O Gestor inclui `--experimental-sqlite` no arranque, necessário nas versões Node 22.5 a 22.12.
 - Sem dependências npm.
 - .NET Framework 4 para o dinmeta Gestor.
 
@@ -40,7 +41,7 @@ Os dados pessoais dos clientes são consultados quando se abre uma página e nã
 Na raiz da cópia do Codex:
 
 ```powershell
-node backoffice/testes/iniciar-testes.js --verificar
+node --experimental-sqlite backoffice/testes/iniciar-testes.js --verificar
 ```
 
 O script cria uma execução nova dentro de `BXB INVESTIMENTOS\TESTES-CODEX\dados-site\` e `dados-backoffice\`, define todas as variáveis e arranca os dois servidores nas portas de teste. Recusa iniciar se uma dessas portas estiver ocupada. As credenciais fictícias são geradas em memória.
@@ -86,7 +87,7 @@ As operações remotas não são uma transação única. Uma interrupção pode 
 Verificações sem Cloudflare real:
 
 ```powershell
-node --test backoffice/testes/cloudflare.test.js backoffice/testes/access-cloudflare.test.js backoffice/testes/conector-cloudflare.test.js
+node --experimental-sqlite --test backoffice/testes/cloudflare.test.js backoffice/testes/access-cloudflare.test.js backoffice/testes/conector-cloudflare.test.js
 ```
 
 O primeiro teste usa fornecedor, disco e conector simulados. Os testes de JWT usam chaves fictícias; os testes do conector não instalam nem ligam um túnel real.
@@ -96,9 +97,9 @@ O primeiro teste usa fornecedor, disco e conector simulados. Os testes de JWT us
 Para compilar sem substituir o executável da instalação, use `gestor\compilar.bat --teste`. O resultado fica em `gestor\BXB Gestor.exe` e é ignorado pelo Git. Depois execute:
 
 ```powershell
-node backoffice/testes/iniciar-testes.js --verificar --gestor --manter
+node --experimental-sqlite backoffice/testes/iniciar-testes.js --verificar --gestor --manter
 ```
 
 O script passa todas as pastas e portas fictícias ao executável, mantém um mutex de teste separado e deixa os serviços disponíveis até Ctrl+C. O Gestor de teste aparece identificado como TESTE e não lê nem altera o arranque com o Windows. Sem `--manter`, os processos do script terminam após as verificações.
 
-O modo de teste recusa arrancar se faltarem pastas TESTES-CODEX ou alguma das portas reservadas. Nunca abra um executável de teste sem esse ambiente. Os testes de proteção HTTP podem executar-se com `node --test backoffice/testes/access-http.test.js`; precisam da porta 8890 livre e não iniciam o sistema dos clientes nem contactam Cloudflare.
+O modo de teste recusa arrancar se faltarem pastas TESTES-CODEX ou alguma das portas reservadas. Nunca abra um executável de teste sem esse ambiente. Os testes de proteção HTTP podem executar-se com `node --experimental-sqlite --test backoffice/testes/access-http.test.js`; precisam da porta 8890 livre e não iniciam o sistema dos clientes nem contactam Cloudflare.

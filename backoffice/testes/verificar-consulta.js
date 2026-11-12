@@ -66,7 +66,7 @@ async function principal() {
     } : { erro: 'Chave de consulta inválida' }));
   });
   await new Promise(resolve => servidor.listen(8897, '127.0.0.1', resolve));
-  filho = spawn(process.execPath, ['backoffice/servidor-backoffice.js'], {
+  filho = spawn(process.execPath, ['--experimental-sqlite', 'backoffice/servidor-backoffice.js'], {
     cwd: raiz, env: { ...process.env, BXB_DADOS: pastaChave, BXB_DADOS_BACKOFFICE: dados, PORT_BACKOFFICE: '8890', PORT_CONSULTA: '8897', BXB_MODO_TESTE: '1', NO_BROWSER: '1' },
     windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
   });
