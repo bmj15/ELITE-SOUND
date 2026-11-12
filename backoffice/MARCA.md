@@ -4,6 +4,8 @@ O produto chama-se **dinmeta**. A **BXB** é a desenvolvedora e surge com o cré
 
 Esta alteração inclui a autorização expressa e pontual do utilizador, de 12/11/2026, para aplicar o logótipo e atualizar referências à marca no site e no sistema do cliente. Não altera a divisão de responsabilidades para trabalhos futuros.
 
+Foi também autorizada expressamente a alteração de uma única linha em `ABRIR SISTEMA.bat`: o título da janela passa a «dinmeta - Gestao Financeira», preservando o arranque e os caminhos.
+
 ## Identidade
 
 - Símbolo aprovado: d minúsculo atravessado por uma faixa roxa que forma o M maiúsculo.

@@ -12,7 +12,7 @@ if not "%~1"=="--copia" (
   exit /b
 )
 chcp 65001 >nul
-title Grupo BXB - Sistemas de Gestao
+title dinmeta - Gestao Financeira
 set "RAIZ=%~2"
 cd /d "%RAIZ%"
 echo A obter a versao mais recente do codigo no GitHub...
