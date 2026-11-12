@@ -36,7 +36,7 @@ section{padding:clamp(64px,9vw,120px) 0}
 .nav .barra{--marca-espaco:clamp(16px,3.2vw,56px);--barra-intervalo:18px;--menu-margem:16px;--menu-intervalo:8px}
 .nav .barra.wrap{max-width:none;padding-inline:var(--marca-espaco)}
 @media(min-width:981px){
-  .nav .marca{margin-right:calc(var(--marca-espaco) - var(--barra-intervalo) - var(--menu-margem))}
+  .nav .marca{margin-right:calc(var(--marca-espaco) - var(--barra-intervalo))}
   .nav .segs{margin-left:0}
 }
 .marca{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:-.4px;flex:none}
