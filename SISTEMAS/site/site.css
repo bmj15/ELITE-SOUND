@@ -35,8 +35,8 @@ section{padding:clamp(64px,9vw,120px) 0}
 .marca{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:-.4px;flex:none}
 .marca b{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:12.5px;background:var(--grad);color:#fff;box-shadow:0 6px 20px -6px rgba(139,92,246,.8)}
 /* Marca pública maior; a identidade da app mantém as suas dimensões. */
-.marca .dinmeta-identidade{font-size:26px;gap:10px}
-.marca .dinmeta-simbolo{width:48px;height:39px}
+.marca .dinmeta-identidade{font-size:30px;gap:10px}
+.marca .dinmeta-simbolo{width:60px;height:48px}
 /* Reserva espaço para a marca maior nas larguras intermédias, mantendo todos os controlos. */
 @media(min-width:981px) and (max-width:1340px){
   .nav .barra{gap:8px;padding-left:20px;padding-right:20px}
@@ -48,16 +48,17 @@ section{padding:clamp(64px,9vw,120px) 0}
   .nav .pais-w{margin-left:0}
 }
 @media(max-width:980px){
-  .marca .dinmeta-identidade{font-size:21px;gap:7px}
-  .marca .dinmeta-simbolo{width:38px;height:31px}
+  .marca .dinmeta-identidade{font-size:24px;gap:7px}
+  .marca .dinmeta-simbolo{width:48px;height:39px}
 }
 @media(max-width:520px){
-  .nav .barra{gap:8px}
+  .nav .barra{gap:6px}
   .nav .marca .dinmeta-identidade{font-size:20px;gap:5px}
+  .nav .marca .dinmeta-simbolo{width:44px;height:36px}
 }
 @media(max-width:360px){
   .nav .marca .dinmeta-identidade{gap:4px}
-  .nav .marca .dinmeta-simbolo{width:36px;height:29px}
+  .nav .marca .dinmeta-simbolo{width:40px;height:33px}
 }
 
 .segs{display:flex;align-items:stretch;height:100%;gap:2px;margin-left:10px}
