@@ -30,7 +30,16 @@ function fixture(opcoes = {}) {
     async ligar(token) { assert.equal(token, tunnelToken); eventos.push('ligar'); e = { ...e, ligado: true, estado: 'ligado', pid: 123 }; return e; },
     async desligar() { eventos.push('desligar'); e = { ...e, ligado: false, estado: 'desligado', pid: null }; return e; },
   };
-  const responder = (result, status = 200) => new Response(JSON.stringify({ success: status === 200, result, result_info: { total_pages: 1 } }), { status, headers: { 'Content-Type': 'application/json' } });
+  const responder = (result, status = 200, informacao = { total_pages: 1 }) => new Response(JSON.stringify({ success: status === 200, result, result_info: informacao }), { status, headers: { 'Content-Type': 'application/json' } });
+  function pagina(lista, u) {
+    const porPagina = Number(u.searchParams.get('per_page')), atual = Number(u.searchParams.get('page'));
+    assert.ok(Number.isInteger(porPagina) && porPagina > 0 && porPagina <= 100);
+    assert.ok(Number.isInteger(atual) && atual > 0);
+    const informacao = remoto.paginacaoApenasContagem
+      ? { total_count: lista.length, ...(remoto.omitirPorPagina ? {} : { per_page: porPagina }) }
+      : { total_pages: Math.max(1, Math.ceil(lista.length / porPagina)) };
+    return responder(lista.slice((atual - 1) * porPagina, atual * porPagina), 200, informacao);
+  }
   async function fetchImpl(endereco, pedido) {
     const u = new URL(endereco), rota = u.pathname.replace('/client/v4', ''), metodo = pedido.method;
     assert.equal(u.origin, 'https://api.cloudflare.com');
@@ -41,7 +50,11 @@ function fixture(opcoes = {}) {
     if (remoto.redeDesligada) throw Error('rede, token=' + apiToken);
     if (remoto.status) return responder({ erro: apiToken }, remoto.status);
     if (metodo !== 'GET') eventos.push(metodo + ' ' + rota);
-    if (metodo === 'GET' && rota === '/zones') return responder([{ id: zonaId, name: 'exemplo.pt', status: 'active', account: { id: contaId } }]);
+    if (metodo === 'GET' && rota === '/zones') {
+      // A API real recusa per_page superior a 50 nesta rota.
+      if (Number(u.searchParams.get('per_page')) > 50 || remoto.statusZonas) return responder({ bruto: 'resposta-bruta-fornecedor-ficticio ' + apiToken + ' ' + tunnelToken }, remoto.statusZonas || 400);
+      return pagina(remoto.zonasListagem || [{ id: zonaId, name: 'exemplo.pt', status: 'active', account: { id: contaId } }], u);
+    }
     if (metodo === 'GET' && rota === '/zones/' + zonaId) return responder({ id: zonaId, name: 'exemplo.pt', status: 'active', account: { id: contaId } });
     if (rota.endsWith('/ssl/universal/settings')) return responder({ enabled: true }, remoto.universalNegado ? 403 : 200);
     if (rota.endsWith('/settings/ssl')) { if (metodo === 'PATCH') remoto.ssl = corpo.value; return responder({ value: remoto.ssl, editable: true }); }
@@ -49,7 +62,7 @@ function fixture(opcoes = {}) {
     if (rota.endsWith('/access/organizations')) return responder({ auth_domain: 'equipa.cloudflareaccess.com' }, remoto.statusOrganizacao || 200);
     if (rota.endsWith('/access/identity_providers')) {
       if (metodo === 'POST') { assert.equal(corpo.type, 'onetimepin'); remoto.idps.push({ ...corpo, id: otpId }); return responder(remoto.idps.at(-1)); }
-      return responder(remoto.idps);
+      return pagina(remoto.idps, u);
     }
     if (rota.endsWith('/access/apps')) {
       if (metodo === 'POST') {
@@ -58,13 +71,13 @@ function fixture(opcoes = {}) {
         remoto.apps.push({ ...corpo, id: appId, aud }); remoto.policies = corpo.policies;
         return responder(remoto.apps.at(-1));
       }
-      return responder(remoto.apps);
+      return pagina(remoto.apps, u);
     }
     if (rota.endsWith('/access/apps/' + appId)) return responder(remoto.apps.find(a => a.id === appId));
-    if (rota.endsWith('/access/apps/' + appId + '/policies')) return responder(remoto.policyInvalida ? [{ decision: 'allow', include: [{ everyone: {} }], exclude: [], require: [] }] : remoto.policies);
+    if (rota.endsWith('/access/apps/' + appId + '/policies')) return pagina(remoto.policyInvalida ? [{ decision: 'allow', include: [{ everyone: {} }], exclude: [], require: [] }] : remoto.policies, u);
     if (rota.endsWith('/cfd_tunnel')) {
       if (metodo === 'POST') { assert.equal(corpo.config_src, 'cloudflare'); remoto.tuneis.push({ id: tunelId, name: corpo.name, remote_config: true }); return responder({ ...remoto.tuneis.at(-1), credentials_file: { secret: tunnelToken } }); }
-      return responder(remoto.tuneis);
+      return pagina(remoto.tuneis, u);
     }
     if (rota.endsWith('/configurations')) {
       if (metodo === 'PUT') {
@@ -78,7 +91,7 @@ function fixture(opcoes = {}) {
     if (rota.endsWith('/token')) return responder(tunnelToken);
     if (rota.endsWith('/dns_records')) {
       if (metodo === 'POST') { assert.equal(corpo.type, 'CNAME'); assert.equal(corpo.proxied, true); assert.equal(corpo.content, tunelId + '.cfargotunnel.com'); const r = { id: '6'.repeat(32), ...corpo }; remoto.dns.set(corpo.name, [r]); return responder(r); }
-      return responder(remoto.dns.get(u.searchParams.get('name')) || []);
+      return pagina(remoto.dns.get(u.searchParams.get('name')) || [], u);
     }
     throw Error('Endpoint não previsto no teste: ' + metodo + ' ' + rota);
   }
@@ -177,4 +190,59 @@ test('preserva regras adicionais de túnel em vez de as sobrescrever', async () 
   await assert.rejects(f.api.preparar(entrada, contexto), e => e.estado === 409);
   await assert.rejects(f.api.ligar(contexto), e => e.estado === 409);
   assert.equal(f.chamadas.some(c => c.metodo !== 'GET'), false);
+});
+
+
+test('ligação lista duas páginas de 50 zonas sem mutação nem segredo devolvido', async () => {
+  const zonasListagem = Array.from({ length: 100 }, (_, i) => ({ id: (i + 1).toString(16).padStart(32, '0'), name: 'zona' + i + '.example.test', status: 'active', account: { id: contaId } }));
+  const f = fixture({ zonasListagem });
+  const ligado = await f.api.ligarAPI({ token: apiToken }, contexto);
+  assert.equal(ligado.zonas.length, 100);
+  assert.deepEqual(ligado.zonas.map(z => z.id), zonasListagem.map(z => z.id));
+  const chamadas = f.chamadas.filter(c => c.rota === '/zones');
+  assert.deepEqual(chamadas.map(c => c.query.get('per_page')), ['50', '50']);
+  assert.deepEqual(chamadas.map(c => c.query.get('page')), ['1', '2']);
+  assert.ok(f.chamadas.every(c => c.metodo === 'GET'));
+  assert.deepEqual(f.eventos, []);
+  const devolvido = JSON.stringify([ligado, f.api.estado()]);
+  assert.ok(!devolvido.includes(apiToken)); assert.ok(!devolvido.includes(tunnelToken));
+});
+
+test('fallback total_count pagina zonas e listagens da conta, com ou sem per_page na resposta', async () => {
+  for (const omitirPorPagina of [false, true]) {
+    const zonasListagem = Array.from({ length: 100 }, (_, i) => ({ id: (i + 1).toString(16).padStart(32, '0'), name: 'zona' + i + '.example.test', status: 'active', account: { id: contaId } }));
+    const apps = Array.from({ length: 101 }, (_, i) => ({ id: (i + 1000).toString(16).padStart(32, '0'), type: 'self_hosted', domain: 'outra' + i + '.exemplo.pt', aud }));
+    const idps = Array.from({ length: 100 }, (_, i) => ({ id: (i + 2000).toString(16).padStart(32, '0'), type: 'outro' })).concat({ id: otpId, type: 'onetimepin' });
+    const tuneis = Array.from({ length: 101 }, (_, i) => ({ id: 'externo-' + i, name: 'outro-' + i, remote_config: true }));
+    const f = fixture({ paginacaoApenasContagem: true, omitirPorPagina, zonasListagem, apps, idps, tuneis });
+    const ligado = await f.api.ligarAPI({ token: apiToken }, contexto);
+    assert.equal(ligado.zonas.length, 100);
+    const p = (await f.api.preparar(entrada, contexto)).plano;
+    assert.equal(p.gestao.organizacaoPronta, true);
+    assert.deepEqual(f.chamadas.filter(c => c.rota === '/zones').map(c => [c.query.get('per_page'), c.query.get('page')]), [['50', '1'], ['50', '2']]);
+    for (const sufixo of ['/cfd_tunnel', '/access/apps', '/access/identity_providers']) {
+      const chamadas = f.chamadas.filter(c => c.rota.endsWith(sufixo));
+      assert.deepEqual(chamadas.map(c => [c.query.get('per_page'), c.query.get('page')]), [['100', '1'], ['100', '2']], sufixo);
+    }
+    assert.ok(f.chamadas.every(c => c.metodo === 'GET'));
+    assert.deepEqual(f.eventos, []);
+    const devolvido = JSON.stringify([ligado, p, f.api.estado()]);
+    assert.ok(!devolvido.includes(apiToken)); assert.ok(!devolvido.includes(tunnelToken));
+  }
+});
+
+test('HTTP 400 ao listar domínios identifica a etapa, oculta o corpo bruto e não guarda credenciais', async () => {
+  const f = fixture({ statusZonas: 400 });
+  await assert.rejects(f.api.ligarAPI({ token: apiToken }, contexto), erro => {
+    assert.equal(erro.estado, 502); assert.equal(erro.provedor, 'cloudflare');
+    assert.match(erro.message, /listar os domínios/); assert.match(erro.message, /HTTP 400/);
+    const exposto = JSON.stringify(erro, Object.getOwnPropertyNames(erro));
+    assert.ok(!exposto.includes('resposta-bruta-fornecedor-ficticio'));
+    assert.ok(!exposto.includes(apiToken)); assert.ok(!exposto.includes(tunnelToken));
+    return true;
+  });
+  assert.equal(f.api.estado().temToken, false);
+  assert.equal(f.ficheiros.size, 0); assert.equal(f.escritas.length, 0);
+  assert.ok(f.chamadas.every(c => c.metodo === 'GET'));
+  assert.deepEqual(f.eventos, []);
 });

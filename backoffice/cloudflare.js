@@ -141,7 +141,8 @@ function criarCloudflare({ pastaDados, chaveBackoffice, conector, resolverOrigem
       if ([401, 403].includes(r.status)) throw new ErroCloudflare(502, 'A Cloudflare recusou o token ou as permissões necessárias. Verifique a conta e a zona autorizadas.', r.status);
       if (r.status === 404) throw new ErroCloudflare(409, 'O recurso já não existe na Cloudflare. Prepare novamente a configuração.', r.status);
       if (r.status === 429) throw new ErroCloudflare(503, 'A Cloudflare limitou temporariamente os pedidos. Aguarde antes de repetir.', r.status);
-      throw new ErroCloudflare(r.status >= 500 ? 503 : 502, 'A Cloudflare não conseguiu concluir esta operação. Prepare novamente o plano antes de repetir.', r.status);
+      const etapa = caminho.split('?')[0] === '/zones' ? 'listar os domínios' : 'concluir esta operação';
+      throw new ErroCloudflare(r.status >= 500 ? 503 : 502, 'A Cloudflare não conseguiu ' + etapa + ' (HTTP ' + r.status + ').' + (etapa === 'listar os domínios' ? ' Esta consulta não altera a configuração.' : ' Prepare novamente o plano antes de repetir.'), r.status);
     }
     let j;
     try {
@@ -154,12 +155,17 @@ function criarCloudflare({ pastaDados, chaveBackoffice, conector, resolverOrigem
   }
   async function lista(caminho, token, parametros = {}) {
     const itens = [];
+    // A listagem de zonas tem máximo 50; as restantes rotas usadas aceitam 100.
+    const porPagina = caminho === '/zones' ? 50 : 100;
     for (let pagina = 1; pagina <= 20; pagina++) {
-      const q = new URLSearchParams({ ...parametros, per_page: '100', page: String(pagina) });
+      const q = new URLSearchParams({ ...parametros, per_page: String(porPagina), page: String(pagina) });
       const j = await pedir(caminho + '?' + q, token);
       if (!Array.isArray(j.result)) falhar(502, 'A Cloudflare devolveu uma lista inválida.');
       itens.push(...j.result);
-      const total = Number(j.result_info?.total_pages || 1);
+      const info = j.result_info || {};
+      const tamanho = Number(info.per_page ?? porPagina);
+      const total = info.total_pages != null ? Number(info.total_pages) : info.total_count != null ? Math.ceil(Number(info.total_count) / tamanho) : 1;
+      if (!Number.isInteger(tamanho) || tamanho < 1 || !Number.isInteger(total) || total < 0) falhar(502, 'A Cloudflare devolveu uma paginação inválida.');
       if (pagina >= total) return itens;
     }
     falhar(502, 'A lista Cloudflare é demasiado extensa para esta configuração local. Restrinja o token à conta e zona pretendidas.');
