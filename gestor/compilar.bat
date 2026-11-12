@@ -11,12 +11,14 @@ if not exist "%CSC%" (
   exit /b 1
 )
 cd /d "%~dp0"
-"%CSC%" /nologo /target:winexe /optimize+ /codepage:65001 /win32icon:bxb.ico /out:"..\BXB Gestor.exe" /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll BXBGestor.cs
+set "DESTINO=..\BXB Gestor.exe"
+if /i "%~1"=="--teste" set "DESTINO=BXB Gestor.exe"
+"%CSC%" /nologo /target:winexe /optimize+ /codepage:65001 /win32icon:bxb.ico /out:"%DESTINO%" /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll BXBGestor.cs ServicosBackoffice.cs
 if errorlevel 1 (
   echo.
   echo A compilacao falhou. Se o dinmeta Gestor estiver aberto, feche-o ^(Sair, na bandeja^) e tente de novo.
   if "%~1"=="" pause
   exit /b 1
 )
-echo dinmeta Gestor compilado: BXB Gestor.exe criado na pasta do repositorio.
+echo dinmeta Gestor compilado: "%DESTINO%".
 if "%~1"=="" pause

@@ -25,6 +25,6 @@ Os emails usam dinmeta para a antiga marca padrão BXB sem reescrever configura�
 
 A alteração foi verificada numa instância isolada em `TESTES-CODEX`, com dados fictícios e portas 8891/8892/8898/8897. Foram revistos a página pública, o acesso, a área do cliente e o comportamento em ecrã pequeno; o Gestor compila em C# 5/.NET Framework 4.
 
-O trabalho anterior do novo back-office continua incompleto e separado desta entrega. Não se deve apresentar esse painel como pronto nem substituir a consola antiga por ele nesta alteração de marca. Os pedidos em `backoffice/PEDIDOS-API.md` continuam os mesmos; não foram acrescentadas rotas.
+O painel independente está agora funcional, com autenticação própria, perfis e o separador Cloudflare. O Gestor liga os dois processos e usa a API de consulta; a consola antiga continua preservada para retirada pela parte do cliente. A configuração gratuita do domínio e do subdomínio de gestão com Access está documentada em `backoffice/README.md`. A ativação na conta Cloudflare é revista no painel pelo utilizador, sem credenciais no código.
 
 Para instalar a versão no sistema em utilização: fechar o Gestor, atualizar o código com `git pull --ff-only`, executar `gestor\compilar.bat` e voltar a abrir. Os testes nunca usam os dados reais.

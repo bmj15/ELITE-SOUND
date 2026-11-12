@@ -29,9 +29,25 @@ namespace BXB
     {
         [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
 
+        public static bool EmTeste { get { return Environment.GetEnvironmentVariable("BXB_MODO_TESTE") == "1" || Environment.GetEnvironmentVariable("PORT_CONSULTA") == "8897" || Environment.GetEnvironmentVariable("PORT_BACKOFFICE") == "8890"; } }
+        public static string NomeInstancia { get { return "Local\\BXBGestor" + (EmTeste ? "-teste-8890" : ""); } }
+        static bool AmbienteTesteValido()
+        {
+            if (!EmTeste) return true;
+            foreach (string nome in new[] { "BXB_DADOS", "BXB_DADOS_BACKOFFICE" })
+            {
+                string valor = Environment.GetEnvironmentVariable(nome);
+                if (string.IsNullOrEmpty(valor) || Path.GetFullPath(valor).IndexOf("\\TESTES-CODEX\\", StringComparison.OrdinalIgnoreCase) < 0) return false;
+            }
+            return Environment.GetEnvironmentVariable("PORT") == "8891" && Environment.GetEnvironmentVariable("PORT_REDE") == "8892" &&
+                Environment.GetEnvironmentVariable("PORT_GESTAO") == "8898" && Environment.GetEnvironmentVariable("PORT_CONSULTA") == "8897" &&
+                Environment.GetEnvironmentVariable("PORT_BACKOFFICE") == "8890";
+        }
+
         [STAThread]
         static void Main(string[] args)
         {
+            if (!AmbienteTesteValido()) { Environment.ExitCode = 2; return; }
             try { SetProcessDPIAware(); } catch { }
             string captura = null; bool bandeja = false;
             for (int i = 0; i < args.Length; i++)
@@ -41,8 +57,8 @@ namespace BXB
             }
             // só um Gestor aberto: se já houver, mostra-o
             bool novo = true;
-            Mutex unico = captura == null ? new Mutex(true, "Local\\BXBGestor", out novo) : null;
-            if (!novo) { try { EventWaitHandle.OpenExisting("Local\\BXBGestor-mostrar").Set(); } catch { } return; }
+            Mutex unico = captura == null ? new Mutex(true, NomeInstancia, out novo) : null;
+            if (!novo) { try { EventWaitHandle.OpenExisting(NomeInstancia + "-mostrar").Set(); } catch { } return; }
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Janela(bandeja, captura));
@@ -194,7 +210,7 @@ namespace BXB
 
     enum Estado { Desligado, AArrancar, Ligado, LigadoFora, SemResposta, ADesligar }
 
-    class Janela : Form
+    partial class Janela : Form
     {
         [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
         [DllImport("user32.dll")] static extern bool DestroyIcon(IntPtr h);
@@ -202,8 +218,9 @@ namespace BXB
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int valor, int tamanho);
 
         const string ASSINATURA = "grupo-bxb-servidor";
-        readonly string raiz, dados, ficheiroIni, captura;
-        readonly int portaGestao;
+        readonly string raiz, dados, dadosSite, ficheiroIni, captura;
+        readonly int portaConsulta, portaBackoffice;
+        readonly bool modoTeste;
         readonly float escala;
         readonly JavaScriptSerializer json = new JavaScriptSerializer();
         readonly Dictionary<string, string> ini = new Dictionary<string, string>();
@@ -230,9 +247,17 @@ namespace BXB
             // a pasta do repositório é a do .exe (ou a de cima, se o .exe estiver em gestor\)
             raiz = Path.GetDirectoryName(Application.ExecutablePath);
             if (!File.Exists(Path.Combine(raiz, "servidor.js")) && File.Exists(Path.Combine(raiz, "..", "servidor.js"))) raiz = Path.GetFullPath(Path.Combine(raiz, ".."));
+            modoTeste = Programa.EmTeste;
             string envDados = Environment.GetEnvironmentVariable("BXB_DADOS");
-            dados = Path.GetFullPath(!string.IsNullOrEmpty(envDados) ? envDados : Path.Combine(raiz, "..", "..", "DADOS-SERVIDOR"));
-            int p; portaGestao = int.TryParse(Environment.GetEnvironmentVariable("PORT_GESTAO"), out p) ? p : 8099;
+            string envBackoffice = Environment.GetEnvironmentVariable("BXB_DADOS_BACKOFFICE");
+            dadosSite = NormalizarPasta(!string.IsNullOrEmpty(envDados) ? envDados : Path.Combine(raiz, "..", "..", "DADOS-SERVIDOR"));
+            dados = NormalizarPasta(!string.IsNullOrEmpty(envBackoffice) ? envBackoffice : Path.Combine(raiz, "..", "..", "DADOS-BACKOFFICE"));
+            if (PastaContem(dadosSite, dados) || PastaContem(dados, dadosSite) || PastaContem(raiz, dados))
+                throw new InvalidOperationException("Os dados do Gestor têm de ficar separados dos dados do site.");
+            portaConsulta = PortaAmbiente("PORT_CONSULTA", 8097);
+            portaBackoffice = PortaAmbiente("PORT_BACKOFFICE", 8100);
+            if (portaConsulta == portaBackoffice || portaConsulta == 8099 || portaBackoffice == 8099)
+                throw new InvalidOperationException("Use portas próprias para a consulta e o back-office.");
             ficheiroIni = Path.Combine(dados, "gestor.ini");
             LerIni();
             try { iconeBase = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { iconeBase = SystemIcons.Application; }
@@ -242,16 +267,17 @@ namespace BXB
                 Escrever("dinmeta Gestor aberto. Repositório: " + raiz, 2);
                 Escrever("Dados: " + dados, 2);
                 if (!File.Exists(Path.Combine(raiz, "servidor.js"))) Escrever("Não encontrei servidor.js. O dinmeta Gestor (ficheiro BXB Gestor.exe) tem de estar na pasta do repositório.", 1);
-                sinalMostrar = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\BXBGestor-mostrar");
+                sinalMostrar = new EventWaitHandle(false, EventResetMode.AutoReset, Programa.NomeInstancia + "-mostrar");
                 var t = new Thread(() => { while (true) { sinalMostrar.WaitOne(); try { BeginInvoke(new Action(Mostrar)); } catch { return; } } });
                 t.IsBackground = true; t.Start();
+                IniciarAcompanhamento();
             }
         }
 
         /* ---------------- interface ---------------- */
         void Montar()
         {
-            Text = "dinmeta Gestor"; Icon = iconeBase; BackColor = Cor.Fundo2; ForeColor = Cor.Texto;
+            Text = modoTeste ? "dinmeta Gestor - TESTE" : "dinmeta Gestor"; Icon = iconeBase; BackColor = Cor.Fundo2; ForeColor = Cor.Texto;
             Font = new Font(MarcaDinmeta.Fonte, 9.5f); Size = new Size(S(1000), S(660)); MinimumSize = new Size(S(780), S(480));
             StartPosition = FormStartPosition.CenterScreen;
 
@@ -260,7 +286,7 @@ namespace BXB
 
             var barra = new FlowLayoutPanel { Dock = DockStyle.Top, Height = S(58), BackColor = Cor.Fundo, Padding = new Padding(S(20), S(10), S(20), S(10)), WrapContents = false, AutoScroll = false };
             bLigar = new Botao("Ligar", true); bDesligar = new Botao("Desligar", false); bReiniciar = new Botao("Reiniciar", false);
-            bSite = new Botao("Abrir o site", false); bConsola = new Botao("Consola de gestão", true);
+            bSite = new Botao("Abrir o site", false); bConsola = new Botao("Painel de gestão", true);
             bAtualizar = new Botao("Atualizar código", false); bPasta = new Botao("Pasta dos dados", false);
             bLigar.Click += (s, e) => Ligar(); bDesligar.Click += (s, e) => Desligar(null); bReiniciar.Click += (s, e) => Reiniciar();
             bSite.Click += (s, e) => AbrirSite(); bConsola.Click += (s, e) => AbrirConsola(); bAtualizar.Click += (s, e) => AtualizarCodigo();
@@ -285,7 +311,8 @@ namespace BXB
             var opcoes = new FlowLayoutPanel { Dock = DockStyle.Left, AutoSize = true, WrapContents = false, BackColor = Cor.Fundo, Padding = new Padding(0, S(11), 0, 0) };
             cLigar = Opcao("Ligar o servidor ao abrir", Ini("ligarAoAbrir", "1") == "1");
             cBandeja = Opcao("Fechar para a bandeja", Ini("bandeja", "1") == "1");
-            cWindows = Opcao("Abrir com o Windows", ArrancaComWindows());
+            cWindows = Opcao("Abrir com o Windows", !modoTeste && ArrancaComWindows());
+            cWindows.Enabled = !modoTeste;
             cLigar.CheckedChanged += (s, e) => GravarIni("ligarAoAbrir", cLigar.Checked ? "1" : "0");
             cBandeja.CheckedChanged += (s, e) => GravarIni("bandeja", cBandeja.Checked ? "1" : "0");
             cWindows.CheckedChanged += (s, e) => DefinirArranque(cWindows.Checked);
@@ -300,7 +327,7 @@ namespace BXB
             // bandeja (junto ao relógio do Windows)
             menu = new ContextMenuStrip { ShowImageMargin = false };
             menu.Items.Add("Abrir o dinmeta Gestor", null, (s, e) => Mostrar()).Font = new Font(MarcaDinmeta.Fonte, 9.5f, FontStyle.Bold);
-            mConsola = (ToolStripMenuItem)menu.Items.Add("Consola de gestão", null, (s, e) => AbrirConsola());
+            mConsola = (ToolStripMenuItem)menu.Items.Add("Painel de gestão", null, (s, e) => AbrirConsola());
             mSite = (ToolStripMenuItem)menu.Items.Add("Abrir o site", null, (s, e) => AbrirSite());
             menu.Items.Add(new ToolStripSeparator());
             mLigar = (ToolStripMenuItem)menu.Items.Add("Ligar o servidor", null, (s, e) => Ligar());
@@ -308,7 +335,7 @@ namespace BXB
             mReiniciar = (ToolStripMenuItem)menu.Items.Add("Reiniciar o servidor", null, (s, e) => Reiniciar());
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Sair", null, (s, e) => Sair());
-            bandeja = new NotifyIcon { Icon = iconeBase, Text = "dinmeta Gestor", ContextMenuStrip = menu, Visible = captura == null };
+            bandeja = new NotifyIcon { Icon = iconeBase, Text = Text, ContextMenuStrip = menu, Visible = captura == null };
             bandeja.DoubleClick += (s, e) => Mostrar();
             bandeja.BalloonTipClicked += (s, e) => Mostrar();
 
@@ -373,7 +400,7 @@ namespace BXB
             var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.Clear(Cor.Fundo);
             MarcaDinmeta.Desenhar(g, new RectangleF(S(18), S(18), S(58), S(48)), Cor.Texto);
             using (var f = new Font(MarcaDinmeta.FonteDestaque, 14f, MarcaDinmeta.EstiloDestaque)) TextRenderer.DrawText(g, "dinmeta Gestor", f, new Point(S(86), S(12)), Cor.Texto);
-            using (var f = new Font(MarcaDinmeta.Fonte, 9f)) TextRenderer.DrawText(g, "Servidor, registos e consola de gestão", f, new Point(S(88), S(40)), Cor.Suave);
+            using (var f = new Font(MarcaDinmeta.Fonte, 9f)) TextRenderer.DrawText(g, "Servidor, registos e painel de gestão", f, new Point(S(88), S(40)), Cor.Suave);
             using (var f = new Font(MarcaDinmeta.Fonte, 8f)) TextRenderer.DrawText(g, "Desenvolvido pela BXB", f, new Point(S(88), S(61)), Cor.Suave);
             // estado à direita
             string t = TextoEstado(); Color c = CorEstado();
@@ -394,14 +421,14 @@ namespace BXB
             bLigar.Enabled = mLigar.Enabled = estado == Estado.Desligado;
             bDesligar.Enabled = mDesligar.Enabled = estado != Estado.Desligado && estado != Estado.ADesligar;
             bReiniciar.Enabled = mReiniciar.Enabled = lig || estado == Estado.SemResposta;
-            bSite.Enabled = mSite.Enabled = lig; bConsola.Enabled = mConsola.Enabled = lig;
+            bSite.Enabled = mSite.Enabled = lig; bConsola.Enabled = mConsola.Enabled = !abrindoGestao && !aSair;
             bAtualizar.Enabled = !ocupado;
             if (lig && saude != null)
                 info.Text = "Processo " + saude.Pid + " · ligado às " + DateTimeOffset.FromUnixTimeMilliseconds(saude.Arranque).LocalDateTime.ToString("HH:mm") +
                     (saude.Versao != null ? " · versão " + saude.Versao : "") + (estado == Estado.LigadoFora ? " · aberto fora do Gestor" : "");
             else info.Text = estado == Estado.Desligado ? "Servidor desligado" : TextoEstado();
             topo.Invalidate();
-            if (bandeja != null) { bandeja.Text = "dinmeta Gestor · " + TextoEstado(); IconeBandeja(); }
+            if (bandeja != null) { bandeja.Text = (modoTeste ? "dinmeta Gestor TESTE · " : "dinmeta Gestor · ") + TextoEstado(); IconeBandeja(); }
             if (tEnderecos.Visible) PintarEnderecos();
         }
         // ícone da bandeja com um ponto: verde ligado, amarelo a mudar, vermelho sem resposta, cinzento desligado
@@ -424,12 +451,12 @@ namespace BXB
         }
 
         /* ---------------- registos ---------------- */
-        void Escrever(string texto, int tipo) // 0 servidor, 1 erro, 2 mensagem do Gestor
+        void Escrever(string texto, int tipo, bool persistir = true) // 0 servidor, 1 erro, 2 mensagem do Gestor
         {
             if (IsDisposed) return;
-            if (InvokeRequired) { try { BeginInvoke(new Action<string, int>(Escrever), texto, tipo); } catch { } return; }
+            if (InvokeRequired) { try { BeginInvoke(new Action<string, int, bool>(Escrever), texto, tipo, persistir); } catch { } return; }
             string h = DateTime.Now.ToString("HH:mm:ss");
-            GravarLog(texto, tipo);
+            if (persistir) GravarLog(texto, tipo);
             var t = tServidor;
             if (t.TextLength > 400000) { t.ReadOnly = false; t.Select(0, t.GetFirstCharIndexFromLine(t.Lines.Length / 3)); t.SelectedText = ""; t.ReadOnly = true; }
             bool fundo = !t.Focused || t.SelectionStart >= t.TextLength - 1;
@@ -439,7 +466,7 @@ namespace BXB
             t.AppendText(texto.TrimEnd() + "\n");
             if (fundo) { t.SelectionStart = t.TextLength; t.ScrollToCaret(); }
         }
-        // cópia em DADOS-SERVIDOR\servidor.log (até 5 MB; depois passa a servidor.log.1)
+        // cópia própria em DADOS-BACKOFFICE\servidor.log (até 5 MB; depois passa a servidor.log.1)
         void GravarLog(string texto, int tipo)
         {
             if (captura != null) return;
@@ -451,36 +478,7 @@ namespace BXB
             }
             catch { }
         }
-        void LerRede()
-        {
-            string f = Path.Combine(dados, "rede.log");
-            var linhas = new List<string>();
-            try
-            {
-                using (var fs = new FileStream(f, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-                {
-                    long n = Math.Min(fs.Length, 128 * 1024); fs.Seek(-n, SeekOrigin.End);
-                    var buf = new byte[n]; int lidos = 0; while (lidos < n) { int k = fs.Read(buf, lidos, (int)n - lidos); if (k <= 0) break; lidos += k; }
-                    linhas.AddRange(Encoding.UTF8.GetString(buf, 0, lidos).Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries));
-                }
-            }
-            catch (FileNotFoundException) { }
-            catch (Exception x) { linhas.Add("Não foi possível ler " + f + ": " + x.Message); }
-            if (linhas.Count > 400) linhas.RemoveRange(0, linhas.Count - 400);
-            string novo = string.Join("\n", linhas.ToArray());
-            if (novo == (tRede.Tag as string)) return; tRede.Tag = novo;
-            tRede.Clear();
-            if (linhas.Count == 0) { tRede.SelectionColor = Cor.Suave; tRede.AppendText("Ainda não há ligações de outros aparelhos (rede de casa).\nFicheiro: " + f); return; }
-            foreach (string l0 in linhas)
-            {
-                string l = l0.TrimEnd('\r'); int i = l.IndexOf(' ');
-                DateTime d; string quando = i > 0 && DateTime.TryParse(l.Substring(0, i), null, System.Globalization.DateTimeStyles.RoundtripKind, out d) ? d.ToLocalTime().ToString("dd/MM HH:mm:ss") : "";
-                tRede.SelectionColor = Cor.Fraco; tRede.AppendText(quando.Length > 0 ? quando + "  " : "");
-                string resto = quando.Length > 0 ? l.Substring(i + 1) : l;
-                tRede.SelectionColor = resto.IndexOf("erro", StringComparison.OrdinalIgnoreCase) >= 0 ? Cor.Aviso : Cor.Texto; tRede.AppendText(resto + "\n");
-            }
-            tRede.SelectionStart = tRede.TextLength; tRede.ScrollToCaret();
-        }
+        void LerRede() { AtualizarRedeConsulta(); }
         void PintarEnderecos()
         {
             var t = tEnderecos; t.Clear();
@@ -490,7 +488,7 @@ namespace BXB
                     t.SelectionColor = Cor.Suave; t.AppendText(e.Key + "\n");
                     t.SelectionColor = Cor.AcentoClaro; t.AppendText("  " + e.Value + "\n\n");
                 }
-            t.SelectionColor = Cor.Suave; t.AppendText("Pasta dos dados\n"); t.SelectionColor = Cor.Texto; t.AppendText("  " + dados + "\n\n");
+            t.SelectionColor = Cor.Suave; t.AppendText("Dados do Gestor e do back-office\n"); t.SelectionColor = Cor.Texto; t.AppendText("  " + dados + "\n\n");
             t.SelectionColor = Cor.Suave; t.AppendText("Repositório\n"); t.SelectionColor = Cor.Texto; t.AppendText("  " + raiz + "\n");
         }
 
@@ -499,7 +497,7 @@ namespace BXB
         {
             try
             {
-                var req = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:" + portaGestao + "/api/gestao/saude");
+                var req = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:" + portaConsulta + "/v1/saude");
                 req.Timeout = 1500; req.ReadWriteTimeout = 1500; req.Proxy = null;
                 using (var resp = (HttpWebResponse)req.GetResponse())
                 using (var sr = new StreamReader(resp.GetResponseStream(), Encoding.UTF8))
@@ -508,40 +506,29 @@ namespace BXB
                     object a; if (!d.TryGetValue("servidor", out a) || (a as string) != ASSINATURA) return null;
                     var s = new Saude { Pid = Convert.ToInt32(d["pid"]), Arranque = Convert.ToInt64(d["arranque"]), Versao = d.ContainsKey("versao") ? d["versao"] as string : null };
                     object l; if (d.TryGetValue("enderecos", out l) && l is IEnumerable)
-                        foreach (object o in (IEnumerable)l) { var e = o as Dictionary<string, object>; if (e != null) s.Enderecos.Add(new KeyValuePair<string, string>(e["nome"] as string, e["url"] as string)); }
+                        foreach (object o in (IEnumerable)l) { var e = o as Dictionary<string, object>; if (e != null && Convert.ToString(e["nome"]).IndexOf("Consola", StringComparison.OrdinalIgnoreCase) < 0) s.Enderecos.Add(new KeyValuePair<string, string>(e["nome"] as string, e["url"] as string)); }
                     return s;
                 }
             }
             catch { return null; }
         }
-        string Chave() { try { return File.ReadAllText(Path.Combine(dados, "gestao.chave")).Trim(); } catch { return null; } }
-        // pedido à consola de gestão com a chave deste computador; devolve o JSON ou null
         Dictionary<string, object> Pedir(string metodo, string caminho, out string erro)
         {
-            erro = null; string k = Chave();
-            if (string.IsNullOrEmpty(k)) { erro = "Não encontrei a chave em " + Path.Combine(dados, "gestao.chave") + "."; return null; }
-            try
+            erro = null;
+            for (int tentativa = 0; tentativa < 2; tentativa++)
             {
-                var req = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:" + portaGestao + caminho);
-                req.Method = metodo; req.Timeout = 5000; req.Proxy = null;
-                req.Headers["Authorization"] = "Bearer " + k; req.Headers["X-BXB"] = "1";
-                if (metodo == "POST") { req.ContentType = "application/json"; byte[] b = Encoding.UTF8.GetBytes("{}"); req.ContentLength = b.Length; using (var s = req.GetRequestStream()) s.Write(b, 0, b.Length); }
-                using (var resp = (HttpWebResponse)req.GetResponse()) using (var sr = new StreamReader(resp.GetResponseStream(), Encoding.UTF8))
-                    return json.Deserialize<Dictionary<string, object>>(sr.ReadToEnd());
+                string chave = LerChaveLocal(dadosSite, "consulta.chave");
+                if (chave == null) { erro = "Não encontrei a chave da API de consulta."; return null; }
+                var resposta = PedidoLocal(portaConsulta, metodo, caminho, chave, out erro);
+                if (resposta != null || erro == null || erro.IndexOf("401", StringComparison.Ordinal) < 0) return resposta;
             }
-            catch (WebException x)
-            {
-                var r = x.Response as HttpWebResponse;
-                if (r != null) { try { using (var sr = new StreamReader(r.GetResponseStream(), Encoding.UTF8)) { var d = json.Deserialize<Dictionary<string, object>>(sr.ReadToEnd()); erro = d.ContainsKey("erro") ? d["erro"] as string : x.Message; } } catch { erro = x.Message; } }
-                else erro = "O servidor não responde.";
-                return null;
-            }
-            catch (Exception x) { erro = x.Message; return null; }
+            return null;
         }
 
         void Verificar()
         {
             if (verificando || captura != null) return; verificando = true;
+            VigiarBackoffice();
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 var s = LerSaude();
@@ -574,11 +561,12 @@ namespace BXB
                 RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8
             };
             psi.EnvironmentVariables["NO_BROWSER"] = "1"; psi.EnvironmentVariables["BXB_GESTOR"] = "1";
+            psi.EnvironmentVariables["BXB_DADOS"] = dadosSite;
             try
             {
                 var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
-                p.OutputDataReceived += (s, e) => { if (e.Data != null && e.Data.Trim().Length > 0) Escrever(e.Data, 0); };
-                p.ErrorDataReceived += (s, e) => { if (e.Data != null && e.Data.Trim().Length > 0) Escrever(e.Data, 1); };
+                p.OutputDataReceived += (s, e) => { if (e.Data != null && e.Data.Trim().Length > 0) Escrever(e.Data, 0, false); };
+                p.ErrorDataReceived += (s, e) => { if (e.Data != null && e.Data.Trim().Length > 0) Escrever(e.Data, 1, false); };
                 p.Exited += (s, e) => { try { BeginInvoke(new Action(() => Parou(p))); } catch { } };
                 p.Start(); p.BeginOutputReadLine(); p.BeginErrorReadLine();
                 proc = p; inicioProc = DateTime.Now; aParar = false; estado = Estado.AArrancar;
@@ -613,17 +601,25 @@ namespace BXB
             var p = proc;
             ThreadPool.QueueUserWorkItem(_ =>
             {
-                string erro; Pedir("POST", "/api/gestao/desligar", out erro);
+                string erro; Pedir("POST", "/v1/desligar", out erro);
                 for (int i = 0; i < 30; i++)
                 {
                     bool vivo = p != null ? !p.HasExited : LerSaude() != null;
                     if (!vivo) break; Thread.Sleep(200);
                 }
                 if (p != null && !p.HasExited) { try { p.Kill(); p.WaitForExit(3000); } catch { } }
+                var aindaLigado = LerSaude();
+                bool falhou = (p != null && !p.HasExited) || aindaLigado != null;
                 try
                 {
                     BeginInvoke(new Action(() =>
                     {
+                        if (falhou)
+                        {
+                            aParar = false;
+                            Escrever("O servidor continua ligado. A operação foi cancelada; não será iniciada outra instância.", 1);
+                            Aplicar(aindaLigado); return;
+                        }
                         if (p == null) Escrever("Servidor desligado.", 2);
                         if (proc == p) proc = null;
                         estado = Estado.Desligado; saude = null; AtualizarEstado(); Verificar();
@@ -633,40 +629,53 @@ namespace BXB
                 catch { }
             });
         }
-        void Reiniciar() { Escrever("A reiniciar o servidor…", 2); Desligar(() => { var t = new System.Windows.Forms.Timer { Interval = 600 }; t.Tick += (s, e) => { t.Dispose(); Ligar(); }; t.Start(); }); }
+        void Reiniciar(bool ligarSite = true)
+        {
+            Escrever("A reiniciar o site e o painel de gestão…", 2);
+            Desligar(() => ThreadPool.QueueUserWorkItem(_ =>
+            {
+                bool parou = PararBackoffice(true);
+                aFecharBackoffice = false;
+                try { BeginInvoke(new Action(() =>
+                {
+                    proximaTentativaBackoffice = DateTime.MinValue;
+                    if (!parou) Escrever("Não foi possível reiniciar o painel de gestão. O processo existente foi preservado.", 1);
+                    VigiarBackoffice();
+                    if (ligarSite) Ligar();
+                })); } catch { }
+            }));
+        }
 
         void AbrirSite()
         {
             string url = saude != null && saude.Enderecos.Count > 0 ? saude.Enderecos[0].Value : "http://localhost/";
             try { Process.Start(url); } catch (Exception x) { Escrever(x.Message, 1); }
         }
-        // a consola abre numa janela própria do Edge (ou do Chrome) com um bilhete de uso único
+        // O bilhete é emitido pelo back-office e consumido uma única vez, sem aparecer nos registos.
         void AbrirConsola()
         {
-            if (!Ligado) { MessageBox.Show(this, "Ligue o servidor primeiro.", "dinmeta Gestor", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
-            bConsola.Enabled = false;
+            if (abrindoGestao) return;
+            abrindoGestao = true; AtualizarEstado();
             ThreadPool.QueueUserWorkItem(_ =>
             {
-                string erro; var r = Pedir("POST", "/api/gestao/bilhete", out erro);
-                try
+                string erro; Dictionary<string, object> resposta = null;
+                if (GarantirBackoffice(out erro)) resposta = PedirBackoffice("POST", "/api/bilhete", out erro);
+                string mensagem = erro;
+                try { BeginInvoke(new Action(() =>
                 {
-                    BeginInvoke(new Action(() =>
-                    {
-                        bConsola.Enabled = Ligado;
-                        object b; if (r == null || !r.TryGetValue("bilhete", out b)) { Escrever("Não foi possível abrir a consola: " + (erro ?? "resposta inesperada"), 1); return; }
-                        string url = "http://127.0.0.1:" + portaGestao + "/#b=" + b;
-                        string[] browsers = {
-                            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft\Edge\Application\msedge.exe"),
-                            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Microsoft\Edge\Application\msedge.exe"),
-                            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Google\Chrome\Application\chrome.exe"),
-                            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Google\Chrome\Application\chrome.exe"),
-                            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Google\Chrome\Application\chrome.exe") };
-                        foreach (string exe in browsers)
-                            if (File.Exists(exe)) { try { Process.Start(exe, "--app=\"" + url + "\" --window-size=1360,880"); return; } catch { } }
-                        try { Process.Start(url); } catch (Exception x) { Escrever(x.Message, 1); }
-                    }));
-                }
-                catch { }
+                    abrindoGestao = false; AtualizarEstado();
+                    object bilhete;
+                    if (resposta == null || !resposta.TryGetValue("bilhete", out bilhete)) { Escrever("Não foi possível abrir a gestão: " + (mensagem ?? "resposta inesperada"), 1); return; }
+                    string url = "http://127.0.0.1:" + portaBackoffice + "/#bilhete=" + Uri.EscapeDataString(Convert.ToString(bilhete));
+                    string[] browsers = {
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft\Edge\Application\msedge.exe"),
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Microsoft\Edge\Application\msedge.exe"),
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Google\Chrome\Application\chrome.exe"),
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Google\Chrome\Application\chrome.exe") };
+                    foreach (string exe in browsers)
+                        if (File.Exists(exe)) { try { Process.Start(exe, "--app=\"" + url + "\" --window-size=1360,880"); return; } catch { } }
+                    try { Process.Start(url); } catch { Escrever("Não foi possível abrir o browser do painel de gestão.", 1); }
+                })); } catch { }
             });
         }
 
@@ -689,8 +698,8 @@ namespace BXB
                         string fonte = Path.Combine(raiz, "gestor", "BXBGestor.cs");
                         if (File.Exists(fonte) && File.GetLastWriteTimeUtc(fonte) > File.GetLastWriteTimeUtc(Application.ExecutablePath))
                             Escrever("Há uma versão nova do próprio Gestor: feche-o (Sair) e corra gestor\\compilar.bat.", 2);
-                        if (Ligado && MessageBox.Show(this, "Há uma versão nova do código.\n\nReiniciar o servidor para a usar?", "dinmeta Gestor", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-                            Reiniciar();
+                        if (MessageBox.Show(this, "Há uma versão nova do código.\n\nReiniciar os serviços para a usar?", "dinmeta Gestor", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                            Reiniciar(Ligado || Nosso);
                     }));
                 }
                 catch { }
@@ -726,11 +735,12 @@ namespace BXB
         const string CHAVE_RUN = @"Software\Microsoft\Windows\CurrentVersion\Run";
         bool ArrancaComWindows()
         {
+            if (modoTeste) return false;
             try { using (var k = Registry.CurrentUser.OpenSubKey(CHAVE_RUN)) return k != null && k.GetValue("BXB Gestor") != null; } catch { return false; }
         }
         void DefinirArranque(bool sim)
         {
-            if (captura != null) return;
+            if (captura != null || modoTeste) return;
             try
             {
                 using (var k = Registry.CurrentUser.OpenSubKey(CHAVE_RUN, true))
@@ -753,9 +763,16 @@ namespace BXB
         {
             base.OnHandleCreated(e);
             try { int sim = 1; if (DwmSetWindowAttribute(Handle, 20, ref sim, 4) != 0) DwmSetWindowAttribute(Handle, 19, ref sim, 4); } catch { }
-            if (captura != null) return;
+            // CreateGraphics pode criar o handle antes de a janela acabar de ser construída.
+        }
+        bool acompanhamentoIniciado;
+        void IniciarAcompanhamento()
+        {
+            if (captura != null || acompanhamentoIniciado) return;
+            acompanhamentoIniciado = true;
             relogio = new System.Windows.Forms.Timer { Interval = 2000 }; relogio.Tick += (s, a) => Verificar(); relogio.Start();
             relogioRede = new System.Windows.Forms.Timer { Interval = 3000 }; relogioRede.Tick += (s, a) => { if (Visible && tRede.Visible) LerRede(); }; relogioRede.Start();
+            VigiarBackoffice();
             // ao abrir: vê se já está ligado; se não estiver e a opção estiver marcada, liga
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -771,11 +788,11 @@ namespace BXB
             estado = Estado.Ligado;
             saude = new Saude { Pid = 16516, Arranque = DateTimeOffset.Now.AddMinutes(-73).ToUnixTimeMilliseconds(), Versao = "168173c" };
             saude.Enderecos.Add(new KeyValuePair<string, string>("Site neste computador", "http://localhost/"));
-            saude.Enderecos.Add(new KeyValuePair<string, string>("Consola de gestão", "http://127.0.0.1:8099/"));
+            saude.Enderecos.Add(new KeyValuePair<string, string>("Painel de gestão", "http://127.0.0.1:8100/"));
             AtualizarEstado();
             Escrever("A ligar o servidor (node servidor.js)…", 2); Escrever("", 0); Escrever("  dinmeta - site a correr", 0); Escrever("  Abra: http://localhost/", 0);
             Escrever("  Dados guardados em: C:\\...\\DADOS-SERVIDOR", 0); Escrever("  Rede de casa (telemovel, outros computadores):", 0); Escrever("    https://192.168.1.64:8443/SISTEMAS/index.html", 0);
-            Escrever("  Consola de gestao: http://127.0.0.1:8099/ (so neste computador)", 0); Escrever("Servidor ligado.", 2); Escrever("  [email] boas-vindas para x@exemplo.pt: O servidor recusou o utilizador ou a palavra-passe", 1);
+            Escrever("  Painel de gestao: http://127.0.0.1:8100/ (so neste computador)", 0); Escrever("Servidor ligado.", 2); Escrever("  [email] boas-vindas para x@exemplo.pt: O servidor recusou o utilizador ou a palavra-passe", 1);
             var t = new System.Windows.Forms.Timer { Interval = 900 };
             t.Tick += (s, a) =>
             {
@@ -804,7 +821,8 @@ namespace BXB
                 e.Cancel = true; Desligar(() => { aSair = true; Close(); }); return;
             }
             // fecho do Windows: desliga depressa
-            if (Nosso) { string erro; Pedir("POST", "/api/gestao/desligar", out erro); try { if (!proc.WaitForExit(3000)) proc.Kill(); } catch { } }
+            if (Nosso) { string erro; Pedir("POST", "/v1/desligar", out erro); try { if (!proc.WaitForExit(3000)) proc.Kill(); } catch { } }
+            if (captura == null) PararBackoffice();
             base.OnFormClosing(e);
         }
         void Sair()
@@ -819,6 +837,8 @@ namespace BXB
         }
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            if (relogio != null) relogio.Dispose();
+            if (relogioRede != null) relogioRede.Dispose();
             if (bandeja != null) { bandeja.Visible = false; bandeja.Dispose(); }
             if (iconeAtual != IntPtr.Zero) DestroyIcon(iconeAtual);
             base.OnFormClosed(e);
